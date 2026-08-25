@@ -66,7 +66,7 @@ function PlanningAnimation({ isActive }: { isActive: boolean }) {
     <div className="flex h-full flex-col justify-center gap-2.5 px-4">
       {bars.map((bar, i) => (
         <div key={i} className="flex items-center gap-2">
-          <div className="w-12 text-right text-[10px] text-[#71717A]">T{i + 1}</div>
+          <div className="w-12 text-right text-[10px] text-[#A1A1AA]">T{i + 1}</div>
           <div className="flex-1">
             <motion.div
               className="h-4 rounded"

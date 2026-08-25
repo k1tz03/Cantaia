@@ -48,7 +48,7 @@ export async function GET(
     .maybeSingle();
 
   if (!userOrg?.organization_id) {
-    return NextResponse.json({ error: "No organization" }, { status: 400 });
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   try {

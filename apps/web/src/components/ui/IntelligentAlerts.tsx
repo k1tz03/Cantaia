@@ -120,7 +120,7 @@ export function IntelligentAlerts({
       <div className="flex flex-col items-center gap-3 py-6">
         <button
           onClick={handleGenerate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#F97316] text-white text-sm font-medium rounded-lg hover:bg-[#F97316]/90 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#F97316] text-[#0F0F11] text-sm font-medium rounded-lg hover:bg-[#F97316]/90 transition-colors"
         >
           <Sparkles className="w-4 h-4" />
           Generer des alertes IA
@@ -150,7 +150,7 @@ export function IntelligentAlerts({
             </div>
           </div>
         ))}
-        <p className="text-center text-xs text-[#71717A] flex items-center justify-center gap-1.5">
+        <p className="text-center text-xs text-[#A1A1AA] flex items-center justify-center gap-1.5">
           <Loader2 className="w-3 h-3 animate-spin" />
           Analyse en cours...
         </p>
@@ -167,7 +167,7 @@ export function IntelligentAlerts({
       )}
 
       {alerts.length === 0 && !error && (
-        <div className="text-center py-6 text-sm text-[#71717A]">
+        <div className="text-center py-6 text-sm text-[#A1A1AA]">
           Aucune alerte generee pour ce projet.
         </div>
       )}
@@ -191,12 +191,12 @@ export function IntelligentAlerts({
                     {alert.title}
                   </span>
                   <span
-                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_COLORS[alert.category] || "bg-[#27272A] text-[#71717A]"}`}
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_COLORS[alert.category] || "bg-[#27272A] text-[#A1A1AA]"}`}
                   >
                     {CATEGORY_LABELS[alert.category] || alert.category}
                   </span>
                 </div>
-                <p className="text-sm text-[#71717A] mt-1">
+                <p className="text-sm text-[#A1A1AA] mt-1">
                   {alert.description}
                 </p>
                 {alert.action && (
@@ -215,7 +215,7 @@ export function IntelligentAlerts({
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className="text-xs text-[#71717A] hover:text-[#FAFAFA] transition-colors inline-flex items-center gap-1"
+            className="text-xs text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors inline-flex items-center gap-1"
           >
             <Sparkles className="w-3 h-3" />
             Rafraichir

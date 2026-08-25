@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { classifyAIError } from "@cantaia/core/ai";
+import { classifyAIError, MODEL_FOR_TASK, parseAIJson } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { isTaskOverdue } from "@cantaia/core/projects/counters";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 import { insufficientCreditsResponse } from "@/lib/credits";
@@ -33,7 +34,7 @@ Le resume doit contenir:
 
 5. "executive_text" — Resume narratif en francais (3-5 phrases) pour presentation en comite de direction. Concis, factuel, avec les chiffres cles.
 
-Reponds UNIQUEMENT en JSON.`;
+Reponds UNIQUEMENT avec l'objet JSON, sans texte autour, avec les cles budget, risks, opportunities, intelligence_score et executive_text au premier niveau.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -207,13 +208,9 @@ export async function POST(request: NextRequest) {
         .eq("project_id", body.project_id);
 
       if (tasks?.length) {
-        const now = new Date();
-        const overdue = tasks.filter(
-          (t: any) =>
-            t.due_date &&
-            new Date(t.due_date) < now &&
-            !["done", "cancelled"].includes(t.status)
-        );
+        // Shared definition (@cantaia/core/projects/counters) — the executive
+        // summary and the alerts route used to disagree on what "late" means.
+        const overdue = tasks.filter((t: any) => isTaskOverdue(t));
         const urgent = tasks.filter((t: any) => t.priority === "urgent");
         const done = tasks.filter((t: any) => t.status === "done");
         const todo = tasks.filter((t: any) => t.status === "todo");
@@ -262,7 +259,7 @@ export async function POST(request: NextRequest) {
     const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 110000 });
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: MODEL_FOR_TASK.executive_summary,
       max_tokens: 4096,
       system: [
         {
@@ -271,13 +268,7 @@ export async function POST(request: NextRequest) {
           cache_control: { type: "ephemeral" },
         },
       ],
-      messages: [
-        { role: "user", content: userMessage },
-        {
-          role: "assistant",
-          content: '{"budget": {',
-        },
-      ],
+      messages: [{ role: "user", content: userMessage }],
     });
 
     // Track usage
@@ -285,9 +276,11 @@ export async function POST(request: NextRequest) {
       supabase: admin,
       userId: user.id,
       organizationId: userProfile.organization_id,
-      actionType: "other" as any,
+      // Canonical key (was "other" — invisible in the cost breakdown).
+      // Must match CREDIT_COSTS.executive_summary, which is what this route debits.
+      actionType: "executive_summary" as any,
       apiProvider: "anthropic",
-      model: "claude-sonnet-4-5-20250929",
+      model: MODEL_FOR_TASK.executive_summary,
       inputTokens: response.usage?.input_tokens || 0,
       outputTokens: response.usage?.output_tokens || 0,
       metadata: {
@@ -299,38 +292,16 @@ export async function POST(request: NextRequest) {
     // Parse response
     const rawText =
       response.content[0]?.type === "text" ? response.content[0].text : "";
-    const fullJson = '{"budget": {' + rawText;
-
-    let summary: any;
-    try {
-      summary = JSON.parse(fullJson);
-    } catch {
-      // Try to fix truncated JSON
-      try {
-        let fixed = fullJson;
-        // Remove trailing comma
-        fixed = fixed.replace(/,\s*$/, "");
-        // Count open braces/brackets
-        const openBraces =
-          (fixed.match(/{/g) || []).length -
-          (fixed.match(/}/g) || []).length;
-        const openBrackets =
-          (fixed.match(/\[/g) || []).length -
-          (fixed.match(/]/g) || []).length;
-        // Close them
-        for (let i = 0; i < openBrackets; i++) fixed += "]";
-        for (let i = 0; i < openBraces; i++) fixed += "}";
-        summary = JSON.parse(fixed);
-      } catch {
-        console.error(
-          "[executive-summary] Failed to parse AI response:",
-          fullJson.substring(0, 500)
-        );
-        return NextResponse.json(
-          { error: "Failed to parse AI response" },
-          { status: 500 }
-        );
-      }
+    const summary = parseAIJson<any>(rawText);
+    if (!summary) {
+      console.error(
+        "[executive-summary] Failed to parse AI response:",
+        rawText.substring(0, 500)
+      );
+      return NextResponse.json(
+        { error: "Failed to parse AI response" },
+        { status: 500 }
+      );
     }
 
     // Validate and normalize the summary structure

@@ -831,10 +831,22 @@ FORMAT JSON OBLIGATOIRE pour le champ result de save_estimation :
   "grand_total": 1250000,
   "confidence": {"score_global": 0.72, "recommandation_globale": "Estimation préliminaire"},
   "passe1": {
-    "title_block": {"titre": "...", "numero": "...", "date": "...", "scale": "1:100", "author": "...", "company": "..."},
-    "discipline": "architecture",
-    "plan_type": "plan d'étage",
-    "image_quality": "bonne"
+    "cartouche": {"numero_plan": "...", "indice_revision": "...", "date": "...", "auteur_bureau": "...", "projet": "...", "echelle": "1:100"},
+    "classification": {
+      "discipline": "architecture|structure|cvcs|electricite|sanitaire|facades|amenagement_exterieur|demolition",
+      "type_plan": "plan_etage|coupe|facade|detail|situation|schema_principe|plan_toiture|plan_fondation",
+      "phase_sia": "esquisse|avant-projet|projet|execution|mise_a_jour",
+      "vues_presentes": ["plan", "coupe"]
+    },
+    "contexte_metrage": {
+      "echelle_detectee": "1:100",
+      "echelle_fiable": true,
+      "cotations_presentes": true,
+      "legende_presente": false,
+      "qualite_image": "haute|moyenne|basse",
+      "zones_illisibles": []
+    },
+    "avertissements": []
   },
   "consensus_metrage": {
     "postes": [
@@ -903,6 +915,8 @@ FORMAT JSON OBLIGATOIRE pour le champ result de save_estimation :
 }
 
 RÈGLES CRITIQUES :
+- STRUCTURE : passe1 DOIT contenir "cartouche", "classification" et "contexte_metrage" (pas "title_block"/"discipline" à plat). Les consommateurs lisent passe1.classification.discipline et passe1.classification.type_plan avec les valeurs exactes de l'énumération ci-dessus.
+- consensus_metrage.postes suffit : le champ metrage_fusionne (métré par zone + totaux par CFC) est reconstruit côté serveur à partir de tes postes — ne le génère pas.
 - grand_total = recapitulatif.total_estimation.median (nombre à la racine, pour stockage DB)
 - confidence = analyse_fiabilite (objet à la racine, pour stockage DB)
 - source de prix : utilise le champ "source" retourné par query_reference_prices. Valeurs : "historique_interne", "benchmark_cantaia", "referentiel_crb", "estimation_ia", "prix_non_disponible"

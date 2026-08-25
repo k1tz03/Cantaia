@@ -55,6 +55,17 @@ interface FileEntry {
   planId?: string;
 }
 
+// Allow-list appliquée AUX DEUX chemins d'ajout (file picker ET drag&drop —
+// l'attribut `accept` ne filtre QUE le picker). On refuse explicitement les
+// SVG (vecteur XSS servi depuis le domaine Supabase) et tout exécutable.
+const ALLOWED_EXTENSIONS = [".pdf", ".dwg", ".dxf", ".png", ".jpg", ".jpeg"];
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB (aligné sur le bucket)
+
+function fileExtension(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot).toLowerCase() : "";
+}
+
 function extractPlanInfo(fileName: string): { number: string; title: string } {
   const name = fileName.replace(/\.[^.]+$/, ""); // remove extension
   const numMatch = name.match(/(\d{3,4}[-_][A-Z0-9]+[-_]\d{2,6})/i) || name.match(/([A-Z]{2,4}[-_]\d{2,4})/i);
@@ -106,19 +117,38 @@ export default function UploadPlanPage() {
   }, []);
 
   const addFiles = (newFiles: FileList | File[]) => {
-    const entries: FileEntry[] = Array.from(newFiles)
-      .filter((f) => !files.some((e) => e.file.name === f.name && e.file.size === f.size))
-      .map((f) => {
-        const info = extractPlanInfo(f.name);
-        return {
-          id: crypto.randomUUID(),
-          file: f,
-          planNumber: info.number,
-          planTitle: info.title,
-          status: "pending" as const,
-        };
-      });
-    setFiles((prev) => [...prev, ...entries]);
+    const rejected: string[] = [];
+    const accepted = Array.from(newFiles).filter((f) => {
+      if (files.some((e) => e.file.name === f.name && e.file.size === f.size)) return false;
+      const ext = fileExtension(f.name);
+      if (!ALLOWED_EXTENSIONS.includes(ext) || f.type === "image/svg+xml") {
+        rejected.push(`${f.name} — ${t("uploadRejectedType")}`);
+        return false;
+      }
+      if (f.size > MAX_FILE_SIZE_BYTES) {
+        rejected.push(`${f.name} — ${t("uploadRejectedSize")}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (rejected.length > 0) {
+      setGlobalError(rejected.join(" · "));
+    } else {
+      setGlobalError("");
+    }
+
+    const entries: FileEntry[] = accepted.map((f) => {
+      const info = extractPlanInfo(f.name);
+      return {
+        id: crypto.randomUUID(),
+        file: f,
+        planNumber: info.number,
+        planTitle: info.title,
+        status: "pending" as const,
+      };
+    });
+    if (entries.length > 0) setFiles((prev) => [...prev, ...entries]);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -161,19 +191,25 @@ export default function UploadPlanPage() {
         const supabase2 = createClient();
         const { data: { user: authUser } } = await supabase2.auth.getUser();
         if (!authUser) {
-          setGlobalError("Non authentifié");
+          setGlobalError(t("uploadNotAuthenticated"));
           setUploading(false);
           return;
         }
         userId = authUser.id;
       }
     } catch {
-      setGlobalError("Non authentifié");
+      setGlobalError(t("uploadNotAuthenticated"));
       setUploading(false);
       return;
     }
 
     const supabase = createClient();
+
+    // On accumule les résultats DANS la boucle : le state `files` capturé dans
+    // cette closure n'est jamais rafraîchi (updateFile crée de nouveaux objets
+    // sans muter les anciens), donc reconstruire la redirection depuis `files`
+    // laissait tout en `pending` et `planId` undefined → redirection morte.
+    const results: { id: string; planId?: string }[] = [];
 
     for (const entry of pending) {
       updateFile(entry.id, { status: "uploading", error: undefined });
@@ -219,30 +255,28 @@ export default function UploadPlanPage() {
         });
 
         const data = await res.json();
-        if (data.success) {
+        if (res.ok && data.success) {
           updateFile(entry.id, { status: "done", planId: data.plan_id });
+          results.push({ id: entry.id, planId: data.plan_id });
         } else {
-          updateFile(entry.id, { status: "error", error: data.error || "Erreur DB" });
+          if (res.status === 401) {
+            router.replace("/login");
+            return;
+          }
+          updateFile(entry.id, { status: "error", error: data.error || t("uploadDbError") });
         }
       } catch (err: unknown) {
-        updateFile(entry.id, { status: "error", error: err instanceof Error ? err.message : "Erreur" });
+        updateFile(entry.id, { status: "error", error: err instanceof Error ? err.message : t("uploadGenericError") });
       }
     }
 
     setUploading(false);
 
-    // Redirect after upload completes
-    // Check how many succeeded by reading current state
-    const currentFiles = files.map((f) => {
-      const p = pending.find((pe) => pe.id === f.id);
-      return p ? { ...f, ...p } : f;
-    });
-    const doneFiles = currentFiles.filter((f) => f.status === "done" || f.planId);
+    // Redirection décidée sur les résultats RÉELS accumulés dans la boucle.
+    const doneFiles = results.filter((r) => r.planId);
     if (doneFiles.length === 1 && doneFiles[0].planId) {
-      // Single file → go to plan detail
       router.push(`/plans/${doneFiles[0].planId}`);
     } else if (doneFiles.length > 0) {
-      // Multiple files → go to plans list
       router.push("/plans");
     }
   };
@@ -255,13 +289,13 @@ export default function UploadPlanPage() {
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         {/* Back link */}
-        <Link href="/plans" className="flex items-center gap-1.5 text-sm text-[#71717A] hover:text-[#FAFAFA] mb-4">
+        <Link href="/plans" className="flex items-center gap-1.5 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] mb-4">
           <ArrowLeft className="h-4 w-4" />
           {t("title")}
         </Link>
 
         <h1 className="text-xl font-bold text-[#FAFAFA] mb-1">{t("uploadPlan")}</h1>
-        <p className="text-sm text-[#71717A] mb-6">{t("uploadDescription")}</p>
+        <p className="text-sm text-[#A1A1AA] mb-6">{t("uploadDescription")}</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Error banner */}
@@ -274,7 +308,7 @@ export default function UploadPlanPage() {
 
           {/* File drop zone */}
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-[#71717A] mb-2 block">
+            <label className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA] mb-2 block">
               {t("planFile")} *
             </label>
             <div
@@ -286,10 +320,10 @@ export default function UploadPlanPage() {
               onDragLeave={() => setDragging(false)}
               onDrop={handleDrop}
             >
-              <Upload className="h-8 w-8 text-[#71717A] mb-2" />
-              <p className="text-sm font-medium text-[#71717A]">{t("dropPlanHere")}</p>
-              <p className="text-xs text-[#71717A] mt-1">{t("acceptedPlanFormats")} — {t("multipleFilesAllowed")}</p>
-              <label className="mt-3 cursor-pointer rounded-md bg-[#0F0F11] border border-[#27272A] px-4 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A]">
+              <Upload className="h-8 w-8 text-[#A1A1AA] mb-2" />
+              <p className="text-sm font-medium text-[#A1A1AA]">{t("dropPlanHere")}</p>
+              <p className="text-xs text-[#A1A1AA] mt-1">{t("acceptedPlanFormats")} — {t("multipleFilesAllowed")}</p>
+              <label className="mt-3 cursor-pointer rounded-md bg-[#0F0F11] border border-[#27272A] px-4 py-2 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]">
                 {t("browsePlanFiles")}
                 <input
                   ref={fileInputRef}
@@ -307,7 +341,7 @@ export default function UploadPlanPage() {
           {files.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">
                   {t("planFiles")} ({files.length})
                 </p>
                 {doneCount > 0 && (
@@ -344,7 +378,7 @@ export default function UploadPlanPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#FAFAFA] truncate">{entry.file.name}</p>
-                      <p className="text-[11px] text-[#71717A]">{formatFileSize(entry.file.size)}</p>
+                      <p className="text-[11px] text-[#A1A1AA]">{formatFileSize(entry.file.size)}</p>
                       {entry.error && <p className="text-[11px] text-red-500 mt-0.5">{entry.error}</p>}
                     </div>
                     {/* Editable plan number + title for pending files */}
@@ -354,14 +388,14 @@ export default function UploadPlanPage() {
                           type="text"
                           value={entry.planNumber}
                           onChange={(e) => updateFile(entry.id, { planNumber: e.target.value })}
-                          placeholder="N° plan"
+                          placeholder={t("uploadPlanNumberPlaceholder")}
                           className="w-24 rounded border border-[#27272A] px-2 py-1 text-xs text-[#FAFAFA] focus:border-brand focus:outline-none"
                         />
                         <input
                           type="text"
                           value={entry.planTitle}
                           onChange={(e) => updateFile(entry.id, { planTitle: e.target.value })}
-                          placeholder="Titre"
+                          placeholder={t("uploadTitlePlaceholder")}
                           className="w-48 rounded border border-[#27272A] px-2 py-1 text-xs text-[#FAFAFA] focus:border-brand focus:outline-none"
                         />
                       </div>
@@ -378,7 +412,7 @@ export default function UploadPlanPage() {
                       <button
                         type="button"
                         onClick={() => removeFile(entry.id)}
-                        className="rounded-md p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+                        className="rounded-md p-1 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -390,7 +424,7 @@ export default function UploadPlanPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#27272A] py-2 text-xs font-medium text-[#71717A] hover:border-[#27272A] hover:text-[#71717A]"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#27272A] py-2 text-xs font-medium text-[#A1A1AA] hover:border-[#27272A] hover:text-[#A1A1AA]"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {t("addMoreFiles")}
@@ -403,7 +437,7 @@ export default function UploadPlanPage() {
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-[#71717A] mb-1.5 block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA] mb-1.5 block">
                     {t("filterProject")} *
                   </label>
                   <select
@@ -421,7 +455,7 @@ export default function UploadPlanPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-[#71717A] mb-1.5 block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA] mb-1.5 block">
                     {t("colVersion")}
                   </label>
                   <input
@@ -430,14 +464,14 @@ export default function UploadPlanPage() {
                     onChange={(e) => setVersionCode(e.target.value.toUpperCase())}
                     placeholder="A"
                     maxLength={2}
-                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-[#71717A] mb-1.5 block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA] mb-1.5 block">
                     {t("planType")}
                   </label>
                   <select
@@ -451,7 +485,7 @@ export default function UploadPlanPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-[#71717A] mb-1.5 block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA] mb-1.5 block">
                     {t("colDiscipline")}
                   </label>
                   <select
@@ -473,7 +507,7 @@ export default function UploadPlanPage() {
           <div className="flex items-center justify-end gap-3 border-t border-[#27272A] pt-4">
             <Link
               href="/plans"
-              className="rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
+              className="rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A]"
             >
               {tc("cancel")}
             </Link>
@@ -481,10 +515,10 @@ export default function UploadPlanPage() {
               type="submit"
               disabled={!isValid || uploading}
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors",
+                "flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium shadow-sm transition-colors",
                 isValid && !uploading
-                  ? "bg-brand hover:bg-brand/90"
-                  : "bg-slate-300 cursor-not-allowed"
+                  ? "bg-[#F97316] text-[#0F0F11] hover:bg-[#EA580C]"
+                  : "bg-[#27272A] text-[#A1A1AA] cursor-not-allowed"
               )}
             >
               {uploading ? (

@@ -245,7 +245,7 @@ function formatPct(n: number): string {
 
 function TrendBadge({ value }: { value: number | null }) {
   if (value === null)
-    return <Minus className="inline h-4 w-4 text-[#52525B]" />;
+    return <Minus className="inline h-4 w-4 text-[#A1A1AA]" />;
   if (value > 0)
     return (
       <span className="inline-flex items-center gap-0.5 text-xs font-medium text-emerald-400">
@@ -260,7 +260,7 @@ function TrendBadge({ value }: { value: number | null }) {
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-0.5 text-xs text-[#71717A]">
+    <span className="inline-flex items-center gap-0.5 text-xs text-[#A1A1AA]">
       <Minus className="h-3 w-3" />
       0%
     </span>
@@ -291,7 +291,7 @@ function KpiCard({
         <div className="min-w-0">
           <p className="truncate text-xs text-[#A1A1AA]">{label}</p>
           <p className="text-xl font-bold text-[#FAFAFA]">{value}</p>
-          {sub && <p className="truncate text-[11px] text-[#52525B]">{sub}</p>}
+          {sub && <p className="truncate text-[11px] text-[#A1A1AA]">{sub}</p>}
         </div>
       </div>
     </div>
@@ -301,9 +301,9 @@ function KpiCard({
 function EmptyState({ message, detail }: { message: string; detail?: string }) {
   return (
     <div className="rounded-xl border-2 border-dashed border-[#27272A] bg-[#1C1C1F] p-10 text-center">
-      <Database className="mx-auto h-10 w-10 text-[#52525B]" />
+      <Database className="mx-auto h-10 w-10 text-[#A1A1AA]" />
       <p className="mt-3 text-sm font-medium text-[#A1A1AA]">{message}</p>
-      {detail && <p className="mt-1 text-xs text-[#52525B]">{detail}</p>}
+      {detail && <p className="mt-1 text-xs text-[#A1A1AA]">{detail}</p>}
     </div>
   );
 }
@@ -782,18 +782,18 @@ function LearningTab({ data }: { data: LearningData | null }) {
                   <p className="text-lg font-bold text-[#FAFAFA]">
                     {data.sender_rules}
                   </p>
-                  <p className="text-[11px] text-[#71717A]">R\u00e8gles sender</p>
+                  <p className="text-[11px] text-[#A1A1AA]">R\u00e8gles sender</p>
                 </div>
                 <div className="text-center">
                   <p className="text-lg font-bold text-[#FAFAFA]">
                     {data.keyword_rules}
                   </p>
-                  <p className="text-[11px] text-[#71717A]">R\u00e8gles keyword</p>
+                  <p className="text-[11px] text-[#A1A1AA]">R\u00e8gles keyword</p>
                 </div>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-[#52525B]">Aucune correction email</p>
+            <p className="text-sm text-[#A1A1AA]">Aucune correction email</p>
           )}
         </div>
 
@@ -829,7 +829,7 @@ function LearningTab({ data }: { data: LearningData | null }) {
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-sm text-[#52525B]">
+            <p className="text-sm text-[#A1A1AA]">
               Pas encore de donn\u00e9es de calibration
             </p>
           )}
@@ -846,19 +846,19 @@ function LearningTab({ data }: { data: LearningData | null }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#27272A]">
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[#71717A]">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-[#A1A1AA]">
                     CFC
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-[#71717A]">
+                  <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                     Estim\u00e9
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-[#71717A]">
+                  <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                     R\u00e9el
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-[#71717A]">
+                  <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                     Coefficient
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-[#71717A]">
+                  <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                     Date
                   </th>
                 </tr>
@@ -891,7 +891,7 @@ function LearningTab({ data }: { data: LearningData | null }) {
                         {cal.coefficient.toFixed(3)}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-right text-xs text-[#71717A]">
+                    <td className="px-3 py-2 text-right text-xs text-[#A1A1AA]">
                       {formatRelative(cal.date)}
                     </td>
                   </tr>
@@ -935,13 +935,13 @@ function LearningTab({ data }: { data: LearningData | null }) {
             className="rounded-xl border border-[#27272A] bg-[#18181B] p-4"
           >
             <div className="flex items-center gap-2">
-              <item.icon className="h-4 w-4 text-[#71717A]" />
+              <item.icon className="h-4 w-4 text-[#A1A1AA]" />
               <span className="text-xs text-[#A1A1AA]">{item.label}</span>
             </div>
             <p className="mt-1 text-lg font-bold text-[#FAFAFA]">
               {item.count}
             </p>
-            <p className="text-[11px] text-[#52525B]">
+            <p className="text-[11px] text-[#A1A1AA]">
               {item.last ? formatRelative(item.last) : "Aucune activit\u00e9"}
             </p>
           </div>
@@ -1039,7 +1039,7 @@ function QualityTab({ data }: { data: QualityData | null }) {
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-sm text-[#52525B]">Pas encore de donn\u00e9es</p>
+            <p className="text-sm text-[#A1A1AA]">Pas encore de donn\u00e9es</p>
           )}
         </div>
 
@@ -1070,7 +1070,7 @@ function QualityTab({ data }: { data: QualityData | null }) {
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-sm text-[#52525B]">Pas encore de donn\u00e9es</p>
+            <p className="text-sm text-[#A1A1AA]">Pas encore de donn\u00e9es</p>
           )}
         </div>
       </div>
@@ -1164,7 +1164,7 @@ function C2Tab({ data }: { data: C2Data | null }) {
               </div>
               <span
                 className={`text-sm font-bold ${
-                  t.count > 0 ? "text-emerald-400" : "text-[#52525B]"
+                  t.count > 0 ? "text-emerald-400" : "text-[#A1A1AA]"
                 }`}
               >
                 {t.count}
@@ -1237,26 +1237,26 @@ function C3Tab({ data }: { data: C3Data | null }) {
             {moduleKeys.map((mod) => (
               <div key={mod}>
                 <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-[#A1A1AA]">
-                  <ChevronRight className="h-3.5 w-3.5 text-[#52525B]" />
+                  <ChevronRight className="h-3.5 w-3.5 text-[#A1A1AA]" />
                   {MODULE_LABELS[mod] || mod}
                 </h4>
                 <div className="overflow-x-auto rounded-lg border border-[#27272A]">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-[#1C1C1F]">
-                        <th className="px-3 py-2 text-left text-xs font-medium text-[#71717A]">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-[#A1A1AA]">
                           M\u00e9trique
                         </th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-[#71717A]">
+                        <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                           Valeur
                         </th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-[#71717A]">
+                        <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                           Pr\u00e9c\u00e9dent
                         </th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-[#71717A]">
+                        <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                           Trend
                         </th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-[#71717A]">
+                        <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                           P\u00e9riode
                         </th>
                       </tr>
@@ -1275,7 +1275,7 @@ function C3Tab({ data }: { data: C3Data | null }) {
                               ? m.current_value.toFixed(3)
                               : m.current_value}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-[#52525B]">
+                          <td className="px-3 py-2 text-right font-mono text-[#A1A1AA]">
                             {m.previous_value !== null
                               ? m.previous_value.toFixed(3)
                               : "\u2014"}
@@ -1283,7 +1283,7 @@ function C3Tab({ data }: { data: C3Data | null }) {
                           <td className="px-3 py-2 text-right">
                             <TrendBadge value={m.trend} />
                           </td>
-                          <td className="px-3 py-2 text-right text-xs text-[#52525B]">
+                          <td className="px-3 py-2 text-right text-xs text-[#A1A1AA]">
                             {m.current_period}
                           </td>
                         </tr>
@@ -1316,7 +1316,7 @@ function C3Tab({ data }: { data: C3Data | null }) {
                   </p>
                   <p className="mt-1 text-xl font-bold text-[#FAFAFA]">
                     {p.count}
-                    <span className="ml-1 text-sm font-normal text-[#71717A]">
+                    <span className="ml-1 text-sm font-normal text-[#A1A1AA]">
                       patterns
                     </span>
                   </p>
@@ -1346,7 +1346,7 @@ function C3Tab({ data }: { data: C3Data | null }) {
                   <span className="text-sm font-medium text-[#A1A1AA]">
                     {opt.module}
                   </span>
-                  <span className="rounded bg-[#27272A] px-1.5 py-0.5 text-[10px] font-mono text-[#71717A]">
+                  <span className="rounded bg-[#27272A] px-1.5 py-0.5 text-[10px] font-mono text-[#A1A1AA]">
                     v{opt.prompt_version}
                   </span>
                 </div>
@@ -1354,7 +1354,7 @@ function C3Tab({ data }: { data: C3Data | null }) {
                   {opt.improvement_pct != null && (
                     <TrendBadge value={opt.improvement_pct} />
                   )}
-                  <span className="text-xs text-[#52525B]">
+                  <span className="text-xs text-[#A1A1AA]">
                     {formatRelative(opt.deployed_at)}
                   </span>
                 </div>
@@ -1433,7 +1433,7 @@ function ConsentTab({
                 </p>
                 <p className="mt-1 text-4xl font-bold text-[#FAFAFA]">
                   {data.total_opt_in_rate}
-                  <span className="text-xl text-[#71717A]">%</span>
+                  <span className="text-xl text-[#A1A1AA]">%</span>
                 </p>
               </div>
               <div className="text-right">
@@ -1462,7 +1462,7 @@ function ConsentTab({
                       <span className="text-sm text-[#A1A1AA]">
                         {MODULE_LABELS[mod.module] || mod.module}
                       </span>
-                      <span className="text-xs text-[#71717A]">
+                      <span className="text-xs text-[#A1A1AA]">
                         {mod.opted_in} / {mod.total_orgs} orgs
                       </span>
                     </div>
@@ -1478,7 +1478,7 @@ function ConsentTab({
             </div>
 
             {data.total_orgs === 0 && (
-              <p className="mt-4 text-center text-sm text-[#52525B]">
+              <p className="mt-4 text-center text-sm text-[#A1A1AA]">
                 Aucune organisation inscrite. Les organisations peuvent activer le
                 partage dans Param\u00e8tres \u2192 Partage de donn\u00e9es.
               </p>

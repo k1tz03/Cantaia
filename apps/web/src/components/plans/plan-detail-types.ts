@@ -86,8 +86,8 @@ export interface AnalysisData {
 
 export const STATUS_CONFIG: Record<PlanStatus, { labelKey: string; color: string; bg: string; icon: React.ComponentType<any> }> = {
   active: { labelKey: "statusActive", color: "text-green-400", bg: "bg-green-500/10 border-green-500/20", icon: CheckCircle },
-  superseded: { labelKey: "statusSuperseded", color: "text-[#71717A]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
-  withdrawn: { labelKey: "statusWithdrawn", color: "text-[#71717A]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
+  superseded: { labelKey: "statusSuperseded", color: "text-[#A1A1AA]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
+  withdrawn: { labelKey: "statusWithdrawn", color: "text-[#A1A1AA]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
   for_approval: { labelKey: "statusForApproval", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", icon: Clock },
   approved: { labelKey: "statusApproved", color: "text-[#F97316]", bg: "bg-[#F97316]/10 border-[#F97316]/20", icon: CheckCircle },
   rejected: { labelKey: "statusRejected", color: "text-red-400", bg: "bg-red-500/10 border-red-500/20", icon: AlertTriangle },
@@ -110,14 +110,17 @@ export const DISCIPLINE_KEYS: Record<string, string> = {
   amenagement: "disciplineAmenagement",
 };
 
+// Variante DARK (alignée sur plans/page.tsx : `/10` + text-400) — l'ancienne
+// palette claire (bg-*-100 text-*-700) était illisible sur le fond sombre forcé
+// et incohérente entre la liste et la fiche.
 export const DISCIPLINE_COLORS: Record<string, string> = {
-  architecture: "bg-blue-100 text-blue-700",
-  structure: "bg-orange-100 text-orange-700",
-  cvcs: "bg-cyan-100 text-cyan-700",
-  electricite: "bg-yellow-100 text-yellow-700",
-  sanitaire: "bg-teal-100 text-teal-700",
-  facades: "bg-purple-100 text-purple-700",
-  amenagement: "bg-green-100 text-green-700",
+  architecture: "bg-blue-500/10 text-blue-400",
+  structure: "bg-orange-500/10 text-orange-400",
+  cvcs: "bg-cyan-500/10 text-cyan-400",
+  electricite: "bg-yellow-500/10 text-yellow-400",
+  sanitaire: "bg-teal-500/10 text-teal-400",
+  facades: "bg-purple-500/10 text-purple-400",
+  amenagement: "bg-green-500/10 text-green-400",
 };
 
 export const PLAN_TYPE_KEYS: Record<string, string> = {

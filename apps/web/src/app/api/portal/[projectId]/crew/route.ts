@@ -1,19 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { verifyPortalToken } from "@/lib/portal/auth";
+import { requirePortalSession } from "@/lib/portal/session";
 
-async function checkPortalAuth(projectId: string) {
-  const admin = createAdminClient();
-  const { data: project } = await (admin as any)
-    .from("projects")
-    .select("portal_pin_salt, portal_enabled")
-    .eq("id", projectId)
-    .single();
-
-  if (!project || !project.portal_enabled) return { valid: false, admin };
-  const auth = await verifyPortalToken(projectId, project.portal_pin_salt || "");
-  return { ...auth, admin };
-}
+// Never `select("*")` here: portal_crew_members carries hourly_rate_chf
+// (migration 093) and wages must not travel to a PIN-authenticated device.
+const CREW_PUBLIC_COLUMNS = "id, name, role, is_active, created_at";
 
 export async function GET(
   _request: NextRequest,
@@ -21,12 +11,12 @@ export async function GET(
 ) {
   try {
     const { projectId } = await params;
-    const { valid, admin } = await checkPortalAuth(projectId);
+    const { valid, admin } = await requirePortalSession(projectId);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: crew } = await (admin as any)
       .from("portal_crew_members")
-      .select("*")
+      .select(CREW_PUBLIC_COLUMNS)
       .eq("project_id", projectId)
       .eq("is_active", true)
       .order("name", { ascending: true });
@@ -44,7 +34,7 @@ export async function POST(
 ) {
   try {
     const { projectId } = await params;
-    const { valid, admin } = await checkPortalAuth(projectId);
+    const { valid, admin } = await requirePortalSession(projectId);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
@@ -52,17 +42,20 @@ export async function POST(
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
+    // hourly_rate_chf is deliberately NOT accepted from the field: rates are set
+    // by the conductor app-side.
     const { data, error } = await (admin as any)
       .from("portal_crew_members")
       .insert({
         project_id: projectId,
-        name: body.name.trim(),
-        role: body.role?.trim() || null,
+        name: body.name.trim().slice(0, 120),
+        role: body.role?.trim().slice(0, 60) || null,
       })
-      .select()
+      .select(CREW_PUBLIC_COLUMNS)
       .single();
 
     if (error) {
+      console.error("[Portal Crew] POST insert error:", error);
       return NextResponse.json({ error: "Failed to add" }, { status: 500 });
     }
 
@@ -79,19 +72,24 @@ export async function DELETE(
 ) {
   try {
     const { projectId } = await params;
-    const { valid, admin } = await checkPortalAuth(projectId);
+    const { valid, admin } = await requirePortalSession(projectId);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = request.nextUrl;
     const memberId = searchParams.get("id");
     if (!memberId) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    // Soft delete
-    await (admin as any)
+    // Soft delete — past reports keep pointing at the member.
+    const { error } = await (admin as any)
       .from("portal_crew_members")
       .update({ is_active: false })
       .eq("id", memberId)
       .eq("project_id", projectId);
+
+    if (error) {
+      console.error("[Portal Crew] DELETE error:", error);
+      return NextResponse.json({ error: "Failed to remove" }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

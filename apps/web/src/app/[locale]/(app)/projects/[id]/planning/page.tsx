@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { toast } from "sonner";
+import { Link, useRouter } from "@/i18n/navigation";
 import {
   ArrowLeft,
   CalendarRange,
@@ -16,26 +17,49 @@ import {
   FileText,
   FilePlus,
   Calendar,
+  CalendarDays,
+  GanttChartSquare,
   X,
   AlertCircle,
 } from "lucide-react";
 import GanttChart from "@/components/planning/GanttChart";
 import GanttConfigModal from "@/components/planning/GanttConfigModal";
+import PlanningAiPanel from "@/components/planning/PlanningAiPanel";
+import LookaheadView from "@/components/planning/LookaheadView";
 import type {
   Planning,
   PlanningPhase,
   PlanningTask,
   PlanningDependency,
+  PlanningAiRisk,
+  PlanningAiRecommendation,
+  PlanningProcurementItem,
 } from "@/components/planning/planning-types";
 import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
 import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
+type PlanningViewMode = "gantt" | "lookahead";
+
+/**
+ * Format a Date as a LOCAL YYYY-MM-DD (Europe/Zurich). `toISOString().split("T")`
+ * formats in UTC and can shift the day across the timezone boundary — banned by
+ * the repo convention for local dates.
+ */
+function toIsoDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export default function ProjectPlanningPage() {
   const params = useParams();
+  const router = useRouter();
   const projectId = params.id as string;
   const t = useTranslations("planning");
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [planning, setPlanning] = useState<Planning | null>(null);
   const [, setPhases] = useState<PlanningPhase[]>([]);
   const [, setTasks] = useState<PlanningTask[]>([]);
@@ -45,6 +69,9 @@ export default function ProjectPlanningPage() {
 
   const [showConfig, setShowConfig] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [viewMode, setViewMode] = useState<PlanningViewMode>("gantt");
+  const [rescheduling, setRescheduling] = useState(false);
+  const rescheduleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Share state
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -69,11 +96,47 @@ export default function ProjectPlanningPage() {
   const fetchPlanning = useCallback(async () => {
     try {
       const res = await fetch(`/api/planning/by-project?project_id=${projectId}`);
-      if (res.status === 401) return;
+      if (res.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      // A transient 500/403 must NOT masquerade as "no planning": showing the
+      // empty state would let the user regenerate over a planning an error is
+      // merely hiding. Surface an error state with a retry instead.
+      if (!res.ok) {
+        setLoadError(t("errors.loadFailed"));
+        return;
+      }
+      setLoadError(null);
       const json = await res.json();
 
       if (json.planning) {
         const p = json.planning;
+
+        // The AI pass has been persisting risks / recommendations / a
+        // procurement plan since migration 057 without any surface showing it.
+        const aiValidation = p.ai_generation_log?.ai_validation ?? null;
+        const rawRecommendations = p.ai_recommendations;
+        const recommendations: PlanningAiRecommendation[] = Array.isArray(
+          rawRecommendations,
+        )
+          ? rawRecommendations
+          : Array.isArray(rawRecommendations?.recommendations)
+            ? rawRecommendations.recommendations
+            : Array.isArray(aiValidation?.recommendations)
+              ? aiValidation.recommendations
+              : [];
+        const procurementPlan: PlanningProcurementItem[] = Array.isArray(
+          rawRecommendations?.procurement_plan,
+        )
+          ? rawRecommendations.procurement_plan
+          : Array.isArray(aiValidation?.procurement_plan)
+            ? aiValidation.procurement_plan
+            : [];
+        const risks: PlanningAiRisk[] = Array.isArray(aiValidation?.risks)
+          ? aiValidation.risks
+          : [];
+
         const planningData: Planning = {
           id: p.id,
           title: p.title,
@@ -87,6 +150,13 @@ export default function ProjectPlanningPage() {
           tasks: json.tasks || [],
           dependencies: json.dependencies || [],
           milestones: (json.tasks || []).filter((tk: any) => tk.is_milestone),
+          // Without this the saved baseline was re-read from nowhere and
+          // silently vanished on every reload.
+          config: p.config && typeof p.config === "object" ? p.config : null,
+          ai_summary: p.ai_summary ?? aiValidation?.summary ?? null,
+          ai_risks: risks,
+          ai_recommendations: recommendations,
+          ai_procurement_plan: procurementPlan,
         };
         setPlanning(planningData);
         setPhases(json.phases || []);
@@ -119,10 +189,11 @@ export default function ProjectPlanningPage() {
       }
     } catch (err) {
       console.error("[planning] fetch error:", err);
+      setLoadError(t("errors.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, router, t]);
 
   // Fetch submissions for the project
   const fetchSubmissions = useCallback(async () => {
@@ -193,14 +264,14 @@ export default function ProjectPlanningPage() {
       }
       const json = await res.json();
       if (!res.ok) {
-        setEmptyError(json.error || "Erreur lors de la creation");
+        setEmptyError(json.error || t("errors.createFailed"));
         return;
       }
       setShowEmptyModal(false);
       setEmptyError(null);
       await fetchPlanning();
     } catch (err: any) {
-      setEmptyError(err.message || "Erreur inattendue");
+      setEmptyError(err.message || t("errors.unexpected"));
     } finally {
       setCreatingEmpty(false);
     }
@@ -209,7 +280,7 @@ export default function ProjectPlanningPage() {
   // Generate planning
   const handleGenerate = async (config: any) => {
     if (!selectedSubmissionId) {
-      setGenerateError("Aucune soumission analysée trouvée. Analysez d'abord une soumission.");
+      setGenerateError(t("errors.noAnalyzedSubmission"));
       return;
     }
     setGenerating(true);
@@ -237,7 +308,7 @@ export default function ProjectPlanningPage() {
       }
       const json = await res.json();
       if (!res.ok) {
-        setGenerateError(json.error || "Échec de la génération du planning");
+        setGenerateError(json.error || t("errors.generateFailed"));
         return;
       }
 
@@ -247,7 +318,7 @@ export default function ProjectPlanningPage() {
       await fetchPlanning();
     } catch (err: any) {
       console.error("[planning] Generate error:", err);
-      setGenerateError(err.message || "Erreur inattendue lors de la génération");
+      setGenerateError(err.message || t("errors.generateUnexpected"));
     } finally {
       setGenerating(false);
     }
@@ -303,10 +374,69 @@ export default function ProjectPlanningPage() {
     [],
   );
 
+  // ── Reschedule ───────────────────────────────────────────────────────
+  // Editing one duration used to move exactly one bar: the successors kept
+  // their old dates and the plan quietly stopped being a plan. Every schedule
+  // edit now replays the CPM server-side, then pulls the new dates back.
+
+  const runReschedule = useCallback(async () => {
+    if (!planningId) return;
+    setRescheduling(true);
+    try {
+      const res = await fetch(`/api/planning/${planningId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reschedule" }),
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        toast.error(json?.error || t("reschedule.failed"));
+        await fetchPlanning();
+        return;
+      }
+
+      await fetchPlanning();
+
+      if (Array.isArray(json?.critical_task_ids)) {
+        setCriticalPath(json.critical_task_ids);
+      }
+      if (Number(json?.cyclic_task_count) > 0) {
+        toast.warning(t("reschedule.cycle", { count: json.cyclic_task_count }));
+      }
+    } catch (err) {
+      console.error("[planning] reschedule error:", err);
+      toast.error(t("reschedule.failed"));
+      await fetchPlanning();
+    } finally {
+      setRescheduling(false);
+    }
+  }, [planningId, fetchPlanning, t]);
+
+  /** Coalesces the bursts a bulk move or a quick drag sequence produces. */
+  const scheduleReschedule = useCallback(() => {
+    if (rescheduleTimer.current) clearTimeout(rescheduleTimer.current);
+    rescheduleTimer.current = setTimeout(() => {
+      rescheduleTimer.current = null;
+      void runReschedule();
+    }, 400);
+  }, [runReschedule]);
+
+  useEffect(
+    () => () => {
+      if (rescheduleTimer.current) clearTimeout(rescheduleTimer.current);
+    },
+    [],
+  );
+
   // Update task (drag/resize/inline edit/side panel)
   const handleTaskUpdate = useCallback(
     async (taskId: string, updates: Partial<PlanningTask>) => {
       if (!planningId) return;
+
+      // Snapshot the pre-edit task BEFORE the optimistic mutation — needed to
+      // tell a genuine duration change from a pure reposition.
+      const previous = planning?.tasks.find((tk) => tk.id === taskId);
 
       // Optimistic update
       refreshPlanningOptimistic(taskId, updates);
@@ -318,15 +448,40 @@ export default function ProjectPlanningPage() {
           body: JSON.stringify({ task_id: taskId, ...updates }),
         });
         if (!res.ok) {
+          const json = await res.json().catch(() => null);
           console.error("[planning] update rejected:", res.status);
+          toast.error(json?.error || t("update.failed"));
           fetchPlanning(); // revert — the server did not persist the change
+          return;
+        }
+
+        // Resync to the server-persisted row: end_date is recomputed in WORKING
+        // days server-side and would otherwise drift from the calendar-day value
+        // the UI guessed locally.
+        const json = await res.json().catch(() => null);
+        if (json?.task) {
+          refreshPlanningOptimistic(taskId, json.task as Partial<PlanningTask>);
+        }
+
+        // Reschedule ONLY when the duration genuinely changed. A bar drag or an
+        // explicit start-date edit is a MANUAL placement — replaying the CPM
+        // (which derives dates from durations + dependencies only) would snap the
+        // bar back to its earliest start. Structural changes (delete, add/remove
+        // dependency) still reschedule via their own handlers.
+        const durationChanged =
+          updates.duration_days !== undefined &&
+          !!previous &&
+          Number(updates.duration_days) !== Number(previous.duration_days);
+        if (durationChanged) {
+          scheduleReschedule();
         }
       } catch (err) {
         console.error("[planning] update error:", err);
+        toast.error(t("update.failed"));
         fetchPlanning(); // revert on error
       }
     },
-    [planningId, refreshPlanningOptimistic, fetchPlanning],
+    [planningId, planning, refreshPlanningOptimistic, fetchPlanning, scheduleReschedule, t],
   );
 
   // Update phase name
@@ -391,14 +546,19 @@ export default function ProjectPlanningPage() {
         });
         if (!res.ok) {
           console.error("[planning] delete task rejected:", res.status);
+          toast.error(t("update.failed"));
           fetchPlanning();
+          return;
         }
+        // Its dependencies went with it — successors may move up.
+        scheduleReschedule();
       } catch (err) {
         console.error("[planning] delete task error:", err);
+        toast.error(t("update.failed"));
         fetchPlanning();
       }
     },
-    [planningId, fetchPlanning],
+    [planningId, fetchPlanning, scheduleReschedule, t],
   );
 
   // Create dependency
@@ -419,13 +579,18 @@ export default function ProjectPlanningPage() {
           }),
         });
         if (res.ok) {
-          await fetchPlanning();
+          // A new link changes the whole downstream schedule.
+          await runReschedule();
+        } else {
+          const json = await res.json().catch(() => null);
+          toast.error(json?.error || t("update.failed"));
         }
       } catch (err) {
         console.error("[planning] add dependency error:", err);
+        toast.error(t("update.failed"));
       }
     },
-    [planningId, fetchPlanning],
+    [planningId, runReschedule, t],
   );
 
   // Delete dependency
@@ -450,14 +615,19 @@ export default function ProjectPlanningPage() {
         });
         if (!res.ok) {
           console.error("[planning] delete dependency rejected:", res.status);
+          toast.error(t("update.failed"));
           fetchPlanning();
+          return;
         }
+        // Removing a constraint can pull successors earlier.
+        await runReschedule();
       } catch (err) {
         console.error("[planning] delete dependency error:", err);
+        toast.error(t("update.failed"));
         fetchPlanning();
       }
     },
-    [planningId, fetchPlanning],
+    [planningId, fetchPlanning, runReschedule, t],
   );
 
   // Bulk move tasks
@@ -477,8 +647,8 @@ export default function ProjectPlanningPage() {
           newEnd.setDate(newEnd.getDate() + daysDelta);
           return {
             ...t,
-            start_date: newStart.toISOString().split("T")[0],
-            end_date: newEnd.toISOString().split("T")[0],
+            start_date: toIsoDateLocal(newStart),
+            end_date: toIsoDateLocal(newEnd),
           };
         });
         return {
@@ -507,18 +677,21 @@ export default function ProjectPlanningPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 task_id: tid,
-                start_date: newStart.toISOString().split("T")[0],
-                end_date: newEnd.toISOString().split("T")[0],
+                start_date: toIsoDateLocal(newStart),
+                end_date: toIsoDateLocal(newEnd),
               }),
             });
           }),
         );
+        // A bulk move is a deliberate manual shift — do NOT reschedule, or the
+        // CPM would pull every task back to its earliest start.
       } catch (err) {
         console.error("[planning] bulk move error:", err);
+        toast.error(t("update.failed"));
         fetchPlanning();
       }
     },
-    [planningId, planning, fetchPlanning],
+    [planningId, planning, fetchPlanning, t],
   );
 
   // Bulk delete tasks
@@ -552,12 +725,14 @@ export default function ProjectPlanningPage() {
             }),
           ),
         );
+        scheduleReschedule();
       } catch (err) {
         console.error("[planning] bulk delete error:", err);
+        toast.error(t("update.failed"));
         fetchPlanning();
       }
     },
-    [planningId, fetchPlanning],
+    [planningId, fetchPlanning, scheduleReschedule, t],
   );
 
   // Add phase
@@ -679,15 +854,22 @@ export default function ProjectPlanningPage() {
   );
 
   // Export PDF
+  const [exportingPdf, setExportingPdf] = useState(false);
   const handleExportPdf = async () => {
-    if (!planningId) return;
+    if (!planningId || exportingPdf) return;
+    setExportingPdf(true);
     try {
       const { exportFile } = await import("@/lib/tauri");
       await exportFile(`/api/planning/${planningId}/export-pdf`, {
         fallbackFilename: `Planning_${planningId}.pdf`,
       });
     } catch (err) {
+      // A silent failure here looks exactly like a browser blocking the
+      // download — say it out loud.
       console.error("Planning PDF export failed:", err);
+      toast.error(t("export.pdfFailed"));
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -702,9 +884,12 @@ export default function ProjectPlanningPage() {
       if (json.success) {
         setShareUrl(json.url);
         setShowSharePanel(true);
+      } else {
+        toast.error(json?.error || t("share.failed"));
       }
     } catch (err) {
       console.error("[planning] share error:", err);
+      toast.error(t("share.failed"));
     }
   };
 
@@ -745,30 +930,104 @@ export default function ProjectPlanningPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Page header */}
-      <div className="px-6 py-4 border-b border-[#27272A] bg-[#0F0F11]">
-        <div className="flex items-center gap-3 mb-2">
+      <div className="px-6 py-4 border-b border-[#27272A] bg-[#0F0F11] print:hidden">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href={`/projects/${projectId}?tab=overview`}
             className="p-1 hover:bg-[#27272A] rounded"
           >
-            <ArrowLeft className="h-4 w-4 text-[#71717A]" />
+            <ArrowLeft className="h-4 w-4 text-[#A1A1AA]" />
           </Link>
           <CalendarRange className="h-5 w-5 text-brand" />
           <h1 className="text-lg font-semibold text-[#FAFAFA]">
             {t("title")}
           </h1>
+
+          {rescheduling && (
+            <span className="flex items-center gap-1.5 text-xs text-[#A1A1AA]">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {t("reschedule.running")}
+            </span>
+          )}
+
+          {/* View switcher */}
+          {planning && (
+            <div className="ml-auto flex items-center rounded-lg border border-[#27272A] bg-[#18181B] p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode("gantt")}
+                aria-pressed={viewMode === "gantt"}
+                className={[
+                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                  viewMode === "gantt"
+                    ? "bg-[#0F0F11] text-[#FAFAFA] shadow-sm"
+                    : "text-[#A1A1AA] hover:text-[#FAFAFA]",
+                ].join(" ")}
+              >
+                <GanttChartSquare className="h-3.5 w-3.5" />
+                {t("viewMode.gantt")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("lookahead")}
+                aria-pressed={viewMode === "lookahead"}
+                className={[
+                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                  viewMode === "lookahead"
+                    ? "bg-[#0F0F11] text-[#FAFAFA] shadow-sm"
+                    : "text-[#A1A1AA] hover:text-[#FAFAFA]",
+                ].join(" ")}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                {t("viewMode.lookahead")}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {!planning ? (
+      {/* AI risks / recommendations / procurement plan */}
+      {planning && (
+        <PlanningAiPanel
+          summary={planning.ai_summary}
+          risks={planning.ai_risks}
+          recommendations={planning.ai_recommendations}
+          procurementPlan={planning.ai_procurement_plan}
+        />
+      )}
+
+      {loadError && !planning ? (
+        // Error state — distinct from "no planning yet" so a transient failure
+        // never invites the user to regenerate over an existing planning.
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center max-w-md">
+            <AlertCircle className="h-16 w-16 text-[#EF4444] mx-auto mb-4" />
+            <h2 className="text-lg font-medium text-[#FAFAFA] mb-2">
+              {t("errors.title")}
+            </h2>
+            <p className="text-sm text-[#A1A1AA] mb-6">{loadError}</p>
+            <button
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                fetchPlanning();
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#F97316] text-[#0F0F11] text-sm font-medium rounded-lg hover:bg-[#EA580C]"
+            >
+              <RefreshCw className="h-4 w-4" />
+              {t("errors.retry")}
+            </button>
+          </div>
+        </div>
+      ) : !planning ? (
         // Empty state
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
-            <CalendarRange className="h-16 w-16 text-[#71717A] mx-auto mb-4" />
+            <CalendarRange className="h-16 w-16 text-[#A1A1AA] mx-auto mb-4" />
             <h2 className="text-lg font-medium text-[#FAFAFA] mb-2">
               {t("noPlanning")}
             </h2>
-            <p className="text-sm text-[#71717A] mb-6">
+            <p className="text-sm text-[#A1A1AA] mb-6">
               {t("noPlanningDesc")}
             </p>
 
@@ -795,7 +1054,7 @@ export default function ProjectPlanningPage() {
                     <CalendarRange className="h-4 w-4" />
                     {t("generate")}
                   </button>
-                  <p className="text-xs text-[#71717A]">{t("emptyPlanning.or")}</p>
+                  <p className="text-xs text-[#A1A1AA]">{t("emptyPlanning.or")}</p>
                 </>
               )}
               <button
@@ -808,9 +1067,13 @@ export default function ProjectPlanningPage() {
             </div>
           </div>
         </div>
+      ) : viewMode === "lookahead" ? (
+        <div className="flex-1 min-h-0 p-3">
+          <LookaheadView planning={planning} onTaskUpdate={handleTaskUpdate} />
+        </div>
       ) : (
         // Gantt chart
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 print:hidden">
           <GanttChart
             planning={planning}
             criticalPath={criticalPath}
@@ -834,21 +1097,26 @@ export default function ProjectPlanningPage() {
             {/* Action buttons in the Gantt header */}
             <button
               onClick={handleRegenerate}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A]"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#A1A1AA] border border-[#27272A] rounded-lg hover:bg-[#27272A]"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               {t("regenerate")}
             </button>
             <button
               onClick={handleExportPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A]"
+              disabled={exportingPdf}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#A1A1AA] border border-[#27272A] rounded-lg hover:bg-[#27272A] disabled:opacity-50"
             >
-              <FileText className="h-3.5 w-3.5" />
+              {exportingPdf ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5" />
+              )}
               {t("export.pdf")}
             </button>
             <button
               onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A]"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#A1A1AA] border border-[#27272A] rounded-lg hover:bg-[#27272A]"
             >
               <Share2 className="h-3.5 w-3.5" />
               {t("export.share")}
@@ -870,7 +1138,7 @@ export default function ProjectPlanningPage() {
               </div>
               <button
                 onClick={() => { setShowEmptyModal(false); setEmptyError(null); }}
-                className="p-1 text-[#71717A] hover:text-[#71717A] transition-colors rounded-md hover:bg-[#27272A]"
+                className="p-1 text-[#A1A1AA] hover:text-[#A1A1AA] transition-colors rounded-md hover:bg-[#27272A]"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -894,7 +1162,7 @@ export default function ProjectPlanningPage() {
                   {t("emptyPlanning.startDate")} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A1A1AA]" />
                   <input
                     type="date"
                     value={emptyStartDate}
@@ -908,12 +1176,12 @@ export default function ProjectPlanningPage() {
               <div>
                 <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
                   {t("emptyPlanning.endDate")}
-                  <span className="ml-1 text-xs text-[#71717A] font-normal">
+                  <span className="ml-1 text-xs text-[#A1A1AA] font-normal">
                     ({t("config.optional")})
                   </span>
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A1A1AA]" />
                   <input
                     type="date"
                     value={emptyEndDate}
@@ -971,7 +1239,7 @@ export default function ProjectPlanningPage() {
           />
           {generateError && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-red-500/10 border border-red-200 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm">
-              <p className="font-medium">Erreur</p>
+              <p className="font-medium">{t("errors.title")}</p>
               <p>{generateError}</p>
             </div>
           )}
@@ -986,7 +1254,7 @@ export default function ProjectPlanningPage() {
               <LinkIcon className="h-5 w-5 text-brand" />
               <h3 className="text-lg font-semibold">{t("share.title")}</h3>
             </div>
-            <p className="text-sm text-[#71717A] mb-4">
+            <p className="text-sm text-[#A1A1AA] mb-4">
               {t("share.description")}
             </p>
             <div className="flex items-center gap-2 mb-4">
@@ -1016,9 +1284,9 @@ export default function ProjectPlanningPage() {
               </button>
               <button
                 onClick={() => setShowSharePanel(false)}
-                className="text-sm text-[#71717A] hover:text-[#FAFAFA]"
+                className="text-sm text-[#A1A1AA] hover:text-[#FAFAFA]"
               >
-                Fermer
+                {t("share.close")}
               </button>
             </div>
           </div>

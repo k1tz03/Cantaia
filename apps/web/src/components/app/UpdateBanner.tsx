@@ -37,13 +37,13 @@ export function UpdateBanner() {
 
         <button
           onClick={() => setModalOpen(true)}
-          className="flex-shrink-0 text-[12px] font-semibold px-3 py-1 rounded-md bg-[#F97316] text-white hover:bg-[#EA580C] transition-colors"
+          className="flex-shrink-0 text-[12px] font-semibold px-3 py-1 rounded-md bg-[#F97316] text-[#0F0F11] hover:bg-[#EA580C] transition-colors"
         >
           Voir les nouveautés
         </button>
         <button
           onClick={dismissUpdate}
-          className="flex-shrink-0 text-[12px] text-[#52525B] hover:text-[#71717A] transition-colors"
+          className="flex-shrink-0 text-[12px] text-[#A1A1AA] hover:text-[#A1A1AA] transition-colors"
         >
           Plus tard
         </button>

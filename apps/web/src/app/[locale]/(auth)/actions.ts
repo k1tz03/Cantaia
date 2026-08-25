@@ -6,6 +6,22 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import { headers } from "next/headers";
 import { TRIAL_DURATION_DAYS } from "@cantaia/config/constants";
+import { rateLimit } from "@/lib/rate-limit";
+
+/** Roles a user may self-assign when creating a brand-new org (registerSchema). */
+const SELF_SIGNUP_ROLES = ["project_manager", "site_manager", "foreman"] as const;
+
+/** Best-effort client IP from the standard proxy headers (for auth throttling). */
+async function getClientIp(): Promise<string> {
+  try {
+    const h = await headers();
+    const fwd = h.get("x-forwarded-for");
+    if (fwd) return fwd.split(",")[0].trim();
+    return h.get("x-real-ip") || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 /**
  * Get the app URL from the current request headers (works on any domain).
@@ -35,6 +51,12 @@ export async function loginAction(formData: {
   email: string;
   password: string;
 }): Promise<AuthResult> {
+  const ip = await getClientIp();
+  const rl = await rateLimit(`auth:ip:${ip}`, { limit: 15, windowSec: 900 });
+  if (!rl.allowed) {
+    return { error: "Trop de tentatives. Réessayez dans quelques minutes." };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -62,7 +84,9 @@ export async function loginAction(formData: {
     }
   }
 
-  return { success: true, redirectTo: `/${locale}/dashboard` };
+  // Single post-login destination across every entry point (password
+  // login, OAuth callback, end of onboarding): /mail.
+  return { success: true, redirectTo: `/${locale}/mail` };
 }
 
 export async function registerAction(formData: {
@@ -74,9 +98,22 @@ export async function registerAction(formData: {
   role: "project_manager" | "site_manager" | "foreman";
   invite_token?: string;
 }): Promise<AuthResult> {
+  const ip = await getClientIp();
+  const rl = await rateLimit(`auth:ip:${ip}`, { limit: 15, windowSec: 900 });
+  if (!rl.allowed) {
+    return { error: "Trop de tentatives. Réessayez dans quelques minutes." };
+  }
+
   const supabase = await createClient();
   const locale = await getLocale();
   const adminClient = createAdminClient();
+
+  // registerAction is a directly-callable HTTP endpoint: the TS `role` type is
+  // erased at runtime, so validate it server-side. Only the three self-signup
+  // roles may be self-assigned; anything else falls back to project_manager.
+  const safeSignupRole = (SELF_SIGNUP_ROLES as readonly string[]).includes(formData.role)
+    ? formData.role
+    : "project_manager";
 
   // If invite_token is provided, validate it before creating the auth user
   let validInvite: {
@@ -118,10 +155,16 @@ export async function registerAction(formData: {
 
   if (authData.user) {
     if (validInvite) {
-      // Invite flow: join existing organization, do NOT create a new org
-      const inviteRole = validInvite.role === "admin" ? "admin" : (formData.role || "project_manager");
+      // Invite flow: join existing organization, do NOT create a new org.
+      // The role is ALWAYS the one baked into the server-side invite record
+      // (created by an org admin through the guarded invite API) — never the
+      // client-supplied formData.role, which would allow privilege escalation.
+      // validInvite.role is a server-trusted ASSIGNABLE_ROLE string (may be
+      // 'member'/'director'/'admin'); users.role is a free-text column, so cast
+      // through the untyped client like the rest of the repo does.
+      const inviteRole = validInvite.role;
 
-      const { error: userError } = await adminClient.from("users").upsert({
+      const { error: userError } = await (adminClient as any).from("users").upsert({
         id: authData.user.id,
         organization_id: validInvite.organization_id,
         email: formData.email,
@@ -172,7 +215,7 @@ export async function registerAction(formData: {
         email: formData.email,
         first_name: formData.first_name,
         last_name: formData.last_name,
-        role: formData.role,
+        role: safeSignupRole,
         preferred_language: locale as "fr" | "en" | "de",
       }, { onConflict: "id" });
 
@@ -195,6 +238,13 @@ export async function logoutAction(): Promise<void> {
 export async function forgotPasswordAction(formData: {
   email: string;
 }): Promise<AuthResult> {
+  const ip = await getClientIp();
+  const rl = await rateLimit(`auth:ip:${ip}`, { limit: 15, windowSec: 900 });
+  if (!rl.allowed) {
+    // Still return success shape (no enumeration) but skip the send.
+    return { success: true };
+  }
+
   const supabase = await createClient();
   const appUrl = await getAppUrl();
   const locale = await getLocale();
@@ -260,74 +310,16 @@ export async function signInWithMicrosoftAction(options?: {
     });
 
     if (error) {
-      // linkIdentity failed — likely because the Azure identity already belongs to another auth user.
-      // Try to find and delete the orphan auth user, then retry linkIdentity.
-      console.warn("[auth] linkIdentity failed:", error.message, "— attempting orphan cleanup");
-
-      try {
-        const adminClient = createAdminClient();
-
-        // Find the orphan auth user that owns the Azure identity
-        const { data: authUserList } = await adminClient.auth.admin.listUsers({ perPage: 500 });
-        const orphanAzureUser = authUserList?.users?.find(u =>
-          u.id !== linkUserId &&
-          u.identities?.some(i => i.provider === "azure")
-        );
-
-        if (orphanAzureUser) {
-          console.log("[auth] Found orphan Azure auth user:", orphanAzureUser.id, orphanAzureUser.email);
-
-          // Migrate ALL FK references from orphan to current user before deletion.
-          // Each table wrapped in try/catch (table may not exist or row may not exist).
-          const fkMigrations: Array<{ table: string; column: string }> = [
-            { table: "project_members", column: "user_id" },
-            { table: "tasks", column: "assigned_to" },
-            { table: "tasks", column: "created_by" },
-            { table: "email_records", column: "user_id" },
-            { table: "meetings", column: "created_by" },
-            { table: "email_connections", column: "user_id" },
-            { table: "plan_registry", column: "created_by" },
-            { table: "plan_analyses", column: "analyzed_by" },
-            { table: "plan_estimates", column: "estimated_by" },
-            { table: "suppliers", column: "created_by" },
-            { table: "daily_briefings", column: "user_id" },
-            { table: "client_visits", column: "created_by" },
-            { table: "visit_photos", column: "created_by" },
-          ];
-          for (const { table, column } of fkMigrations) {
-            try {
-              await (adminClient as any).from(table).update({ [column]: linkUserId }).eq(column, orphanAzureUser.id);
-            } catch { /* table may not exist */ }
-          }
-          // Delete non-critical references (logs) instead of migrating
-          for (const logTable of ["app_logs", "admin_activity_logs", "api_usage_logs"]) {
-            try {
-              await (adminClient as any).from(logTable).delete().eq("user_id", orphanAzureUser.id);
-            } catch { /* table may not exist */ }
-          }
-
-          // Now delete the orphan user row + auth user
-          try { await adminClient.from("users").delete().eq("id", orphanAzureUser.id); } catch { /* may already be gone */ }
-          await adminClient.auth.admin.deleteUser(orphanAzureUser.id);
-          console.log("[auth] Orphan Azure auth user deleted, retrying linkIdentity");
-
-          // Retry linkIdentity — should succeed now that the identity is freed
-          const retry = await supabase.auth.linkIdentity({
-            provider: "azure",
-            options: { scopes, redirectTo: callbackUrl },
-          });
-
-          if (!retry.error && retry.data?.url) {
-            return { url: retry.data.url };
-          }
-          console.warn("[auth] linkIdentity retry also failed:", retry.error?.message);
-        }
-      } catch (cleanupErr) {
-        console.warn("[auth] Orphan cleanup failed:", cleanupErr);
-      }
-
-      // Final fallback: signInWithOAuth (will create split identity, handled by callback)
-      console.warn("[auth] Falling back to signInWithOAuth");
+      // linkIdentity failed. This can happen for benign, GLOBAL reasons (manual
+      // linking disabled in Supabase, the Azure identity already attached to
+      // another account, etc.). We must NEVER react by enumerating auth users and
+      // deleting a stranger's Azure account — the previous heuristic picked "the
+      // first other user with an azure identity" and deleted it, which could wipe
+      // an arbitrary tenant's account and migrate its data to the caller.
+      //
+      // Safe path: fall back to signInWithOAuth. If a split identity results, the
+      // callback's split-identity handler reconciles both users non-destructively.
+      console.warn("[auth] linkIdentity failed:", error.message, "— falling back to signInWithOAuth (no destructive cleanup)");
       const fallback = await supabase.auth.signInWithOAuth({
         provider: "azure",
         options: { scopes, redirectTo: callbackUrl },

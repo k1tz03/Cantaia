@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { toLocalDateString } from "@/components/calendar/datetime-utils";
 import { useProject } from "@/lib/hooks/use-supabase-data";
 import { StatusBadge } from "@cantaia/ui";
 import {
@@ -59,6 +60,26 @@ const baseTabs = [
   { key: "archiving", icon: FolderArchive },
   { key: "closure", icon: ShieldCheck },
 ] as const;
+
+/**
+ * The eleven tabs used to sit in one wrapping row that pushed the content
+ * down two lines and gave no sense of what belonged with what. They are
+ * the same eleven tabs and the same `?tab=` URLs — just gathered into
+ * four groups, with the sub-tabs of the active group shown underneath.
+ */
+const TAB_GROUPS = [
+  { id: "suivi", labelKey: "group_suivi", tabs: ["overview", "tasks", "planning", "site-reports"] },
+  { id: "documents", labelKey: "group_documents", tabs: ["emails", "plans", "submissions", "meetings"] },
+  { id: "terrain", labelKey: "group_terrain", tabs: ["visits"] },
+  { id: "cloture", labelKey: "group_cloture", tabs: ["closure", "archiving"] },
+] as const;
+
+const GROUP_FALLBACK_LABELS: Record<string, string> = {
+  group_suivi: "Suivi",
+  group_documents: "Documents",
+  group_terrain: "Terrain",
+  group_cloture: "Clôture",
+};
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -151,7 +172,7 @@ export default function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-[#71717A]">{t("projectNotFound")}</p>
+        <p className="text-[#A1A1AA]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -159,13 +180,41 @@ export default function ProjectDetailPage() {
   const showClosureTab = ["active", "on_hold", "closing", "completed"].includes(project.status);
   const tabs = baseTabs.filter((tab) => tab.key !== "closure" || showClosureTab);
 
+  // Group labels fall back to French until the shared message catalogue
+  // picks up the new keys (see i18n-pending/I.json).
+  const groupLabel = (key: string): string => {
+    const fallback = GROUP_FALLBACK_LABELS[key];
+    try {
+      const has = (t as unknown as { has?: (k: string) => boolean }).has;
+      if (has && !has(key)) return fallback;
+      const value = t(key);
+      // next-intl echoes the key path when a message is missing.
+      return !value || value === key || value.endsWith(`.${key}`) ? fallback : value;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const availableKeys = new Set<string>(tabs.map((tb) => tb.key));
+  const visibleGroups = TAB_GROUPS.map((g) => ({
+    id: g.id,
+    labelKey: g.labelKey as string,
+    tabs: (g.tabs as readonly string[]).filter((k) => availableKeys.has(k)),
+  })).filter((g) => g.tabs.length > 0);
+
+  // The URL still carries a single `?tab=` — derive which group owns it so
+  // deep links keep working exactly as before.
+  const activeGroup =
+    visibleGroups.find((g) => g.tabs.includes(activeTab)) ?? visibleGroups[0];
+  const activeGroupTabs = tabs.filter((tb) => activeGroup.tabs.includes(tb.key));
+
   const openTasks = tasks.filter(
     (t) => t.status === "todo" || t.status === "in_progress"
   );
   const overdueTasks = tasks.filter(
     (t) =>
       t.due_date &&
-      t.due_date < new Date().toISOString().split("T")[0] &&
+      t.due_date < toLocalDateString(new Date()) &&
       t.status !== "done" &&
       t.status !== "cancelled"
   );
@@ -208,7 +257,7 @@ export default function ProjectDetailPage() {
           <div className="flex items-start gap-3 sm:gap-4 min-w-0">
             <Link
               href="/projects"
-              className="mt-1 shrink-0 rounded-md p-2 text-[#71717A] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
+              className="mt-1 shrink-0 rounded-md p-2 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
@@ -222,10 +271,10 @@ export default function ProjectDetailPage() {
                   {project.name}
                 </h1>
                 {project.code && (
-                  <span className="text-sm text-[#71717A]">{project.code}</span>
+                  <span className="text-sm text-[#A1A1AA]">{project.code}</span>
                 )}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[#71717A]">
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[#A1A1AA]">
                 {project.client_name && (
                   <span className="flex items-center gap-1.5">
                     <Building2 className="h-3.5 w-3.5" />
@@ -242,7 +291,7 @@ export default function ProjectDetailPage() {
           </div>
           <Link
             href={`/projects/${project.id}/settings`}
-            className="hidden rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] transition-colors hover:bg-[#1C1C1F] sm:inline-flex"
+            className="hidden rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#A1A1AA] transition-colors hover:bg-[#1C1C1F] sm:inline-flex"
           >
             <Settings className="mr-2 h-4 w-4" />
             {t("settingsTab")}
@@ -250,32 +299,70 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      <div className="mt-6 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-[#27272A]">
-        <nav className="-mb-px flex flex-wrap gap-x-1 gap-y-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
+      {/* Group rail (segmented) + sub-tabs of the active group */}
+      <div className="mt-6 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div
+          role="tablist"
+          aria-label="Sections du projet"
+          className="inline-flex max-w-full overflow-x-auto rounded-lg border border-[#27272A] bg-[#18181B] p-1 scrollbar-hide"
+        >
+          {visibleGroups.map((group) => {
+            const isActive = group.id === activeGroup.id;
+            // Surface the reserves badge on the group when its sub-tabs
+            // are collapsed, so it stays visible from any group.
+            const groupReserves =
+              !isActive && group.tabs.includes("closure") ? openReservesCount : 0;
             return (
               <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                key={group.id}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(group.tabs[0])}
+                className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors ${
                   isActive
-                    ? "border-[#F97316] text-[#F97316]"
-                    : "border-transparent text-[#71717A] hover:border-[#27272A] hover:text-[#FAFAFA]"
+                    ? "bg-[#F97316] text-[#0F0F11]"
+                    : "text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA]"
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                {t(`tab_${tab.key}`)}
-                {tab.key === "closure" && openReservesCount > 0 && (
-                  <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                    {openReservesCount}
+                {groupLabel(group.labelKey)}
+                {groupReserves > 0 && (
+                  <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#EF4444] px-1 text-[10px] font-bold text-white">
+                    {groupReserves}
                   </span>
                 )}
               </button>
             );
           })}
-        </nav>
+        </div>
+
+        <div className="mt-2 border-b border-[#27272A]">
+          <nav className="-mb-px flex gap-x-1 overflow-x-auto scrollbar-hide">
+            {activeGroupTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "border-[#F97316] text-[#F97316]"
+                      : "border-transparent text-[#A1A1AA] hover:border-[#27272A] hover:text-[#FAFAFA]"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {t(`tab_${tab.key}`)}
+                  {tab.key === "closure" && openReservesCount > 0 && (
+                    <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#EF4444] px-1 text-[10px] font-bold text-white">
+                      {openReservesCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
 
       <div className="mt-6">

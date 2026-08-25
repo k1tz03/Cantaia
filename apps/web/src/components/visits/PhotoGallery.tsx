@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import {
   X,
@@ -31,15 +31,6 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
   const [editingCaption, setEditingCaption] = useState<string | null>(null);
   const [captionValue, setCaptionValue] = useState("");
 
-  if (photos.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-[#27272A] py-12 text-center">
-        <Camera className="mx-auto mb-2 h-8 w-8 text-[#71717A]" />
-        <p className="text-sm text-[#71717A]">{t("noPhotos")}</p>
-      </div>
-    );
-  }
-
   // The `audio` bucket is private: the API hands us a signed URL. Keep an
   // empty src rather than a public URL that would 404.
   function getPhotoUrl(photo: VisitPhotoWithUrl) {
@@ -54,12 +45,37 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
     setLightboxIndex(null);
   }
 
-  function navigate(delta: number) {
+  const navigate = useCallback(
+    (delta: number) => {
+      setLightboxIndex((current) => {
+        if (current === null) return current;
+        const newIndex = current + delta;
+        return newIndex >= 0 && newIndex < photos.length ? newIndex : current;
+      });
+    },
+    [photos.length]
+  );
+
+  // Keyboard control for the lightbox: Escape closes, arrows navigate.
+  useEffect(() => {
     if (lightboxIndex === null) return;
-    const newIndex = lightboxIndex + delta;
-    if (newIndex >= 0 && newIndex < photos.length) {
-      setLightboxIndex(newIndex);
-    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxIndex(null);
+      else if (e.key === "ArrowLeft") navigate(-1);
+      else if (e.key === "ArrowRight") navigate(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, navigate]);
+
+  // Early return AFTER all hooks (rules-of-hooks): empty state.
+  if (photos.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-[#27272A] py-12 text-center">
+        <Camera className="mx-auto mb-2 h-8 w-8 text-[#A1A1AA]" />
+        <p className="text-sm text-[#A1A1AA]">{t("noPhotos")}</p>
+      </div>
+    );
   }
 
   function startEditCaption(photo: VisitPhoto) {
@@ -97,7 +113,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
             <button
               type="button"
               onClick={() => openLightbox(index)}
-              className="relative aspect-square w-full overflow-hidden rounded-lg border border-[#27272A] bg-[#27272A] focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="relative aspect-square w-full overflow-hidden rounded-lg border border-[#27272A] bg-[#27272A] focus:outline-none focus:ring-2 focus:ring-[#F97316]"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -108,7 +124,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
               {/* Type badge */}
               <div className={`absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                 photo.photo_type === "handwritten_notes"
-                  ? "bg-purple-500/10 text-purple-700 dark:text-purple-400"
+                  ? "bg-purple-500/10 text-purple-400"
                   : "bg-[#F97316]/10 text-[#F97316]"
               }`}>
                 {photo.photo_type === "handwritten_notes" ? (
@@ -134,16 +150,16 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
                   <button
                     type="button"
                     onClick={() => saveCaption(photo.id)}
-                    className="rounded bg-blue-600 px-2 py-1 text-xs text-white"
+                    className="rounded bg-[#F97316] px-2 py-1 text-xs text-[#0F0F11]"
                   >
                     OK
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-1">
-                  <p className="flex-1 truncate text-xs text-[#71717A]">
+                  <p className="flex-1 truncate text-xs text-[#A1A1AA]">
                     {photo.caption || (
-                      <span className="italic text-[#71717A]">{t("addCaption")}</span>
+                      <span className="italic text-[#A1A1AA]">{t("addCaption")}</span>
                     )}
                   </p>
                   {!readOnly && (
@@ -152,7 +168,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
                       onClick={() => startEditCaption(photo)}
                       className="opacity-0 transition-opacity group-hover:opacity-100"
                     >
-                      <Edit3 className="h-3 w-3 text-[#71717A]" />
+                      <Edit3 className="h-3 w-3 text-[#A1A1AA]" />
                     </button>
                   )}
                 </div>
@@ -178,10 +194,14 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
           onClick={closeLightbox}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("title")}
         >
           <button
             type="button"
             onClick={closeLightbox}
+            aria-label="Fermer"
             className="absolute right-4 top-4 rounded-full bg-[#0F0F11]/10 p-2 text-white hover:bg-[#0F0F11]/20"
           >
             <X className="h-5 w-5" />

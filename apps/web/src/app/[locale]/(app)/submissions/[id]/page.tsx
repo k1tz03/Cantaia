@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { formatCHF } from "@/lib/format";
 import {
@@ -27,7 +28,10 @@ import {
   MessageSquare,
   FileText,
   ChevronRight,
+  Paperclip,
+  Undo2,
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import DOMPurify from "dompurify";
 import MonteCarloChart from "@/components/submissions/MonteCarloChart";
@@ -189,12 +193,22 @@ interface PriceRequestData {
   conditions_text: string | null;
   /** Populated when status === "failed" (migration 082) */
   send_error?: string | null;
+  /** Files the supplier attached to their response (portal upload or email). */
+  attachments?: Array<{ name?: string; file_name?: string }> | null;
+  /** Where the response came from — "portal" | "email" when the column exists. */
+  source?: string | null;
+  response_source?: string | null;
   suppliers?: {
     id: string;
     company_name: string;
     contact_name: string | null;
     email: string | null;
   };
+}
+
+/** Contract: budget_estimate.awarded_request_ids — one award per lot. */
+interface AwardedByGroup {
+  [materialGroup: string]: { request_id: string; amount_ht?: number; awarded_at?: string };
 }
 
 interface QuoteData {
@@ -213,6 +227,7 @@ interface QuoteData {
 type Tab = "items" | "requests" | "comparison" | "budget" | "summary";
 
 export default function SubmissionDetailPage() {
+  const t = useTranslations("submissions");
   const params = useParams();
   const id = params.id as string;
   const [activeTab, setActiveTab] = useState<Tab>("items");
@@ -282,7 +297,7 @@ export default function SubmissionDetailPage() {
     } else if (agent.status === "failed") {
       setSubmission((prev) =>
         prev
-          ? { ...prev, analysis_status: "error", analysis_error: agent.error || "L'agent a échoué" }
+          ? { ...prev, analysis_status: "error", analysis_error: agent.error || t("detail.agentFailed") }
           : prev
       );
       reanalyzeActiveRef.current = false;
@@ -341,7 +356,7 @@ export default function SubmissionDetailPage() {
           }
         } catch {}
         setSubmission((prev) =>
-          prev ? { ...prev, analysis_status: "error", analysis_error: "L'analyse a pris trop de temps. Cliquez sur « Ré-analyser » pour réessayer." } : prev
+          prev ? { ...prev, analysis_status: "error", analysis_error: t("detail.analysisTimeout") } : prev
         );
         clearInterval(interval);
         return;
@@ -405,8 +420,7 @@ export default function SubmissionDetailPage() {
         clearTimeout(prepTimeoutId);
         if (fetchErr.name === "AbortError") {
           throw new Error(
-            "L'analyse a dépassé 3 minutes. Le document est peut-être trop volumineux. " +
-            "Essayez de réduire le nombre de feuilles ou de lignes dans le fichier Excel."
+            t("detail.analysisTooLong")
           );
         }
         throw fetchErr;
@@ -431,7 +445,7 @@ export default function SubmissionDetailPage() {
           await fetchData();
           return;
         }
-        throw new Error(err.error || `Erreur de préparation (HTTP ${prepRes.status})`);
+        throw new Error(err.error || t("detail.prepError", { status: prepRes.status }));
       }
 
       const prep = await prepRes.json();
@@ -468,8 +482,7 @@ export default function SubmissionDetailPage() {
           clearTimeout(timeoutId);
           if (fetchErr.name === "AbortError") {
             throw new Error(
-              `La partie ${chunkIndex + 1}/${totalChunks} a dépassé 120s. ` +
-              `Vérifiez les logs Vercel ou réessayez.`
+              t("detail.chunkTimeout", { index: chunkIndex + 1, total: totalChunks })
             );
           }
           throw fetchErr;
@@ -486,7 +499,14 @@ export default function SubmissionDetailPage() {
 
         if (!chunkRes.ok) {
           const err = await chunkRes.json().catch(() => ({ error: `HTTP ${chunkRes.status}` }));
-          throw new Error(err.error || `Erreur partie ${chunkIndex + 1}/${totalChunks} (HTTP ${chunkRes.status})`);
+          throw new Error(
+            err.error ||
+              t("detail.chunkFailed", {
+                index: chunkIndex + 1,
+                total: totalChunks,
+                status: chunkRes.status,
+              })
+          );
         }
 
         const chunk = await chunkRes.json();
@@ -513,7 +533,7 @@ export default function SubmissionDetailPage() {
       setAnalysisProgress(0);
       setSubmission((prev) =>
         prev
-          ? { ...prev, analysis_status: "error", analysis_error: err.message || "Erreur lors de l'analyse" }
+          ? { ...prev, analysis_status: "error", analysis_error: err.message || t("detail.analysisError") }
           : prev
       );
     } finally {
@@ -599,9 +619,9 @@ export default function SubmissionDetailPage() {
   if (!submission) {
     return (
       <div className="p-6 text-center bg-[#0F0F11]">
-        <h2 className="text-lg font-medium text-[#FAFAFA]">Soumission introuvable</h2>
+        <h2 className="text-lg font-medium text-[#FAFAFA]">{t("detail.notFound")}</h2>
         <Link href="/submissions" className="text-sm text-[#F97316] hover:underline mt-2 inline-block">
-          Retour aux soumissions
+          {t("detail.backToList")}
         </Link>
       </div>
     );
@@ -613,12 +633,12 @@ export default function SubmissionDetailPage() {
   const historyRequests = priceRequests.filter((pr) => pr.sent_at || pr.status === "failed");
 
   const tabs: { key: Tab; label: string; icon: React.ComponentType<any>; count?: number }[] = [
-    { key: "items", label: "Postes", icon: FileSpreadsheet, count: items.length },
-    { key: "requests", label: "Demandes de prix", icon: Send, count: priceRequests.length },
-    { key: "comparison", label: "Analyse comparative", icon: BarChart3, count: quotes.length },
+    { key: "items", label: t("tabItems"), icon: FileSpreadsheet, count: items.length },
+    { key: "requests", label: t("priceRequest"), icon: Send, count: priceRequests.length },
+    { key: "comparison", label: t("tabComparison"), icon: BarChart3, count: quotes.length },
     // HIDDEN: Budget estimation temporarily disabled — prices unreliable
     // { key: "budget", label: "Budget IA", icon: Calculator },
-    { key: "summary", label: "Récapitulatif", icon: ClipboardList },
+    { key: "summary", label: t("detail.tabSummary"), icon: ClipboardList },
   ];
 
   return (
@@ -628,24 +648,24 @@ export default function SubmissionDetailPage() {
         <ProjectBreadcrumb section="submissions" />
         <div className="flex items-center gap-3 mb-3">
           <Link href="/submissions" className="p-1 hover:bg-[#1C1C1F] rounded">
-            <ArrowLeft className="h-4 w-4 text-[#71717A]" />
+            <ArrowLeft className="h-4 w-4 text-[#A1A1AA]" />
           </Link>
           {submission.projects && (
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full" style={{ backgroundColor: submission.projects.color || "#94a3b8" }} />
-              <span className="text-sm text-[#71717A]">{submission.projects.name}</span>
+              <span className="text-sm text-[#A1A1AA]">{submission.projects.name}</span>
             </div>
           )}
         </div>
         <div className="flex items-start justify-between">
           <div>
             <h1 className="font-display text-xl font-extrabold text-[#FAFAFA]">
-              {submission.file_name || "Soumission"}
+              {submission.file_name || t("detail.untitled")}
             </h1>
-            <div className="flex items-center gap-3 mt-2 text-sm text-[#71717A]">
+            <div className="flex items-center gap-3 mt-2 text-sm text-[#A1A1AA]">
               <AnalysisStatusBadge status={submission.analysis_status} />
               {items.length > 0 && (
-                <span>{items.length} postes · {materialGroups.length} groupes</span>
+                <span>{t("detail.itemsAndGroups", { items: items.length, groups: materialGroups.length })}</span>
               )}
               <span>{new Date(submission.created_at).toLocaleDateString("fr-CH")}</span>
             </div>
@@ -668,10 +688,10 @@ export default function SubmissionDetailPage() {
               <button
                 onClick={USE_MANAGED_AGENTS ? handleAgentAnalyze : handleReanalyze}
                 disabled={analyzing || agent.isRunning}
-                className="text-xs px-3 py-1.5 border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] text-[#71717A] flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="text-xs px-3 py-1.5 border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] text-[#A1A1AA] flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <RefreshCw className={`h-3 w-3 ${(analyzing || agent.isRunning) ? "animate-spin" : ""}`} />
-                {submission.analysis_status === "pending" ? "Analyser" : "Ré-analyser"}
+                {submission.analysis_status === "pending" ? t("detail.analyze") : t("detail.reanalyze")}
               </button>
             )}
           </div>
@@ -688,13 +708,13 @@ export default function SubmissionDetailPage() {
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.key
                     ? "text-[#F97316] border-[#F97316] bg-[#18181B]"
-                    : "text-[#71717A] border-transparent hover:text-[#FAFAFA] hover:border-[#27272A]"
+                    : "text-[#A1A1AA] border-transparent hover:text-[#FAFAFA] hover:border-[#27272A]"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab.label}
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="text-[10px] bg-[#27272A] text-[#71717A] px-1.5 py-0.5 rounded-full ml-1">
+                  <span className="text-[10px] bg-[#27272A] text-[#A1A1AA] px-1.5 py-0.5 rounded-full ml-1">
                     {tab.count}
                   </span>
                 )}
@@ -727,9 +747,9 @@ export default function SubmissionDetailPage() {
         <div className="mx-6 mt-6 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center gap-3">
           <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-amber-400">Analyse interrompue</p>
+            <p className="text-sm font-medium text-amber-400">{t("detail.analysisStalled")}</p>
             <p className="text-xs text-amber-500/80">
-              L&apos;analyse précédente ne répond plus. Cliquez sur « Ré-analyser » pour la relancer.
+              {t("detail.analysisStalledHint")}
             </p>
           </div>
         </div>
@@ -742,11 +762,11 @@ export default function SubmissionDetailPage() {
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 text-[#F97316] animate-spin shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[#FAFAFA]">Analyse IA en cours...</p>
+              <p className="text-sm font-medium text-[#FAFAFA]">{t("detail.analysisRunning")}</p>
               <p className="text-xs text-[#F97316]">
                 {analysisProgress > 0
-                  ? `Extraction des postes — ${analysisProgress}% (pages scannées, traitement par lot)`
-                  : "Extraction des postes du descriptif"}
+                  ? t("detail.extractionProgress", { pct: analysisProgress })
+                  : t("detail.extractionStarting")}
               </p>
             </div>
             {analysisProgress > 0 && (
@@ -769,7 +789,7 @@ export default function SubmissionDetailPage() {
         <div className="mx-6 mt-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3">
           <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-red-400">Erreur d&apos;analyse</p>
+            <p className="text-sm font-medium text-red-400">{t("detail.analysisFailedTitle")}</p>
             <p className="text-xs text-red-500">{submission.analysis_error}</p>
           </div>
         </div>
@@ -803,53 +823,20 @@ export default function SubmissionDetailPage() {
                   onClick={() => setSentRequestsCollapsed((p) => !p)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-[#27272A] border-b border-[#27272A] hover:bg-[#27272A]/80 transition-colors"
                 >
-                  <h3 className="text-sm font-medium text-[#FAFAFA]">Demandes envoyées ({historyRequests.length})</h3>
-                  <ChevronDown className={`h-4 w-4 text-[#71717A] transition-transform ${sentRequestsCollapsed ? "" : "rotate-180"}`} />
+                  <h3 className="text-sm font-medium text-[#FAFAFA]">{t("detail.sentRequests", { count: historyRequests.length })}</h3>
+                  <ChevronDown className={`h-4 w-4 text-[#A1A1AA] transition-transform ${sentRequestsCollapsed ? "" : "rotate-180"}`} />
                 </button>
                 {!sentRequestsCollapsed && (
                   <div className="divide-y divide-[#27272A] max-h-[400px] overflow-y-auto">
-                    {historyRequests.map((pr) => {
-                      const hasQuotes = quotes.some((q) => q.request_id === pr.id);
-                      const isResponded = pr.status === "responded" || hasQuotes;
-                      const hasFailed = pr.status === "failed";
-                      return (
-                        <div key={pr.id} className="px-4 py-3 flex items-center gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm text-[#FAFAFA] font-medium truncate">
-                              {pr.suppliers?.company_name || "Fournisseur manuel"}
-                            </div>
-                            <div className="text-xs text-[#71717A] mt-0.5">
-                              {pr.material_group} · {pr.items_requested?.length || 0} postes · Code: {pr.tracking_code}
-                            </div>
-                            {hasFailed && pr.send_error && (
-                              <div className="text-[11px] text-red-400 mt-1">{pr.send_error}</div>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                              hasFailed
-                                ? "bg-red-500/10 text-red-400"
-                                : isResponded
-                                ? "bg-green-500/10 text-green-400"
-                                : "bg-amber-500/10 text-amber-400"
-                            }`}>
-                              {hasFailed ? (
-                                <><AlertCircle className="h-3 w-3" /> Échec d&apos;envoi</>
-                              ) : isResponded ? (
-                                <><CheckCircle2 className="h-3 w-3" /> Répondu</>
-                              ) : (
-                                <><Send className="h-3 w-3" /> En attente</>
-                              )}
-                            </span>
-                            <div className="text-[10px] text-[#71717A] mt-0.5">
-                              {pr.sent_at
-                                ? `Envoyé le ${new Date(pr.sent_at).toLocaleDateString("fr-CH")}`
-                                : "Non envoyé"}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {historyRequests.map((pr) => (
+                      <SentRequestRow
+                        key={pr.id}
+                        submissionId={id}
+                        request={pr}
+                        hasQuotes={quotes.some((q) => q.request_id === pr.id)}
+                        onRefresh={fetchData}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
@@ -875,6 +862,7 @@ export default function SubmissionDetailPage() {
             priceRequests={priceRequests}
             quotes={quotes}
             awardedRequestId={(submission as any).budget_estimate?.awarded_request_id ?? null}
+            awardedRequestIds={(submission as any).budget_estimate?.awarded_request_ids ?? null}
             onRefresh={fetchData}
           />
         )}
@@ -903,17 +891,330 @@ export default function SubmissionDetailPage() {
 
 // ── Analysis status badge ────────────────────────────────────
 function AnalysisStatusBadge({ status }: { status: string }) {
+  const t = useTranslations("submissions");
   const config: Record<string, { label: string; className: string }> = {
-    pending: { label: "En attente", className: "bg-[#27272A] text-[#71717A]" },
-    analyzing: { label: "Analyse en cours...", className: "bg-purple-500/10 text-purple-400" },
-    done: { label: "Analysé", className: "bg-green-500/10 text-green-400" },
-    error: { label: "Erreur", className: "bg-red-500/10 text-red-400" },
+    pending: { label: t("detail.statusPending"), className: "bg-[#27272A] text-[#A1A1AA]" },
+    analyzing: { label: t("detail.statusAnalyzing"), className: "bg-purple-500/10 text-purple-400" },
+    done: { label: t("detail.statusDone"), className: "bg-green-500/10 text-green-400" },
+    error: { label: t("detail.statusError"), className: "bg-red-500/10 text-red-400" },
   };
   const c = config[status] || config.pending;
   return (
     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${c.className}`}>
       {c.label}
     </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Sent price request — status, ageing and one-click reminder
+   ═══════════════════════════════════════════════════════════════ */
+
+/** Whole days elapsed since an ISO timestamp, local time, date-only. */
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return null;
+  const a = new Date(then.getFullYear(), then.getMonth(), then.getDate());
+  const now = new Date();
+  const b = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+/** Whole days until a deadline — negative once it has passed. */
+function daysUntil(iso: string | null): number | null {
+  const elapsed = daysSince(iso);
+  return elapsed === null ? null : -elapsed;
+}
+
+/** "Portail" / "Email" provenance chip — renders nothing when the columns are absent. */
+function ResponseSourceChip({ request }: { request: PriceRequestData }) {
+  const t = useTranslations("submissions");
+  const src = request.response_source || request.source;
+  if (src !== "portal" && src !== "portail" && src !== "email") return null;
+  const isPortal = src !== "email";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+        isPortal
+          ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+          : "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+      }`}
+    >
+      {isPortal ? t("detail.sourcePortal") : t("detail.sourceEmail")}
+    </span>
+  );
+}
+
+/**
+ * "PJ fournisseur (N)" badge. On click, fetches the signed URLs from
+ * GET /api/submissions/[id]/request-attachments and lists them as links
+ * (one window.open per file would be popup-blocked past the first one).
+ */
+function RequestAttachmentsBadge({
+  submissionId,
+  requestId,
+  count,
+  align = "left",
+}: {
+  submissionId: string;
+  requestId: string;
+  count: number;
+  align?: "left" | "right";
+}) {
+  const t = useTranslations("submissions");
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<Array<{
+    name: string;
+    url: string;
+    source?: string;
+    uploaded_at?: string;
+  }> | null>(null);
+
+  const toggle = async () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (files || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/submissions/${submissionId}/request-attachments?request_id=${requestId}`
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setFiles(json.attachments || []);
+    } catch (err: any) {
+      setError(err?.message || t("detail.attachmentsLoadError"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <span className="relative inline-block">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggle();
+        }}
+        className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 px-1.5 py-0.5 rounded-full transition-colors"
+      >
+        <Paperclip className="h-2.5 w-2.5" />
+        {t("detail.supplierAttachments", { count })}
+      </button>
+      {open && (
+        <span
+          className={`absolute top-full mt-1 z-30 block min-w-[220px] max-w-[300px] rounded-lg border border-[#27272A] bg-[#18181B] p-2 shadow-xl text-left ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {loading && (
+            <span className="flex items-center gap-2 px-1 py-1 text-[11px] text-[#A1A1AA]">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {t("detail.emailLoading")}
+            </span>
+          )}
+          {error && !loading && (
+            <span className="block px-1 py-1 text-[11px] text-red-400">{error}</span>
+          )}
+          {!loading && !error && files && files.length === 0 && (
+            <span className="block px-1 py-1 text-[11px] text-[#A1A1AA]">
+              {t("detail.attachmentsLoadError")}
+            </span>
+          )}
+          {!loading &&
+            files?.map((f, i) => (
+              <a
+                key={i}
+                href={f.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded px-1.5 py-1 text-[11px] text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
+              >
+                <Paperclip className="h-2.5 w-2.5 shrink-0 text-blue-400" />
+                <span className="truncate">{f.name}</span>
+              </a>
+            ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function SentRequestRow({
+  submissionId,
+  request: pr,
+  hasQuotes,
+  onRefresh,
+}: {
+  submissionId: string;
+  request: PriceRequestData;
+  hasQuotes: boolean;
+  onRefresh: () => void;
+}) {
+  const t = useTranslations("submissions");
+  const locale = useLocale();
+  const [relancing, setRelancing] = useState(false);
+  const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
+
+  const isResponded = pr.status === "responded" || hasQuotes;
+  const hasFailed = pr.status === "failed";
+  const age = daysSince(pr.sent_at);
+  const untilDeadline = daysUntil(pr.deadline);
+  const overdue = untilDeadline !== null && untilDeadline < 0;
+
+  // /relance existed as 215 lines of dead code with no caller in the product.
+  const handleRelance = async () => {
+    setRelancing(true);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/relance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: pr.id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      // Contract: 429 { reason: "too_soon", retry_after_sec } — a reminder was
+      // already sent recently; tell the user when the next one is allowed.
+      if (res.status === 429 && json?.reason === "too_soon") {
+        setFeedback({
+          kind: "error",
+          message: t("detail.relanceTooSoon", {
+            hours: Math.max(1, Math.ceil((json.retry_after_sec || 3600) / 3600)),
+          }),
+        });
+        return;
+      }
+      if (!res.ok || !json.success) {
+        setFeedback({ kind: "error", message: json?.error || t("detail.relanceFailed") });
+        return;
+      }
+      setFeedback(
+        json.sent
+          ? { kind: "ok", message: t("detail.relanceSent", { n: json.relance_count }) }
+          : { kind: "error", message: json.message || t("detail.relanceNotEmailed") }
+      );
+      onRefresh();
+    } catch (err: any) {
+      setFeedback({ kind: "error", message: err?.message || t("detail.networkError") });
+    } finally {
+      setRelancing(false);
+    }
+  };
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm text-[#FAFAFA] font-medium truncate">
+              {pr.suppliers?.company_name || t("detail.manualSupplier")}
+            </span>
+            {isResponded && <ResponseSourceChip request={pr} />}
+          </div>
+          <div className="text-xs text-[#A1A1AA] mt-0.5">
+            {t("detail.requestMeta", {
+              group: pr.material_group,
+              count: pr.items_requested?.length || 0,
+              code: pr.tracking_code,
+            })}
+          </div>
+          {(pr.attachments?.length || 0) > 0 && (
+            <div className="mt-1">
+              <RequestAttachmentsBadge
+                submissionId={submissionId}
+                requestId={pr.id}
+                count={pr.attachments!.length}
+              />
+            </div>
+          )}
+          {hasFailed && pr.send_error && (
+            <div className="text-[11px] text-red-400 mt-1">{pr.send_error}</div>
+          )}
+        </div>
+
+        {/* Ageing: how long the supplier has been sitting on it, and the deadline */}
+        <div className="hidden sm:block text-right shrink-0 w-32">
+          {age !== null && !hasFailed && (
+            <div className={`text-xs font-medium ${age >= 7 && !isResponded ? "text-amber-400" : "text-[#A1A1AA]"}`}>
+              J+{age}
+            </div>
+          )}
+          {untilDeadline !== null && (
+            <div className={`text-[10px] mt-0.5 ${overdue ? "text-red-400" : "text-[#A1A1AA]"}`}>
+              {overdue
+                ? t("detail.deadlinePassed", { days: Math.abs(untilDeadline) })
+                : t("detail.deadlineIn", { days: untilDeadline })}
+            </div>
+          )}
+          {(pr.relance_count || 0) > 0 && (
+            <div className="text-[10px] text-[#A1A1AA] mt-0.5">
+              {t("detail.relanceCount", { count: pr.relance_count })}
+            </div>
+          )}
+        </div>
+
+        <div className="text-right shrink-0">
+          <span
+            className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+              hasFailed
+                ? "bg-red-500/10 text-red-400"
+                : isResponded
+                  ? "bg-green-500/10 text-green-400"
+                  : "bg-amber-500/10 text-amber-400"
+            }`}
+          >
+            {hasFailed ? (
+              <><AlertCircle className="h-3 w-3" /> {t("detail.sendFailed")}</>
+            ) : isResponded ? (
+              <><CheckCircle2 className="h-3 w-3" /> {t("responded")}</>
+            ) : (
+              <><Send className="h-3 w-3" /> {t("waiting")}</>
+            )}
+          </span>
+          <div className="text-[10px] text-[#A1A1AA] mt-0.5">
+            {pr.sent_at
+              ? t("detail.sentOn", { date: new Date(pr.sent_at).toLocaleDateString(locale) })
+              : t("detail.notSent")}
+          </div>
+        </div>
+
+        {!isResponded && !hasFailed && (
+          <button
+            type="button"
+            onClick={handleRelance}
+            disabled={relancing}
+            className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#27272A] text-xs font-medium text-[#FAFAFA] hover:bg-[#1C1C1F] hover:border-[#3F3F46] transition-colors disabled:opacity-50"
+            title={t("detail.relanceTooltip")}
+          >
+            {relancing ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3 text-amber-400" />
+            )}
+            {t("detail.relance")}
+          </button>
+        )}
+      </div>
+
+      {feedback && (
+        <div
+          className={`mt-2 text-[11px] ${
+            feedback.kind === "ok" ? "text-emerald-400" : "text-red-400"
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -937,6 +1238,7 @@ function ItemsTabContent({
   submissionId: string;
   onBudgetCalculated?: (budget: BudgetResult, feedback?: FeedbackStats | null) => void;
 }) {
+  const t = useTranslations("submissions");
   const [estimatingBudget, setEstimatingBudget] = useState(false);
   // Build maps for budget estimate lookup: by item_id (primary) + item_number (fallback after re-analysis)
   const budgetByIdMap = new Map<string, BudgetEstimate>();
@@ -953,9 +1255,9 @@ function ItemsTabContent({
   if (items.length === 0) {
     return (
       <div className="text-center py-16">
-        <FileSpreadsheet className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
-        <p className="text-sm text-[#71717A]">Aucun poste extrait</p>
-        <p className="text-xs text-[#71717A] mt-1">Lancez l'analyse IA pour extraire les postes du descriptif</p>
+        <FileSpreadsheet className="h-12 w-12 text-[#A1A1AA] mx-auto mb-3" />
+        <p className="text-sm text-[#A1A1AA]">{t("detail.noItemsExtracted")}</p>
+        <p className="text-xs text-[#A1A1AA] mt-1">{t("detail.noItemsExtractedHint")}</p>
       </div>
     );
   }
@@ -994,8 +1296,8 @@ function ItemsTabContent({
           <div className="flex items-center gap-3">
             <Calculator className="h-5 w-5 text-[#F97316] shrink-0" />
             <div>
-              <p className="text-sm font-medium text-[#FAFAFA]">Estimer les prix de cette soumission</p>
-              <p className="text-xs text-[#F97316]">Utilise vos offres fournisseurs, le référentiel CRB 2025 et l&apos;IA pour estimer chaque poste</p>
+              <p className="text-sm font-medium text-[#FAFAFA]">{t("detail.estimateTitle")}</p>
+              <p className="text-xs text-[#F97316]">{t("detail.estimateHint")}</p>
             </div>
           </div>
           <button
@@ -1028,14 +1330,14 @@ function ItemsTabContent({
               className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#1C1C1F]"
             >
               <div className="flex items-center gap-3">
-                <svg className={`h-4 w-4 text-[#71717A] transition-transform ${expanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <svg className={`h-4 w-4 text-[#A1A1AA] transition-transform ${expanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 <span className="text-sm font-medium text-[#FAFAFA]">{group}</span>
-                <span className="text-xs text-[#71717A]">{groupItems.length} postes</span>
+                <span className="text-xs text-[#A1A1AA]">{t("detail.itemCount", { count: groupItems.length })}</span>
               </div>
               <div className="flex items-center gap-3">
                 {quotedCount > 0 && (
                   <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
-                    {quotedCount}/{groupItems.length} cotés
+                    {t("detail.quotedRatio", { quoted: quotedCount, total: groupItems.length })}
                   </span>
                 )}
                 {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
@@ -1050,11 +1352,11 @@ function ItemsTabContent({
               <div className="border-t border-[#27272A] overflow-x-auto">
                 <table className="w-full min-w-[600px]">
                   <thead>
-                    <tr className="bg-[#27272A] text-[11px] font-medium text-[#71717A] uppercase">
+                    <tr className="bg-[#27272A] text-[11px] font-medium text-[#A1A1AA] uppercase">
                       <th className="text-left px-4 py-2 w-20">N°</th>
-                      <th className="text-left px-4 py-2">Description</th>
-                      <th className="text-center px-4 py-2 w-16">Unité</th>
-                      <th className="text-right px-4 py-2 w-20">Quantité</th>
+                      <th className="text-left px-4 py-2">{t("description")}</th>
+                      <th className="text-center px-4 py-2 w-16">{t("unit")}</th>
+                      <th className="text-right px-4 py-2 w-20">{t("quantity")}</th>
                       <th className="text-center px-4 py-2 w-20">CFC</th>
                       {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
                       {false && hasBudget && <th className="text-right px-4 py-2 w-24">PU Méd.</th>}
@@ -1076,7 +1378,7 @@ function ItemsTabContent({
 
                       return (
                         <tr key={item.id} className="hover:bg-[#1C1C1F] text-sm">
-                          <td className="px-4 py-2 text-xs font-mono text-[#71717A]">{item.item_number || "—"}</td>
+                          <td className="px-4 py-2 text-xs font-mono text-[#A1A1AA]">{item.item_number || "—"}</td>
                           <td className="px-4 py-2 text-[#FAFAFA]">
                             <div>{item.description}</div>
                             {item.product_name && (
@@ -1085,8 +1387,8 @@ function ItemsTabContent({
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-2 text-center text-xs text-[#71717A]">{item.unit || "—"}</td>
-                          <td className="px-4 py-2 text-right text-[#71717A]">
+                          <td className="px-4 py-2 text-center text-xs text-[#A1A1AA]">{item.unit || "—"}</td>
+                          <td className="px-4 py-2 text-right text-[#A1A1AA]">
                             {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
                           </td>
                           <td className="px-4 py-2 text-center">
@@ -1103,7 +1405,7 @@ function ItemsTabContent({
                             </td>
                           )}
                           {false && hasBudget && (
-                            <td className="px-4 py-2 text-right text-[#71717A]">
+                            <td className="px-4 py-2 text-right text-[#A1A1AA]">
                               {totalPrice != null ? formatCHF(totalPrice as number) : "—"}
                             </td>
                           )}
@@ -1130,7 +1432,7 @@ function ItemsTabContent({
                                 IA
                               </span>
                             ) : (
-                              <span className="text-[10px] font-medium bg-[#27272A] text-[#71717A] px-1.5 py-0.5 rounded-full">
+                              <span className="text-[10px] font-medium bg-[#27272A] text-[#A1A1AA] px-1.5 py-0.5 rounded-full">
                                 En attente
                               </span>
                             )}
@@ -1159,6 +1461,7 @@ function ComparisonTabContent({
   priceRequests,
   quotes,
   awardedRequestId,
+  awardedRequestIds,
   onRefresh,
 }: {
   submissionId: string;
@@ -1168,9 +1471,18 @@ function ComparisonTabContent({
   priceRequests: PriceRequestData[];
   quotes: QuoteData[];
   awardedRequestId: string | null;
+  awardedRequestIds: AwardedByGroup | null;
   onRefresh: () => void;
 }) {
+  const t = useTranslations("submissions");
   const [confirmAward, setConfirmAward] = useState<{ requestId: string; supplierName: string } | null>(null);
+  const [confirmUnaward, setConfirmUnaward] = useState<{ requestId: string; supplierName: string } | null>(null);
+  const [unawarding, setUnawarding] = useState(false);
+  // Award side effects — opt-in, defaulted to the useful case (order + winner
+  // informed), while the rejection mails and the accounting write stay explicit.
+  const [notifyAwarded, setNotifyAwarded] = useState(true);
+  const [notifyRejected, setNotifyRejected] = useState(false);
+  const [updatePurchaseCosts, setUpdatePurchaseCosts] = useState(true);
   const [awarding, setAwarding] = useState(false);
   const [awardError, setAwardError] = useState<string | null>(null);
   const [awardSuccess, setAwardSuccess] = useState<string | null>(null);
@@ -1219,6 +1531,7 @@ function ComparisonTabContent({
     setExtracting(true);
     setExtractResult(null);
     let totalExtracted = 0;
+    const failures: string[] = [];
     try {
       for (const pr of respondedWithoutQuotes) {
         const res = await fetch("/api/submissions/receive-quote", {
@@ -1226,16 +1539,34 @@ function ComparisonTabContent({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tracking_code: pr.tracking_code }),
         });
+        // Credits ran out mid-loop: the paywall opened — hammering the
+        // remaining requests would only produce more 402s.
+        if (await handleInsufficientCredits(res)) break;
         if (res.ok) {
           const json = await res.json();
           totalExtracted += json.quotes_extracted || 0;
+        } else {
+          const json = await res.json().catch(() => ({}));
+          failures.push(
+            `${pr.suppliers?.company_name || pr.tracking_code}: ${json?.error || `HTTP ${res.status}`}`
+          );
         }
       }
-      setExtractResult(totalExtracted > 0 ? `${totalExtracted} prix extraits` : "Aucun prix trouvé dans les emails");
+      const parts: string[] = [
+        totalExtracted > 0
+          ? t("detail.pricesExtracted", { count: totalExtracted })
+          : t("detail.noPricesFound"),
+      ];
+      if (failures.length > 0) {
+        parts.push(t("detail.errorWithMessage", { message: failures.join(" · ") }));
+      }
+      setExtractResult(parts.join(" — "));
       onRefresh();
     } catch (err: any) {
-      setExtractResult(`Erreur: ${err.message}`);
+      setExtractResult(t("detail.errorWithMessage", { message: err.message }));
     } finally {
+      // The loop consumed credits even when it ended early or in error.
+      notifyCreditsChanged();
       setExtracting(false);
     }
   };
@@ -1248,11 +1579,21 @@ function ComparisonTabContent({
       const res = await fetch(`/api/submissions/${submissionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "award", price_request_id: confirmAward.requestId }),
+        body: JSON.stringify({
+          action: "award",
+          price_request_id: confirmAward.requestId,
+          notify_awarded: notifyAwarded,
+          notify_rejected: notifyRejected,
+          update_purchase_costs: updatePurchaseCosts,
+        }),
       });
       const json = await res.json();
+      // 409: another tab (or user) awarded this lot in the meantime.
+      if (res.status === 409) {
+        throw new Error(t("detail.lotAlreadyAwarded"));
+      }
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Erreur lors de l'attribution");
+        throw new Error(json.error || t("detail.awardError"));
       }
 
       // Learning loop: an award is the ground truth that calibrates future estimates.
@@ -1271,15 +1612,91 @@ function ComparisonTabContent({
         }).catch((err) => console.warn("[award] auto-calibrate call failed (non-blocking):", err));
       }
 
-      setAwardSuccess(`Fournisseur "${confirmAward.supplierName}" attribué`);
+      // Report exactly what happened — the checkboxes promise side effects, so
+      // a silent partial failure (no mailbox, no prices) must be visible.
+      const lines: string[] = [t("detail.awardDone", { supplier: confirmAward.supplierName })];
+      if (json.order_reference) {
+        lines.push(t("detail.orderGenerated", { reference: json.order_reference }));
+      } else if (json.warning) {
+        lines.push(json.warning);
+      }
+      if (json.notifications?.awarded?.attempted) {
+        lines.push(
+          json.notifications.awarded.sent
+            ? t("detail.awardMailSent")
+            : t("detail.awardMailFailed", {
+                error: json.notifications.awarded.error || t("detail.unknownError"),
+              })
+        );
+      }
+      const rejected = json.notifications?.rejected;
+      if (rejected?.attempted > 0) {
+        lines.push(t("detail.rejectionMailsSent", { sent: rejected.sent, total: rejected.attempted }));
+        for (const e of rejected.errors || []) lines.push(e);
+      }
+      if (json.purchase_costs?.updated) {
+        lines.push(t("detail.purchaseCostsUpdated", { amount: formatCHF(json.purchase_costs.total) }));
+      } else if (updatePurchaseCosts) {
+        lines.push(
+          t("detail.purchaseCostsFailed", {
+            error: json.purchase_costs?.error || t("detail.unknownError"),
+          })
+        );
+      }
+
+      setAwardSuccess(lines.join("\n"));
       setConfirmAward(null);
       onRefresh();
-      setTimeout(() => setAwardSuccess(null), 4000);
+      setTimeout(() => setAwardSuccess(null), 12000);
     } catch (err: any) {
-      setAwardError(err.message || "Erreur inconnue");
+      setAwardError(err.message || t("detail.unknownError"));
     } finally {
       setAwarding(false);
     }
+  };
+
+  /** Undo an award on one lot (PATCH action:"unaward"). */
+  const handleUnaward = async () => {
+    if (!confirmUnaward) return;
+    setUnawarding(true);
+    setAwardError(null);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "unaward",
+          price_request_id: confirmUnaward.requestId,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error || t("detail.unawardError"));
+      }
+      onRefresh();
+    } catch (err: any) {
+      setAwardError(err.message || t("detail.unawardError"));
+    } finally {
+      setUnawarding(false);
+      setConfirmUnaward(null);
+    }
+  };
+
+  /**
+   * Award resolved PER LOT (material_group). Contract:
+   * budget_estimate.awarded_request_ids = { [group]: { request_id, ... } },
+   * with the legacy single awarded_request_id still written alongside. When only
+   * the legacy field exists, it blocks nothing but its own lot — found via the
+   * request it points to.
+   */
+  const getGroupAwardId = (group: string): string | null => {
+    const entry = awardedRequestIds?.[group];
+    if (entry?.request_id) return entry.request_id;
+    if (awardedRequestId) {
+      const legacyReq = priceRequests.find((r) => r.id === awardedRequestId);
+      if (legacyReq && legacyReq.material_group === group) return awardedRequestId;
+    }
+    return null;
   };
 
   const openEmailModal = async (requestId: string, supplierName: string) => {
@@ -1290,14 +1707,14 @@ function ComparisonTabContent({
     try {
       const res = await fetch(`/api/submissions/${submissionId}/supplier-email?request_id=${requestId}`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Erreur");
+      if (!res.ok) throw new Error(json.error || t("detail.genericError"));
       if (json.email) {
         setEmailData(json.email);
       } else {
-        setEmailError("Aucun email de réponse trouvé pour ce fournisseur");
+        setEmailError(t("detail.noReplyEmail"));
       }
     } catch (err: any) {
-      setEmailError(err.message || "Erreur lors du chargement de l'email");
+      setEmailError(err.message || t("detail.emailLoadError"));
     } finally {
       setEmailLoading(false);
     }
@@ -1307,23 +1724,25 @@ function ComparisonTabContent({
     const hasRespondedRequests = respondedWithoutQuotes.length > 0;
     return (
       <div className="text-center py-16">
-        <BarChart3 className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
-        <p className="text-sm text-[#71717A]">
-          {hasRespondedRequests ? `${respondedWithoutQuotes.length} réponse(s) reçue(s) — prix non encore extraits` : "Aucune offre reçue"}
-        </p>
-        <p className="text-xs text-[#71717A] mt-1">
+        <BarChart3 className="h-12 w-12 text-[#A1A1AA] mx-auto mb-3" />
+        <p className="text-sm text-[#A1A1AA]">
           {hasRespondedRequests
-            ? "Cliquez ci-dessous pour extraire automatiquement les prix des emails de réponse"
-            : "Les résultats apparaîtront ici après réception des réponses fournisseurs"}
+            ? t("detail.responsesWithoutPrices", { count: respondedWithoutQuotes.length })
+            : t("detail.noOffers")}
+        </p>
+        <p className="text-xs text-[#A1A1AA] mt-1">
+          {hasRespondedRequests
+            ? t("detail.extractHint")
+            : t("detail.awaitingResponses")}
         </p>
         {hasRespondedRequests && (
           <button
             onClick={handleExtractPrices}
             disabled={extracting}
-            className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg disabled:opacity-50 inline-flex items-center gap-2"
+            className="mt-4 px-4 py-2 text-sm font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg disabled:opacity-50 inline-flex items-center gap-2"
           >
             {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-            {extracting ? "Extraction en cours..." : "Extraire les prix"}
+            {extracting ? t("detail.extracting") : t("detail.extractPrices")}
           </button>
         )}
         {extractResult && (
@@ -1337,7 +1756,7 @@ function ComparisonTabContent({
   // Use effectivelyResponded (status "responded" OR has quotes) instead of just status filter
   const supplierNames: Record<string, string> = {};
   for (const pr of effectivelyResponded) {
-    supplierNames[pr.id] = pr.suppliers?.company_name || "Fournisseur";
+    supplierNames[pr.id] = pr.suppliers?.company_name || t("wizard.supplier");
   }
 
   // ── Export helpers ──────────────────────────────────────────
@@ -1508,24 +1927,43 @@ function ComparisonTabContent({
       {/* Toolbar: search + export */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A1A1AA]" />
           <input
             type="text"
-            placeholder="Rechercher par description, n° poste, code CFC..."
+            placeholder={t("detail.comparisonSearchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-[#18181B] border border-[#27272A] rounded-lg text-[#FAFAFA] placeholder:text-[#52525B] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/30"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-[#18181B] border border-[#27272A] rounded-lg text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/30"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#71717A] hover:text-[#FAFAFA]">
+            <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A1A1AA] hover:text-[#FAFAFA]">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
         {searchQuery && (
-          <span className="text-xs text-[#71717A]">{filteredItems.length} résultat(s)</span>
+          <span className="text-xs text-[#A1A1AA]">{t("detail.resultCount", { count: filteredItems.length })}</span>
         )}
         <div className="flex gap-2 sm:ml-auto">
+          {/* The extraction button used to live ONLY in the empty state, so it
+              vanished as soon as the first offer was parsed — every later offer
+              had to be extracted by deleting quotes or waiting. It now stays
+              available for as long as a response has unextracted prices. */}
+          {respondedWithoutQuotes.length > 0 && (
+            <button
+              onClick={handleExtractPrices}
+              disabled={extracting}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50"
+              title={t("detail.responsesWithoutPrices", { count: respondedWithoutQuotes.length })}
+            >
+              {extracting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Database className="h-3.5 w-3.5" />
+              )}
+              {extracting ? t("detail.extracting") : t("detail.extractPricesCount", { count: respondedWithoutQuotes.length })}
+            </button>
+          )}
           <button
             onClick={handleExportExcel}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#FAFAFA] border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] transition-colors"
@@ -1543,11 +1981,22 @@ function ComparisonTabContent({
         </div>
       </div>
 
+      {/* Extraction feedback (toolbar button) */}
+      {extractResult && (
+        <div className="bg-[#18181B] border border-[#27272A] rounded-lg px-4 py-2.5 flex items-center gap-2 text-xs text-[#A1A1AA]">
+          <Database className="h-3.5 w-3.5 shrink-0 text-[#F97316]" />
+          {extractResult}
+          <button onClick={() => setExtractResult(null)} className="ml-auto" aria-label={t("wizard.close")}>
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Award success banner */}
       {awardSuccess && (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-emerald-400">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {awardSuccess}
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3 flex items-start gap-2 text-sm text-emerald-400">
+          <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+          <span className="whitespace-pre-line">{awardSuccess}</span>
         </div>
       )}
       {/* Award error banner */}
@@ -1563,11 +2012,61 @@ function ComparisonTabContent({
       {confirmAward && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-[#18181B] rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <h3 className="text-base font-semibold text-[#FAFAFA] mb-2">Attribuer la soumission</h3>
-            <p className="text-sm text-[#71717A] mb-5">
-              Attribuer cette soumission à <strong>{confirmAward.supplierName}</strong> ?
-              Les autres fournisseurs seront marqués comme non retenus.
+            <h3 className="text-base font-semibold text-[#FAFAFA] mb-2">{t("detail.awardTitle")}</h3>
+            <p className="text-sm text-[#A1A1AA] mb-4">
+              {t.rich("detail.awardQuestion", {
+                supplier: confirmAward.supplierName,
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </p>
+
+            <div className="mb-5 space-y-2.5 rounded-lg border border-[#27272A] bg-[#1C1C1F] p-3">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifyAwarded}
+                  onChange={(e) => setNotifyAwarded(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 accent-[#F97316]"
+                />
+                <span className="text-xs text-[#FAFAFA]">
+                  {t("detail.awardNotifyWinner")}
+                  <span className="block text-[11px] text-[#A1A1AA]">
+                    {t("detail.awardNotifyWinnerHint")}
+                  </span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifyRejected}
+                  onChange={(e) => setNotifyRejected(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 accent-[#F97316]"
+                />
+                <span className="text-xs text-[#FAFAFA]">
+                  {t("detail.awardNotifyLosers")}
+                  <span className="block text-[11px] text-[#A1A1AA]">
+                    {t("detail.awardNotifyLosersHint")}
+                  </span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={updatePurchaseCosts}
+                  onChange={(e) => setUpdatePurchaseCosts(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 accent-[#F97316]"
+                />
+                <span className="text-xs text-[#FAFAFA]">
+                  {t("detail.awardUpdateCosts")}
+                  <span className="block text-[11px] text-[#A1A1AA]">
+                    {t("detail.awardUpdateCostsHint")}
+                  </span>
+                </span>
+              </label>
+            </div>
+
             {awardError && (
               <div className="mb-4 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-xs text-red-400 flex items-center gap-2">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />
@@ -1580,7 +2079,7 @@ function ComparisonTabContent({
                 disabled={awarding}
                 className="px-4 py-2 text-sm font-medium text-[#FAFAFA] border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] disabled:opacity-50"
               >
-                Annuler
+                {t("detail.cancel")}
               </button>
               <button
                 onClick={handleAward}
@@ -1588,12 +2087,26 @@ function ComparisonTabContent({
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50 flex items-center gap-2"
               >
                 {awarding && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Attribuer
+                {t("detail.award")}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Confirm unaward dialog */}
+      <ConfirmDialog
+        open={!!confirmUnaward}
+        onClose={() => {
+          if (!unawarding) setConfirmUnaward(null);
+        }}
+        onConfirm={handleUnaward}
+        title={t("detail.unaward")}
+        description={t("detail.unawardQuestion", {
+          supplier: confirmUnaward?.supplierName || "",
+        })}
+        variant="danger"
+      />
 
       {/* Supplier email modal */}
       {emailModal && (
@@ -1606,11 +2119,11 @@ function ComparisonTabContent({
                   <Mail className="h-4 w-4 text-[#F97316]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-[#FAFAFA]">Email de réponse</h3>
-                  <p className="text-xs text-[#71717A]">{emailModal.supplierName}</p>
+                  <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("detail.replyEmail")}</h3>
+                  <p className="text-xs text-[#A1A1AA]">{emailModal.supplierName}</p>
                 </div>
               </div>
-              <button onClick={() => setEmailModal(null)} className="text-[#71717A] hover:text-[#FAFAFA] transition-colors">
+              <button onClick={() => setEmailModal(null)} className="text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1620,14 +2133,14 @@ function ComparisonTabContent({
               {emailLoading && (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" />
-                  <span className="ml-2 text-sm text-[#71717A]">Chargement de l'email...</span>
+                  <span className="ml-2 text-sm text-[#A1A1AA]">{t("detail.emailLoading")}</span>
                 </div>
               )}
               {emailError && !emailLoading && (
                 <div className="text-center py-12">
-                  <Mail className="h-10 w-10 text-[#52525B] mx-auto mb-3" />
-                  <p className="text-sm text-[#71717A]">{emailError}</p>
-                  <p className="text-xs text-[#52525B] mt-1">L'email de réponse n'a pas pu être retrouvé.</p>
+                  <Mail className="h-10 w-10 text-[#A1A1AA] mx-auto mb-3" />
+                  <p className="text-sm text-[#A1A1AA]">{emailError}</p>
+                  <p className="text-xs text-[#A1A1AA] mt-1">{t("detail.emailNotFound")}</p>
                 </div>
               )}
               {emailData && !emailLoading && (
@@ -1635,20 +2148,20 @@ function ComparisonTabContent({
                   {/* Email metadata */}
                   <div className="space-y-2">
                     <div className="flex items-start gap-2">
-                      <span className="text-xs text-[#71717A] w-12 shrink-0 pt-0.5">De</span>
+                      <span className="text-xs text-[#A1A1AA] w-12 shrink-0 pt-0.5">{t("detail.mailFrom")}</span>
                       <div>
                         <span className="text-sm text-[#FAFAFA]">{emailData.sender_name || emailData.sender_email}</span>
                         {emailData.sender_name && (
-                          <span className="text-xs text-[#71717A] ml-2">&lt;{emailData.sender_email}&gt;</span>
+                          <span className="text-xs text-[#A1A1AA] ml-2">&lt;{emailData.sender_email}&gt;</span>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-[#71717A] w-12 shrink-0">Objet</span>
+                      <span className="text-xs text-[#A1A1AA] w-12 shrink-0">{t("detail.mailSubject")}</span>
                       <span className="text-sm text-[#FAFAFA] font-medium">{emailData.subject}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-[#71717A] w-12 shrink-0">Date</span>
+                      <span className="text-xs text-[#A1A1AA] w-12 shrink-0">{t("detail.mailDate")}</span>
                       <span className="text-xs text-[#A1A1AA]">
                         {new Date(emailData.received_at).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </span>
@@ -1669,7 +2182,7 @@ function ComparisonTabContent({
                     ) : emailData.body_text ? (
                       <pre className="whitespace-pre-wrap font-sans">{emailData.body_text}</pre>
                     ) : (
-                      <p className="text-[#71717A] italic">Contenu de l'email non disponible</p>
+                      <p className="text-[#A1A1AA] italic">{t("detail.emailBodyUnavailable")}</p>
                     )}
                   </div>
                 </div>
@@ -1684,11 +2197,18 @@ function ComparisonTabContent({
         const groupRequests = effectivelyResponded.filter((pr) => pr.material_group === group);
         if (groupRequests.length === 0 || groupItems.length === 0) return null;
 
+        // Award state is PER LOT — one lot being awarded must not freeze the others.
+        const groupAwardId = getGroupAwardId(group);
+        // Totals/coverage run over the full lot, not the search-filtered rows.
+        const allGroupItems = items.filter((i) => i.material_group === group);
+
         return (
           <div key={group} className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
             <div className="px-4 py-3 bg-[#27272A] border-b border-[#27272A] flex items-center gap-3">
               <span className="text-sm font-medium text-[#FAFAFA]">{group}</span>
-              <span className="text-xs text-[#71717A]">{groupRequests.length} offre(s) · {groupItems.length} poste(s)</span>
+              <span className="text-xs text-[#A1A1AA]">
+                {t("detail.offersAndItems", { offers: groupRequests.length, items: groupItems.length })}
+              </span>
             </div>
 
             {/* Conditions banners per supplier for this group */}
@@ -1698,7 +2218,9 @@ function ComparisonTabContent({
                   <div key={`cond-${pr.id}`} className="flex items-start gap-2.5 bg-amber-500/5 border border-amber-500/15 rounded-lg px-3 py-2">
                     <FileText className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <span className="text-[11px] font-medium text-amber-400">{supplierNames[pr.id]} — Conditions</span>
+                      <span className="text-[11px] font-medium text-amber-400">
+                        {t("detail.supplierConditions", { supplier: supplierNames[pr.id] })}
+                      </span>
                       <p className="text-xs text-[#A1A1AA] mt-0.5 whitespace-pre-line leading-relaxed">{pr.conditions_text}</p>
                     </div>
                   </div>
@@ -1709,38 +2231,87 @@ function ComparisonTabContent({
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px]">
                 <thead>
-                  <tr className="border-b border-[#27272A] text-[11px] font-medium text-[#71717A] uppercase">
-                    <th className="text-left px-3 py-2 sticky left-0 bg-[#18181B] z-10 min-w-[280px]">Description</th>
-                    <th className="text-center px-2 py-2 w-12">Unité</th>
-                    <th className="text-right px-2 py-2 w-16">Qté</th>
+                  <tr className="border-b border-[#27272A] text-[11px] font-medium text-[#A1A1AA] uppercase">
+                    <th className="text-left px-3 py-2 sticky left-0 bg-[#18181B] z-10 min-w-[280px]">{t("description")}</th>
+                    <th className="text-center px-2 py-2 w-12">{t("unit")}</th>
+                    <th className="text-right px-2 py-2 w-16">{t("detail.qtyShort")}</th>
                     {groupRequests.map((pr) => {
-                      const isAwarded = awardedRequestId === pr.id;
-                      const hasAward = !!awardedRequestId;
+                      const isAwarded = groupAwardId === pr.id;
+                      const hasAward = !!groupAwardId;
+                      // Coverage: quoted items vs items requested from THIS supplier.
+                      const quotedCount = allGroupItems.filter((item) =>
+                        quotes.some(
+                          (q) =>
+                            q.request_id === pr.id &&
+                            q.item_id === item.id &&
+                            q.unit_price_ht != null
+                        )
+                      ).length;
+                      const requestedCount = pr.items_requested?.length || allGroupItems.length;
                       return (
                         <th key={pr.id} className={`px-3 py-2 w-32 ${isAwarded ? "bg-emerald-500/10" : ""}`}>
                           <div className="text-xs font-medium text-[#FAFAFA] text-right">{supplierNames[pr.id]}</div>
+                          <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
+                            <span
+                              className="inline-flex text-[9px] font-medium text-[#A1A1AA] bg-[#27272A] px-1.5 py-0.5 rounded-full normal-case"
+                              title={t("detail.coverage", { quoted: quotedCount, requested: requestedCount })}
+                            >
+                              {t("detail.coverage", { quoted: quotedCount, requested: requestedCount })}
+                            </span>
+                            <ResponseSourceChip request={pr} />
+                            {(pr.attachments?.length || 0) > 0 && (
+                              <RequestAttachmentsBadge
+                                submissionId={submissionId}
+                                requestId={pr.id}
+                                count={pr.attachments!.length}
+                                align="right"
+                              />
+                            )}
+                          </div>
                           {isAwarded ? (
-                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full mt-0.5">
-                              <CheckCircle2 className="h-2.5 w-2.5" />
-                              Attribué
+                            <span className="inline-flex flex-col items-end gap-1 mt-1">
+                              <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                                <CheckCircle2 className="h-2.5 w-2.5" />
+                                {t("awarded")}
+                              </span>
+                              <a
+                                href={`/api/submissions/${submissionId}/purchase-order?request_id=${pr.id}`}
+                                className="inline-flex items-center gap-1 text-[9px] font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                                title={t("detail.downloadOrder")}
+                              >
+                                <FileDown className="h-2.5 w-2.5" />
+                                {t("detail.purchaseOrder")}
+                              </a>
+                              {/* Discreet undo — awards happen on the wrong line too */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setConfirmUnaward({ requestId: pr.id, supplierName: supplierNames[pr.id] })
+                                }
+                                className="inline-flex items-center gap-1 text-[9px] font-medium text-[#A1A1AA] hover:text-red-400 transition-colors normal-case"
+                                title={t("detail.unaward")}
+                              >
+                                <Undo2 className="h-2.5 w-2.5" />
+                                {t("detail.unaward")}
+                              </button>
                             </span>
                           ) : hasAward ? (
-                            <span className="inline-flex text-[9px] font-medium text-[#71717A] bg-[#27272A] px-1.5 py-0.5 rounded-full mt-0.5">
-                              Non retenu
+                            <span className="inline-flex text-[9px] font-medium text-[#A1A1AA] bg-[#27272A] px-1.5 py-0.5 rounded-full mt-1">
+                              {t("detail.notRetained")}
                             </span>
                           ) : (
                             <button
                               type="button"
                               onClick={() => setConfirmAward({ requestId: pr.id, supplierName: supplierNames[pr.id] })}
-                              className="mt-0.5 text-[9px] font-medium text-emerald-400 border border-emerald-500/30 bg-[#18181B] hover:bg-emerald-500/10 px-1.5 py-0.5 rounded-full transition-colors"
+                              className="mt-1 text-[9px] font-medium text-emerald-400 border border-emerald-500/30 bg-[#18181B] hover:bg-emerald-500/10 px-1.5 py-0.5 rounded-full transition-colors"
                             >
-                              Attribuer
+                              {t("detail.award")}
                             </button>
                           )}
                         </th>
                       );
                     })}
-                    <th className="text-right px-3 py-2 w-20 bg-[#27272A]">Ecart</th>
+                    <th className="text-right px-3 py-2 w-20 bg-[#27272A]">{t("detail.gapHeader")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#27272A]">
@@ -1763,7 +2334,7 @@ function ComparisonTabContent({
                           <td className="px-3 py-2 sticky left-0 bg-[#18181B] z-10">
                             <div className="flex items-start gap-1.5">
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs font-mono text-[#71717A]">{item.item_number}</div>
+                                <div className="text-xs font-mono text-[#A1A1AA]">{item.item_number}</div>
                                 <div className="text-sm text-[#FAFAFA] whitespace-normal">{item.description}</div>
                               </div>
                               {hasRemarks && (
@@ -1771,7 +2342,7 @@ function ComparisonTabContent({
                                   type="button"
                                   onClick={() => toggleRemarks(item.id)}
                                   className="shrink-0 mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-1.5 py-0.5 rounded-full transition-colors"
-                                  title="Voir les remarques fournisseurs"
+                                  title={t("detail.showRemarks")}
                                 >
                                   <MessageSquare className="h-2.5 w-2.5" />
                                   {itemRemarks.length}
@@ -1780,8 +2351,8 @@ function ComparisonTabContent({
                               )}
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center text-xs text-[#71717A]">{item.unit}</td>
-                          <td className="px-2 py-2 text-right text-[#71717A] text-xs">
+                          <td className="px-2 py-2 text-center text-xs text-[#A1A1AA]">{item.unit}</td>
+                          <td className="px-2 py-2 text-right text-[#A1A1AA] text-xs">
                             {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
                           </td>
                           {prices.map((p) => {
@@ -1793,14 +2364,14 @@ function ComparisonTabContent({
                                 key={p.requestId}
                                 onClick={() => {
                                   if (p.price !== null && prReq) {
-                                    openEmailModal(p.requestId, supplierNames[p.requestId] || "Fournisseur");
+                                    openEmailModal(p.requestId, supplierNames[p.requestId] || t("wizard.supplier"));
                                   }
                                 }}
                                 className={`px-3 py-2 text-right text-sm ${
                                   isCheapest ? "text-green-400 font-bold bg-green-500/10" :
                                   isMostExpensive ? "text-red-600" : "text-[#FAFAFA]"
                                 } ${p.price !== null ? "cursor-pointer hover:bg-[#27272A]/50 transition-colors" : ""}`}
-                                title={p.price !== null ? "Cliquer pour voir l'email du fournisseur" : undefined}
+                                title={p.price !== null ? t("detail.openSupplierEmail") : undefined}
                               >
                                 {p.price !== null ? (
                                   <span className="inline-flex items-center gap-1">
@@ -1808,7 +2379,7 @@ function ComparisonTabContent({
                                     {p.remarks && <MessageSquare className="h-2.5 w-2.5 text-amber-500/60" />}
                                   </span>
                                 ) : (
-                                  <span className="text-xs text-[#71717A]">—</span>
+                                  <span className="text-xs text-[#A1A1AA]">—</span>
                                 )}
                               </td>
                             );
@@ -1843,6 +2414,44 @@ function ComparisonTabContent({
                     );
                   })}
                 </tbody>
+                {/* Totals per supplier — quoted items only, excl. VAT, fr-CH format */}
+                <tfoot>
+                  <tr className="border-t-2 border-[#27272A] bg-[#111113] text-sm">
+                    <td className="px-3 py-2.5 sticky left-0 bg-[#111113] z-10 text-xs font-semibold text-[#A1A1AA] uppercase">
+                      {t("detail.totalHt")}
+                    </td>
+                    <td />
+                    <td />
+                    {groupRequests.map((pr) => {
+                      let sum = 0;
+                      let any = false;
+                      for (const item of allGroupItems) {
+                        const q = quotes.find(
+                          (qt) => qt.request_id === pr.id && qt.item_id === item.id
+                        );
+                        if (q?.unit_price_ht != null) {
+                          any = true;
+                          sum +=
+                            item.quantity != null
+                              ? q.unit_price_ht * Number(item.quantity)
+                              : q.unit_price_ht;
+                        }
+                      }
+                      const isAwarded = groupAwardId === pr.id;
+                      return (
+                        <td
+                          key={pr.id}
+                          className={`px-3 py-2.5 text-right font-semibold text-[#FAFAFA] ${
+                            isAwarded ? "bg-emerald-500/10" : ""
+                          }`}
+                        >
+                          {any ? formatCHF(sum) : "—"}
+                        </td>
+                      );
+                    })}
+                    <td className="bg-[#27272A]" />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
@@ -1866,6 +2475,7 @@ function SummaryTabContent({
   priceRequests: PriceRequestData[];
   quotes: QuoteData[];
 }) {
+  const t = useTranslations("submissions");
   const sentCount = priceRequests.filter((pr) => pr.sent_at).length;
   // Count "responded" = status "responded" OR has associated quotes in DB
   const requestIdsWithQuotes = new Set(quotes.map((q) => q.request_id));
@@ -1878,30 +2488,30 @@ function SummaryTabContent({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-[#FAFAFA]">{items.length}</div>
-          <div className="text-xs text-[#71717A] mt-1">Postes</div>
+          <div className="text-xs text-[#A1A1AA] mt-1">{t("detail.itemsLabel")}</div>
         </div>
         <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-[#FAFAFA]">{materialGroups.length}</div>
-          <div className="text-xs text-[#71717A] mt-1">Groupes</div>
+          <div className="text-xs text-[#A1A1AA] mt-1">{t("detail.groups")}</div>
         </div>
         <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-[#F97316]">{sentCount}</div>
-          <div className="text-xs text-[#71717A] mt-1">Demandes envoyées</div>
+          <div className="text-xs text-[#A1A1AA] mt-1">{t("detail.requestsSent")}</div>
         </div>
         <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-green-600">{respondedCount}</div>
-          <div className="text-xs text-[#71717A] mt-1">Réponses reçues</div>
+          <div className="text-xs text-[#A1A1AA] mt-1">{t("detail.responsesReceived")}</div>
         </div>
       </div>
 
       {/* Progress */}
       {sentCount > 0 && (
         <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4">
-          <h3 className="text-sm font-medium text-[#FAFAFA] mb-3">Avancement</h3>
+          <h3 className="text-sm font-medium text-[#FAFAFA] mb-3">{t("detail.progress")}</h3>
           <div className="space-y-3">
             <div>
-              <div className="flex justify-between text-xs text-[#71717A] mb-1">
-                <span>Postes cotés</span>
+              <div className="flex justify-between text-xs text-[#A1A1AA] mb-1">
+                <span>{t("detail.quotedItems")}</span>
                 <span>{quotedItems}/{items.length}</span>
               </div>
               <div className="h-2 bg-[#27272A] rounded-full overflow-hidden">
@@ -1909,8 +2519,8 @@ function SummaryTabContent({
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-xs text-[#71717A] mb-1">
-                <span>Fournisseurs répondus</span>
+              <div className="flex justify-between text-xs text-[#A1A1AA] mb-1">
+                <span>{t("detail.suppliersResponded")}</span>
                 <span>{respondedCount}/{sentCount}</span>
               </div>
               <div className="h-2 bg-[#27272A] rounded-full overflow-hidden">
@@ -1924,30 +2534,30 @@ function SummaryTabContent({
       {/* Project info */}
       {submission.projects && (
         <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4">
-          <h3 className="text-sm font-medium text-[#FAFAFA] mb-3">Informations</h3>
+          <h3 className="text-sm font-medium text-[#FAFAFA] mb-3">{t("detail.infoTitle")}</h3>
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt className="text-xs text-[#71717A]">Projet</dt>
+              <dt className="text-xs text-[#A1A1AA]">{t("detail.projectLabel")}</dt>
               <dd className="text-[#FAFAFA]">{submission.projects.name}</dd>
             </div>
             {submission.projects.client_name && (
               <div>
-                <dt className="text-xs text-[#71717A]">Client</dt>
+                <dt className="text-xs text-[#A1A1AA]">{t("detail.clientLabel")}</dt>
                 <dd className="text-[#FAFAFA]">{submission.projects.client_name}</dd>
               </div>
             )}
             {submission.projects.city && (
               <div>
-                <dt className="text-xs text-[#71717A]">Ville</dt>
+                <dt className="text-xs text-[#A1A1AA]">{t("detail.cityLabel")}</dt>
                 <dd className="text-[#FAFAFA]">{submission.projects.city}</dd>
               </div>
             )}
             <div>
-              <dt className="text-xs text-[#71717A]">Fichier</dt>
+              <dt className="text-xs text-[#A1A1AA]">{t("detail.fileLabel")}</dt>
               <dd className="text-[#FAFAFA]">{submission.file_name || "—"}</dd>
             </div>
             <div>
-              <dt className="text-xs text-[#71717A]">Date</dt>
+              <dt className="text-xs text-[#A1A1AA]">{t("detail.dateLabel")}</dt>
               <dd className="text-[#FAFAFA]">{new Date(submission.created_at).toLocaleDateString("fr-CH")}</dd>
             </div>
           </dl>
@@ -1957,7 +2567,7 @@ function SummaryTabContent({
       {/* Material groups breakdown */}
       {materialGroups.length > 0 && (
         <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4">
-          <h3 className="text-sm font-medium text-[#FAFAFA] mb-3">Répartition par groupe</h3>
+          <h3 className="text-sm font-medium text-[#FAFAFA] mb-3">{t("detail.groupBreakdown")}</h3>
           <div className="space-y-2">
             {materialGroups.map((group) => {
               const count = items.filter((i) => i.material_group === group).length;
@@ -1968,7 +2578,7 @@ function SummaryTabContent({
                   <div className="flex-1 h-2 bg-[#27272A] rounded-full overflow-hidden">
                     <div className="h-full bg-[#F97316]/60 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-xs text-[#71717A] w-12 text-right">{count}</span>
+                  <span className="text-xs text-[#A1A1AA] w-12 text-right">{count}</span>
                 </div>
               );
             })}
@@ -1997,7 +2607,7 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
       <div className="flex items-center gap-2 mb-1">
         <BarChart3 className="h-4 w-4 text-[#F97316]" />
         <span className="text-sm font-medium text-[#FAFAFA]">Intelligence prix</span>
-        <span className="text-xs text-[#71717A] ml-auto">Base de données de votre organisation</span>
+        <span className="text-xs text-[#A1A1AA] ml-auto">Base de données de votre organisation</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -2006,7 +2616,7 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
           <Database className="h-4 w-4 text-[#F97316] mt-0.5 shrink-0" />
           <div>
             <div className="text-lg font-bold text-[#FAFAFA]">{(stats?.price_count ?? 0).toLocaleString("fr-CH")}</div>
-            <div className="text-[11px] text-[#71717A]">Prix fournisseurs enregistrés</div>
+            <div className="text-[11px] text-[#A1A1AA]">Prix fournisseurs enregistrés</div>
           </div>
         </div>
 
@@ -2017,7 +2627,7 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
             <div className="text-lg font-bold text-[#FAFAFA]">
               {accuracyPct != null ? `${accuracyPct}%` : "—"}
             </div>
-            <div className="text-[11px] text-[#71717A]">
+            <div className="text-[11px] text-[#A1A1AA]">
               Précision moyenne
               {stats?.calibration_count ? ` (${stats.calibration_count} calibr.)` : ""}
             </div>
@@ -2026,7 +2636,7 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
 
         {/* Source distribution */}
         <div className="sm:col-span-2 bg-[#27272A] rounded-lg p-3">
-          <div className="text-[11px] text-[#71717A] mb-1.5">Répartition des sources — cette estimation</div>
+          <div className="text-[11px] text-[#A1A1AA] mb-1.5">Répartition des sources — cette estimation</div>
           {/* Stacked bar */}
           <div className="flex h-3 w-full rounded-full overflow-hidden gap-px">
             {pctReal > 0 && (
@@ -2067,10 +2677,10 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
           </div>
           {/* Legend */}
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-            {pctReal > 0 && <span className="flex items-center gap-1 text-[10px] text-[#71717A]"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />Réel {pctReal}%</span>}
-            {pctMarket > 0 && <span className="flex items-center gap-1 text-[10px] text-[#71717A]"><span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />Marché {pctMarket}%</span>}
-            {pctCrb > 0 && <span className="flex items-center gap-1 text-[10px] text-[#71717A]"><span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />CRB {pctCrb}%</span>}
-            {pctAi > 0 && <span className="flex items-center gap-1 text-[10px] text-[#71717A]"><span className="w-2 h-2 rounded-full bg-[#F97316]/60 shrink-0" />IA {pctAi}%</span>}
+            {pctReal > 0 && <span className="flex items-center gap-1 text-[10px] text-[#A1A1AA]"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />Réel {pctReal}%</span>}
+            {pctMarket > 0 && <span className="flex items-center gap-1 text-[10px] text-[#A1A1AA]"><span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />Marché {pctMarket}%</span>}
+            {pctCrb > 0 && <span className="flex items-center gap-1 text-[10px] text-[#A1A1AA]"><span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />CRB {pctCrb}%</span>}
+            {pctAi > 0 && <span className="flex items-center gap-1 text-[10px] text-[#A1A1AA]"><span className="w-2 h-2 rounded-full bg-[#F97316]/60 shrink-0" />IA {pctAi}%</span>}
           </div>
         </div>
       </div>
@@ -2078,7 +2688,7 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
       {/* Monthly trend sparkline */}
       {stats?.monthly_trend && stats.monthly_trend.length >= 2 && (
         <div className="border-t border-[#27272A] pt-3">
-          <div className="text-[11px] text-[#71717A] mb-1.5">Tendance précision des estimations (6 derniers mois)</div>
+          <div className="text-[11px] text-[#A1A1AA] mb-1.5">Tendance précision des estimations (6 derniers mois)</div>
           <div className="h-12">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={stats.monthly_trend} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
@@ -2158,8 +2768,8 @@ function BudgetTabContent({
   if (items.length === 0) {
     return (
       <div className="text-center py-16">
-        <Calculator className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
-        <p className="text-sm text-[#71717A]">Analysez d&apos;abord le descriptif</p>
+        <Calculator className="h-12 w-12 text-[#A1A1AA] mx-auto mb-3" />
+        <p className="text-sm text-[#A1A1AA]">Analysez d&apos;abord le descriptif</p>
       </div>
     );
   }
@@ -2167,9 +2777,9 @@ function BudgetTabContent({
   if (!budget) {
     return (
       <div className="text-center py-16">
-        <Calculator className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
-        <p className="text-sm text-[#71717A] mb-4">Estimez le budget de cette soumission avec l&apos;IA</p>
-        <p className="text-xs text-[#71717A] mb-6 max-w-md mx-auto">
+        <Calculator className="h-12 w-12 text-[#A1A1AA] mx-auto mb-3" />
+        <p className="text-sm text-[#A1A1AA] mb-4">Estimez le budget de cette soumission avec l&apos;IA</p>
+        <p className="text-xs text-[#A1A1AA] mb-6 max-w-md mx-auto">
           L&apos;estimation utilise vos offres fournisseurs, les prix du marché, le référentiel CRB 2025, et l&apos;IA en dernier recours.
         </p>
         {error && (
@@ -2206,7 +2816,7 @@ function BudgetTabContent({
           <button
             onClick={handleEstimate}
             disabled={estimating}
-            className="text-xs px-3 py-1.5 border border-[#27272A] rounded-lg hover:bg-[#18181B] text-[#71717A] flex items-center gap-1.5"
+            className="text-xs px-3 py-1.5 border border-[#27272A] rounded-lg hover:bg-[#18181B] text-[#A1A1AA] flex items-center gap-1.5"
           >
             {estimating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             Recalculer
@@ -2214,19 +2824,19 @@ function BudgetTabContent({
         </div>
         <div className="grid grid-cols-3 gap-6">
           <div>
-            <div className="text-xs text-[#71717A] mb-1">Minimum</div>
-            <div className="text-xl font-bold text-[#71717A]">CHF {formatCHF(budget.total_min)}</div>
+            <div className="text-xs text-[#A1A1AA] mb-1">Minimum</div>
+            <div className="text-xl font-bold text-[#A1A1AA]">CHF {formatCHF(budget.total_min)}</div>
           </div>
           <div>
-            <div className="text-xs text-[#71717A] mb-1">Médiane</div>
+            <div className="text-xs text-[#A1A1AA] mb-1">Médiane</div>
             <div className="text-2xl font-bold text-[#F97316]">CHF {formatCHF(budget.total_median)}</div>
           </div>
           <div>
-            <div className="text-xs text-[#71717A] mb-1">Maximum</div>
-            <div className="text-xl font-bold text-[#71717A]">CHF {formatCHF(budget.total_max)}</div>
+            <div className="text-xs text-[#A1A1AA] mb-1">Maximum</div>
+            <div className="text-xl font-bold text-[#A1A1AA]">CHF {formatCHF(budget.total_max)}</div>
           </div>
         </div>
-        <div className="flex items-center gap-4 mt-4 text-xs text-[#71717A] flex-wrap">
+        <div className="flex items-center gap-4 mt-4 text-xs text-[#A1A1AA] flex-wrap">
           {(budget.source_breakdown?.historique_interne ?? 0) > 0 && (
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -2277,14 +2887,14 @@ function BudgetTabContent({
             <div className="px-4 py-3 bg-[#27272A] border-b border-[#27272A] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-[#FAFAFA]">{group}</span>
-                <span className="text-xs text-[#71717A]">{ests.length} postes</span>
+                <span className="text-xs text-[#A1A1AA]">{ests.length} postes</span>
               </div>
               <span className="text-sm font-semibold text-[#FAFAFA]">CHF {formatCHF(Math.round(groupMedian))}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px]">
                 <thead>
-                  <tr className="bg-[#27272A]/50 text-[11px] font-medium text-[#71717A] uppercase">
+                  <tr className="bg-[#27272A]/50 text-[11px] font-medium text-[#A1A1AA] uppercase">
                     <th className="text-left px-3 py-2 w-16">N°</th>
                     <th className="text-left px-3 py-2">Description</th>
                     <th className="text-center px-3 py-2 w-14">Unité</th>
@@ -2301,19 +2911,19 @@ function BudgetTabContent({
                     const total = (est.quantity ?? 0) * est.prix_median;
                     return (
                       <tr key={est.item_id} className="text-sm hover:bg-[#1C1C1F]">
-                        <td className="px-3 py-2 text-xs font-mono text-[#71717A]">{est.item_number || "—"}</td>
+                        <td className="px-3 py-2 text-xs font-mono text-[#A1A1AA]">{est.item_number || "—"}</td>
                         <td className="px-3 py-2 text-[#FAFAFA] truncate max-w-[250px]">{est.description}</td>
-                        <td className="px-3 py-2 text-center text-xs text-[#71717A]">{est.unit || "—"}</td>
-                        <td className="px-3 py-2 text-right text-[#71717A] text-xs">
+                        <td className="px-3 py-2 text-center text-xs text-[#A1A1AA]">{est.unit || "—"}</td>
+                        <td className="px-3 py-2 text-right text-[#A1A1AA] text-xs">
                           {est.quantity != null ? Number(est.quantity).toLocaleString("fr-CH") : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right text-xs text-[#71717A]">
+                        <td className="px-3 py-2 text-right text-xs text-[#A1A1AA]">
                           {est.prix_min > 0 ? est.prix_min.toFixed(2) : "—"}
                         </td>
                         <td className="px-3 py-2 text-right text-sm font-medium text-[#FAFAFA]">
                           {est.prix_median > 0 ? est.prix_median.toFixed(2) : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right text-xs text-[#71717A]">
+                        <td className="px-3 py-2 text-right text-xs text-[#A1A1AA]">
                           {est.prix_max > 0 ? est.prix_max.toFixed(2) : "—"}
                         </td>
                         <td className="px-3 py-2 text-right font-medium text-[#FAFAFA]">
@@ -2329,7 +2939,7 @@ function BudgetTabContent({
                           ) : est.source === "estimation_ia" ? (
                             <span className="text-[10px] bg-[#F97316]/10 text-[#F97316] px-1.5 py-0.5 rounded font-medium">IA</span>
                           ) : (
-                            <span className="text-[10px] bg-[#27272A] text-[#71717A] px-1.5 py-0.5 rounded">—</span>
+                            <span className="text-[10px] bg-[#27272A] text-[#A1A1AA] px-1.5 py-0.5 rounded">—</span>
                           )}
                         </td>
                       </tr>

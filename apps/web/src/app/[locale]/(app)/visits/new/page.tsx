@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import {
@@ -43,6 +44,10 @@ interface ProjectOption {
 export default function NewVisitPage() {
   const t = useTranslations("visits");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Pre-selected when the visit is started from a project ("Nouvelle visite"
+  // on the project's Visites tab) — such a visit is never a prospect.
+  const presetProjectId = searchParams.get("project_id") || "";
   const [step, setStep] = useState<Step>("info");
   const [form, setForm] = useState<VisitForm>({
     client_name: "",
@@ -52,7 +57,7 @@ export default function NewVisitPage() {
     client_address: "",
     client_city: "",
     client_postal_code: "",
-    project_id: "",
+    project_id: presetProjectId,
     notes: "",
   });
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -76,7 +81,12 @@ export default function NewVisitPage() {
     try {
       // Use API route (admin client) to bypass RLS recursion on users table
       const profileRes = await fetch("/api/user/profile");
-      const profileData = await profileRes.json();
+      if (profileRes.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      if (!profileRes.ok) return;
+      const profileData = await profileRes.json().catch(() => ({}));
       const userOrgId = profileData?.profile?.organization_id;
       if (!userOrgId) return;
 
@@ -114,6 +124,9 @@ export default function NewVisitPage() {
         client_postal_code: form.client_postal_code || null,
         project_id: form.project_id || null,
         is_prospect: !form.project_id,
+        // Persisted (migration 115) and folded into the report prompt — the
+        // pre-visit notes were previously typed then discarded.
+        pre_visit_notes: form.notes || null,
         status: "recording",
         created_by: user.id,
       })
@@ -316,7 +329,7 @@ export default function NewVisitPage() {
   if (step === "info") {
     return (
       <div className="min-h-full bg-[#0F0F11] p-6">
-        <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]">
+        <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-[#A1A1AA] hover:text-[#FAFAFA]">
           <ArrowLeft className="h-4 w-4" />
           {t("title")}
         </Link>
@@ -398,7 +411,7 @@ export default function NewVisitPage() {
           {/* Linked project */}
           <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
             <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-              <FolderKanban className="h-4 w-4 text-[#71717A]" />
+              <FolderKanban className="h-4 w-4 text-[#A1A1AA]" />
               {t("linkedProject")}
             </h3>
             <select
@@ -426,7 +439,7 @@ export default function NewVisitPage() {
 
           {/* Error banner */}
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-500/10 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
               {error}
             </div>
           )}
@@ -437,7 +450,7 @@ export default function NewVisitPage() {
               type="button"
               onClick={handleSkipToRecording}
               disabled={saving}
-              className="text-sm text-[#71717A] hover:text-[#FAFAFA]"
+              className="text-sm text-[#A1A1AA] hover:text-[#FAFAFA]"
             >
               {t("skipToRecording")}
             </button>
@@ -472,7 +485,7 @@ export default function NewVisitPage() {
             <div className="rounded-lg border border-[#27272A] bg-[#0F0F11]">
               <div className="border-b border-[#27272A] px-4 py-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-                  <Camera className="h-4 w-4 text-[#71717A]" />
+                  <Camera className="h-4 w-4 text-[#A1A1AA]" />
                   {t("photos.title")}
                   {photosCount > 0 && (
                     <span className="rounded-full bg-[#F97316]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#F97316]">
@@ -493,14 +506,13 @@ export default function NewVisitPage() {
                     <StickyNote className="h-4 w-4 text-purple-500" />
                     {t("photos.handwrittenNotes")}
                   </span>
-                  <ChevronDown className={`h-4 w-4 text-[#71717A] transition-transform ${notesExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 text-[#A1A1AA] transition-transform ${notesExpanded ? "rotate-180" : ""}`} />
                 </button>
                 {notesExpanded && (
                   <div className="px-4 pb-4">
-                    <p className="mb-3 text-xs text-[#71717A]">{t("photos.handwrittenNotesDesc")}</p>
+                    <p className="mb-3 text-xs text-[#A1A1AA]">{t("photos.handwrittenNotesDesc")}</p>
                     <PhotoCapture
                       visitId={visitId}
-                      orgId={orgId}
                       photoType="handwritten_notes"
                       onPhotosUploaded={() => setPhotosCount((c) => c + 1)}
                     />
@@ -519,13 +531,12 @@ export default function NewVisitPage() {
                     <Camera className="h-4 w-4 text-[#F97316]" />
                     {t("photos.sitePhotos")}
                   </span>
-                  <ChevronDown className={`h-4 w-4 text-[#71717A] transition-transform ${sitePhotosExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 text-[#A1A1AA] transition-transform ${sitePhotosExpanded ? "rotate-180" : ""}`} />
                 </button>
                 {sitePhotosExpanded && (
                   <div className="px-4 pb-4">
                     <PhotoCapture
                       visitId={visitId}
-                      orgId={orgId}
                       photoType="site"
                       onPhotosUploaded={() => setPhotosCount((c) => c + 1)}
                     />
@@ -545,7 +556,7 @@ export default function NewVisitPage() {
       <h1 className="mb-6 text-xl font-bold text-[#FAFAFA]">
         {t("recordingFinished")} — {Math.floor(audioDuration / 60)} min {audioDuration % 60} sec
         {photosCount > 0 && (
-          <span className="ml-2 text-base font-normal text-[#71717A]">
+          <span className="ml-2 text-base font-normal text-[#A1A1AA]">
             + {photosCount} {t("photos.title").toLowerCase()}
           </span>
         )}
@@ -556,7 +567,7 @@ export default function NewVisitPage() {
           <p className="mb-2 text-sm font-medium text-[#FAFAFA]">
             {t("transcribeAndGenerate")} ?
           </p>
-          <p className="mb-6 text-xs text-[#71717A]">
+          <p className="mb-6 text-xs text-[#A1A1AA]">
             {t("transcriptionWarning")}
           </p>
 
@@ -592,7 +603,7 @@ export default function NewVisitPage() {
             <button
               onClick={handleSaveWithoutTranscribing}
               disabled={saving}
-              className="flex items-center justify-center gap-2 rounded-lg border border-[#27272A] px-5 py-3 text-sm font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-lg border border-[#27272A] px-5 py-3 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {t("saveWithoutTranscribing")}

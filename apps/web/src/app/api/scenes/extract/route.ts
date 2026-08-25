@@ -3,12 +3,19 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runPasse5Topology } from "@cantaia/core/plans/scene/passe5-topology";
+import { SCENE_SCHEMA_VERSION } from "@cantaia/core/plans/scene/types";
+import { countPdfPages } from "@cantaia/core/plans/scene/pdf-pages";
 import {
   canAccess,
   check3dExtractionLimit,
+  checkUsageLimit,
   PLAN_3D_EXTRACT_ACTION,
 } from "@cantaia/config/plan-features";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { MODEL_FOR_TASK } from "@cantaia/core/ai";
+import { insufficientCreditsResponse, grantCredits } from "@/lib/credits";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { EXTRACTION_STALE_AFTER_MS } from "@cantaia/core/plans/scene/constants";
 
 // Passe 5 is a single Claude Vision call (~15-30s). We use `after()` to run it
 // in the background and return 202 immediately, so the handler itself closes
@@ -64,6 +71,35 @@ async function downloadPlanFile(
 }
 
 /**
+ * Repli de calcul de confiance : moyenne des confiances d'éléments, lues au
+ * BON endroit (`levels[].elements[].provenance.confidence`).
+ *
+ * N'est utilisé que si `runPasse5Topology` ne renvoyait pas de
+ * `confidence_score` — le validator en produit toujours un aujourd'hui, mais
+ * cette fonction documente la structure réelle de l'IR et évite qu'un futur
+ * refactor ré-introduise le bug B-a (lecture de `scene.elements`, inexistant).
+ */
+function meanElementConfidence(scene: unknown): number | null {
+  const levels = (scene as { levels?: unknown })?.levels;
+  if (!Array.isArray(levels)) return null;
+
+  const values: number[] = [];
+  for (const level of levels) {
+    const elements = (level as { elements?: unknown })?.elements;
+    if (!Array.isArray(elements)) continue;
+    for (const el of elements) {
+      const c = (el as { provenance?: { confidence?: unknown } })?.provenance?.confidence;
+      if (typeof c === "number" && Number.isFinite(c)) values.push(c);
+    }
+  }
+
+  if (values.length === 0) return null;
+  return (
+    Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 1000) / 1000
+  );
+}
+
+/**
  * POST /api/scenes/extract
  *
  * Kick off a Passe 5 (BuildingScene IR) extraction for a plan.
@@ -94,6 +130,17 @@ async function downloadPlanFile(
  * scene_data and extraction_status.
  */
 export async function POST(request: NextRequest) {
+  // 0. Kill-switch — l'ADR-001 et l'en-tête de passe5-topology.ts promettent
+  // qu'un flip de DISABLE_PASSE5=1 « disables new extractions instantly ».
+  // Le garde n'existait que dans le pipeline d'estimation ; on l'honore ici,
+  // AVANT tout débit de crédits.
+  if (process.env.DISABLE_PASSE5 === "1") {
+    return NextResponse.json(
+      { error: "extraction_disabled", message: "L'extraction 3D est temporairement désactivée." },
+      { status: 503 }
+    );
+  }
+
   // 1. Auth
   const supabase = await createClient();
   const {
@@ -195,6 +242,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 5c. Rate limit — deux onglets, deux utilisateurs de l'org ou le double
+  // point d'entrée (page 3d + PlanDetailHeader) pouvaient déclencher des
+  // extractions parallèles, chacune débitant 40 crédits. On borne par org.
+  const rl = await rateLimit(`scene-extract:org:${organizationId}`, {
+    limit: 4,
+    windowSec: 3600,
+  });
+  if (!rl.allowed) {
+    return rateLimitResponse(rl);
+  }
+
   // 6. Optional: validate parent_scene_id is in the same org (lineage must not
   // cross tenants). Null parent_scene_id is fine — that's a fresh extraction.
   if (parent_scene_id) {
@@ -271,6 +329,79 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 8b. Concurrency guard — refuse a second extraction while one is still
+  // running for this plan. Without it, two tabs / two org users / the double
+  // entry point (page 3d + PlanDetailHeader) each debited 40 credits for the
+  // same plan. A stale `processing` row (serverless killed before its UPDATE)
+  // is ignored so a genuinely dead run never blocks a retry.
+  const { data: inFlight } = await (admin as any)
+    .from("plan_scenes")
+    .select("id, extraction_status, created_at, updated_at")
+    .eq("plan_id", plan_id)
+    .in("extraction_status", ["pending", "processing"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (inFlight?.id) {
+    const lastTouch = Date.parse(inFlight.updated_at ?? inFlight.created_at ?? "");
+    const stale =
+      Number.isFinite(lastTouch) && Date.now() - lastTouch > EXTRACTION_STALE_AFTER_MS;
+    if (!stale) {
+      return NextResponse.json(
+        {
+          error: "extraction_in_progress",
+          message: "Une extraction 3D est déjà en cours pour ce plan.",
+          scene_id: inFlight.id,
+        },
+        { status: 409 }
+      );
+    }
+  }
+
+  // 8c. Credits — DÉBIT DÉPLACÉ ICI, après toutes les préconditions bon marché
+  // (kill-switch, gate plan, quota, rate-limit, estimation, fichier courant,
+  // concurrence). `checkUsageLimit` débite 40 crédits (side-effect) ; le faire
+  // en amont facturait un 409/404 (estimation manquante, fichier absent) ou un
+  // 409 concurrence. `check3dExtractionLimit` plafonne le NOMBRE d'extractions,
+  // ce débit en PRICE le coût — les deux gardes restent indépendantes.
+  const creditCheck = await checkUsageLimit(
+    admin,
+    organizationId,
+    plan,
+    PLAN_3D_EXTRACT_ACTION
+  );
+  if (!creditCheck.allowed) {
+    if (creditCheck.insufficient_credits) {
+      return insufficientCreditsResponse(
+        creditCheck.required_credits ?? 1,
+        creditCheck.remaining_credits ?? 0
+      );
+    }
+    return NextResponse.json(
+      {
+        error: "usage_limit_reached",
+        current: creditCheck.current,
+        limit: creditCheck.limit,
+        required_plan: creditCheck.requiredPlan,
+      },
+      { status: 429 }
+    );
+  }
+  const debitedCredits = creditCheck.required_credits ?? 0;
+
+  /** Rembourse le débit d'extraction sur un échec technique. */
+  async function refundExtraction(reason: string) {
+    if (debitedCredits <= 0) return;
+    await grantCredits(
+      organizationId,
+      debitedCredits,
+      "refund",
+      `scene-extract:${reason}:${plan_id}`,
+      user!.id
+    );
+  }
+
   // 9. Insert the pending scene row — this gives us the scene_id to return
   // immediately and also pins the lineage before we spend any AI tokens.
   const { data: sceneInsert, error: insertErr } = await (admin as any)
@@ -279,7 +410,7 @@ export async function POST(request: NextRequest) {
       plan_id,
       organization_id: organizationId,
       parent_scene_id: parent_scene_id ?? null,
-      schema_version: "1.0.0",
+      schema_version: SCENE_SCHEMA_VERSION,
       scene_data: {},
       extraction_status: "processing",
       extracted_by: user.id,
@@ -289,6 +420,7 @@ export async function POST(request: NextRequest) {
 
   if (insertErr || !sceneInsert?.id) {
     console.error("[scenes/extract] Failed to insert scene row:", insertErr);
+    await refundExtraction("insert_failed");
     return NextResponse.json(
       { error: "Failed to create scene row" },
       { status: 500 }
@@ -321,11 +453,18 @@ export async function POST(request: NextRequest) {
       else if (ext.endsWith(".webp")) mediaType = "image/webp";
       else if (ext.endsWith(".pdf")) mediaType = "application/pdf";
 
+      // Un plan d'exécution est très souvent un PDF d'un niveau par page.
+      // Le compteur pilote la consigne d'assemblage multi-niveaux du prompt
+      // ET l'avertissement persisté dans la scène : sans lui, une extraction
+      // qui perd deux étages était indiscernable d'une extraction complète.
+      const pageCount = mediaType === "application/pdf" ? countPdfPages(download.buffer) : 1;
+
       // 10b. Run Passe 5. This is contractually non-throwing — it returns
       // { scene: null, error } on failure rather than throwing. We still wrap
       // in try/catch to catch anything truly unexpected (dynamic import
       // failures, OOM, etc.).
       const result = await runPasse5Topology({
+        page_count: pageCount,
         passe1,
         passe2: passe2Consensus,
         passe3,
@@ -341,39 +480,61 @@ export async function POST(request: NextRequest) {
       });
 
       if (!result.scene) {
-        // Failure path — `runPasse5Topology` already logs diagnostics.
-        await (admin as any)
+        // Deux causes très différentes derrière un `scene === null` :
+        //   - `refused: true`  → la géométrie A ÉTÉ produite mais les
+        //     contrôles déterministes la jugent non fiable (NF1). Le message
+        //     est actionnable, on le garde tel quel et on conserve la
+        //     confiance calculée : c'est la donnée qui justifie le refus.
+        //   - sinon → panne technique (download, parsing, API).
+        const { error: failErr } = await (admin as any)
           .from("plan_scenes")
           .update({
             extraction_status: "failed",
-            error_message: result.error || "Passe 5 returned no scene",
+            error_message:
+              result.error ||
+              "L'extraction n'a produit aucune scène exploitable.",
+            confidence_score: result.confidence_score,
+            model_divergence: result.model_divergence,
+            tokens_used: result.tokens_used,
           })
           .eq("id", sceneId);
+
+        if (failErr) {
+          console.error("[scenes/extract] failed-status update error:", failErr);
+        }
+
+        // Panne technique → remboursement. Un REFUS (NF1) est un résultat
+        // d'analyse légitime (géométrie produite mais jugée non fiable) : il
+        // reste facturé.
+        if (!result.refused) {
+          await refundExtraction("extraction_failed");
+        }
+
         console.warn(
-          `[scenes/extract] scene ${sceneId} failed:`,
+          `[scenes/extract] scene ${sceneId} ${result.refused ? "refusée (NF1)" : "en échec"}:`,
           result.error
         );
         return;
       }
 
       // 10c. Success path — persist scene, confidence, and cost metrics.
-      // We compute a simple confidence heuristic from the scene itself (mean
-      // of element-level confidences when present). A richer scoring pass is
-      // deferred to Phase 2.
-      const elements =
-        (result.scene as any).elements as Array<{ confidence?: number }>;
-      const elementConfidences = Array.isArray(elements)
-        ? elements
-            .map((e) => (typeof e.confidence === "number" ? e.confidence : null))
-            .filter((v): v is number => v !== null)
-        : [];
+      //
+      // B-a — Le calcul précédent lisait `result.scene.elements`, un champ qui
+      // n'existe PAS sur la BuildingScene (les éléments vivent dans
+      // `levels[].elements[]`, et leur confiance dans `provenance.confidence`).
+      // `confidence_score` était donc TOUJOURS null en base : la métrique
+      // numéro un de l'ADR était aveugle depuis le premier jour.
+      //
+      // On n'a plus à le recalculer ici : le validator produit une confiance
+      // pondérée par le contexte d'extraction (échelle fiable ou non, qualité
+      // d'image, calibration réussie ou non). On garde malgré tout un repli
+      // défensif si le champ venait à manquer.
       const confidenceScore =
-        elementConfidences.length > 0
-          ? elementConfidences.reduce((a, b) => a + b, 0) /
-            elementConfidences.length
-          : null;
+        typeof result.confidence_score === "number"
+          ? result.confidence_score
+          : meanElementConfidence(result.scene);
 
-      await (admin as any)
+      const { error: updateErr } = await (admin as any)
         .from("plan_scenes")
         .update({
           scene_data: result.scene,
@@ -385,6 +546,19 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", sceneId);
 
+      if (updateErr) {
+        console.error("[scenes/extract] scene persist error:", updateErr);
+        await (admin as any)
+          .from("plan_scenes")
+          .update({
+            extraction_status: "failed",
+            error_message: "La scène extraite n'a pas pu être enregistrée.",
+          })
+          .eq("id", sceneId);
+        await refundExtraction("persist_failed");
+        return;
+      }
+
       // 10d. Cost tracking (fire-and-forget; `trackApiUsage` never throws).
       // We attribute the whole token usage to Claude since Passe 5 is a
       // single-provider call in the spike.
@@ -394,7 +568,7 @@ export async function POST(request: NextRequest) {
         organizationId,
         actionType: PLAN_3D_EXTRACT_ACTION,
         apiProvider: "anthropic",
-        model: "claude-sonnet-4-5-20250929",
+        model: result.model ?? MODEL_FOR_TASK.plan_analysis,
         // The topology pass returns a single aggregate — we don't get an
         // input/output split from the SDK wrapper. Accept a rough 80/20 split
         // which matches Claude Vision's typical ratio for image → structured
@@ -408,13 +582,20 @@ export async function POST(request: NextRequest) {
           project_id,
           duration_ms: Date.now() - started,
           model_divergence: result.model_divergence,
+          confidence_score: confidenceScore,
+          page_count: pageCount,
+          elements_kept: result.validation_stats?.elements_kept ?? null,
+          elements_rejected: result.validation_stats?.elements_rejected ?? null,
         },
       });
 
       console.log(
         `[scenes/extract] scene ${sceneId} completed in ${
           Date.now() - started
-        }ms, tokens=${result.tokens_used}`
+        }ms, tokens=${result.tokens_used}, confiance=${confidenceScore}, ` +
+          `éléments ${result.validation_stats?.elements_kept ?? "?"}/${
+            result.validation_stats?.elements_in ?? "?"
+          } retenus`
       );
     } catch (err) {
       const errMessage =
@@ -427,6 +608,7 @@ export async function POST(request: NextRequest) {
           error_message: errMessage,
         })
         .eq("id", sceneId);
+      await refundExtraction("crashed");
     }
   });
 

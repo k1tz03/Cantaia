@@ -42,6 +42,7 @@ import type {
   Vec2,
   WallElement,
 } from "@cantaia/core/plans/scene/types";
+import { CONFIDENCE_THRESHOLDS } from "@cantaia/core/plans/scene/constants";
 import type {
   BuildingScene as UiScene,
   ElementKind,
@@ -84,13 +85,21 @@ function normalizePasses(raw: string[] | undefined): ExtractionPass[] {
 // Model consensus derivation
 // ---------------------------------------------------------------------------
 // IR gives us `{ claude?: number, gpt4o?: number, gemini?: number }` (0..1
-// per-model confidence). UI wants `{ agreed[], divergent[] }`. We split on
-// a 0.7 threshold — same cutoff as the low-confidence gate for consistency.
+// per-model confidence). UI wants `{ agreed[], divergent[] }`.
+//
+// ATTENTION à la lecture de ce champ : en Phase 1 un SEUL modèle tourne
+// (Claude). Il n'y a donc AUCUN consensus — juste l'auto-évaluation d'un
+// modèle sur son propre travail. L'inspecteur l'intitule d'ailleurs
+// « Auto-évaluation du modèle », pas « Consensus modèles » : afficher un
+// consensus à un seul participant était trompeur.
+//
+// Le seuil vient de `CONFIDENCE_THRESHOLDS.high` — comme le canvas, le badge
+// et le gate. Un seul jeu de seuils dans tout le module (cf. constants.ts).
 //
 // IR uses "gpt4o", UI uses "gpt-4o" (a stub naming drift that hopefully gets
 // harmonised in v1.1). We rename at the boundary.
 
-const MODEL_AGREEMENT_THRESHOLD = 0.7;
+const MODEL_AGREEMENT_THRESHOLD = CONFIDENCE_THRESHOLDS.high;
 
 const IR_TO_UI_MODEL: Record<ModelProvider, ModelName> = {
   claude: "claude",
@@ -299,6 +308,75 @@ function elementKind(ir: BuildingElement): ElementKind {
   }
 }
 
+/**
+ * Empreinte extrudable d'un élément polygonal, en espace Three.
+ *
+ * `points` sont les coordonnées du contour dans le plan XZ du monde
+ * (IR.x → x, IR.y → z), `base` l'altitude Y de la face inférieure et
+ * `thickness` la hauteur d'extrusion. `null` pour les éléments non
+ * polygonaux — le canvas retombe alors sur la boîte de la bbox, ce qui est
+ * exact pour un mur, un poteau ou une poutre.
+ */
+export interface ExtrusionFootprint {
+  points: Array<{ x: number; z: number }>;
+  base: number;
+  thickness: number;
+  /** Aire réelle du lacet, en m². Affichée dans l'inspecteur. */
+  area_m2: number;
+}
+
+function shoelaceArea(points: Array<{ x: number; z: number }>): number {
+  if (points.length < 3) return 0;
+  let sum = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    sum += a.x * b.z - b.x * a.z;
+  }
+  return Math.abs(sum) / 2;
+}
+
+function extrusionFootprint(ir: BuildingElement): ExtrusionFootprint | null {
+  let polygon: Vec2[] | null = null;
+  let base = 0;
+  let thickness = 0.2;
+
+  switch (ir.type) {
+    case "slab":
+      polygon = ir.polygon;
+      base = ir.elevation_m;
+      thickness = Math.max(ir.thickness_m, 0.01);
+      break;
+    case "roof":
+      polygon = ir.polygon;
+      base = ir.base_elevation_m;
+      thickness = Math.max(
+        ir.ridge_elevation_m !== undefined
+          ? ir.ridge_elevation_m - ir.base_elevation_m
+          : 0.2,
+        0.05,
+      );
+      break;
+    case "stair":
+      polygon = ir.polygon;
+      base = ir.base_elevation_m;
+      thickness = Math.max(ir.top_elevation_m - ir.base_elevation_m, 0.05);
+      break;
+    default:
+      return null;
+  }
+
+  if (!Array.isArray(polygon) || polygon.length < 3) return null;
+
+  const points = polygon
+    .filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y))
+    .map((p) => ({ x: p.x, z: p.y }));
+
+  if (points.length < 3) return null;
+
+  return { points, base, thickness, area_m2: shoelaceArea(points) };
+}
+
 function defaultLabel(ir: BuildingElement): string {
   if (ir.label) return ir.label;
   switch (ir.type) {
@@ -363,6 +441,11 @@ export function buildingSceneToViewModel(ir: IrScene): UiScene {
           ir_type: ir_el.type,
           ir: ir_el,
           human_corrected: ir_el.provenance.human_corrected,
+          // Empreinte RÉELLE, prête à extruder. Sans elle, le canvas rendait
+          // les dalles et toitures à la bbox de leur polygone : une dalle en L
+          // devenait un rectangle plein, et la surface perçue était
+          // surestimée par construction.
+          footprint: extrusionFootprint(ir_el),
         },
       };
 
@@ -406,10 +489,16 @@ export function buildingSceneToViewModel(ir: IrScene): UiScene {
   }
 
   // Aggregate confidence stats.
+  //
+  // `low_confidence_ratio` se compte sous `CONFIDENCE_THRESHOLDS.mid` (0.5) et
+  // NON sous le seuil « haut » : c'est ce ratio qui déclenche le gate SIA et
+  // qui sert de critère de refus côté serveur. Les deux doivent compter la
+  // même chose, sinon le gate s'ouvre sur des scènes que le serveur accepte
+  // (et inversement).
   const total = uiElements.length;
   const sumConf = uiElements.reduce((s, e) => s + e.confidence, 0);
   const overall_confidence = total > 0 ? sumConf / total : 0;
-  const lowCount = uiElements.filter((e) => e.confidence < MODEL_AGREEMENT_THRESHOLD).length;
+  const lowCount = uiElements.filter((e) => e.confidence < CONFIDENCE_THRESHOLDS.mid).length;
   const low_confidence_ratio = total > 0 ? lowCount / total : 0;
 
   return {
@@ -423,7 +512,36 @@ export function buildingSceneToViewModel(ir: IrScene): UiScene {
     elements: uiElements,
     overall_confidence,
     low_confidence_ratio,
+    // B-f — la bbox de l'IR était purement et simplement JETÉE par l'adapter.
+    // La caméra démarrait donc à une position fixe [10, 9, 10] : sur une villa
+    // de 12 m, elle démarrait À L'INTÉRIEUR du bâtiment. Elle est désormais
+    // convertie en espace Three (IR.y → Three.z, élévation → Three.y) et sert
+    // à cadrer la caméra sur la diagonale de la scène.
+    bbox: irBboxToThree(ir),
+    quality_checks: ir.quality_checks ?? [],
+    validation_issues: ir.validation_issues ?? [],
+    scale_calibration: ir.scale_calibration ?? null,
   };
+}
+
+/**
+ * bbox IR → bbox Three.js, en conservant la convention de l'adapter
+ * (IR.x → Three.x, IR.y → Three.z, élévation → Three.y).
+ *
+ * Repli sur les éléments quand l'IR ne porte pas de bbox exploitable
+ * (scènes 1.0.0 extraites avant la validation déterministe).
+ */
+function irBboxToThree(ir: IrScene): UiScene["bbox"] {
+  const b = ir.bbox;
+  const valid =
+    b &&
+    Number.isFinite(b.min?.x) &&
+    Number.isFinite(b.max?.x) &&
+    b.max.x - b.min.x > 0.01;
+
+  if (!valid) return undefined;
+
+  return [b.min.x, b.min.z, b.min.y, b.max.x, b.max.z, b.max.y];
 }
 
 // Dispatcher — kept as a separate function so TypeScript narrows the IR union

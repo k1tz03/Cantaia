@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, AlertTriangle } from "lucide-react";
 import type { PlanDetail, AnalysisData } from "@/components/plans/plan-detail-types";
 import { PlanDetailHeader } from "@/components/plans/PlanDetailHeader";
 import { PlanDetailTabs } from "@/components/plans/PlanDetailTabs";
@@ -31,8 +32,10 @@ export default function PlanDetailPage() {
   const planId = params.id as string;
   const t = useTranslations("plans");
 
+  const router = useRouter();
   const [plan, setPlan] = useState<PlanDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState<PlanTab>("viewer");
 
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
@@ -60,18 +63,31 @@ export default function PlanDetailPage() {
   }, []);
 
   const fetchPlan = useCallback(async () => {
+    setLoadError(false);
     try {
       const res = await fetch(`/api/plans/${planId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPlan(data.plan || null);
+      if (res.status === 401) {
+        router.replace("/login");
+        return;
       }
+      if (res.status === 404) {
+        setPlan(null);
+        return;
+      }
+      if (!res.ok) {
+        // Erreur serveur ≠ plan inexistant : on ne montre pas « introuvable ».
+        setLoadError(true);
+        return;
+      }
+      const data = await res.json();
+      setPlan(data.plan || null);
     } catch (err) {
       console.error("Failed to fetch plan:", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [planId]);
+  }, [planId, router]);
 
   useEffect(() => {
     fetchPlan();
@@ -362,13 +378,28 @@ export default function PlanDetailPage() {
     return (
       <div className="flex-1 overflow-y-auto min-h-full bg-[#0F0F11]">
         <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-          <Link href="/plans" className="flex items-center gap-1.5 text-sm text-[#71717A] hover:text-[#FAFAFA] mb-4">
+          <Link href="/plans" className="flex items-center gap-1.5 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] mb-4">
             <ArrowLeft className="h-4 w-4" />
             {t("title")}
           </Link>
           <div className="flex flex-col items-center justify-center py-20">
-            <FileText className="h-12 w-12 text-[#71717A] mb-3" />
-            <p className="text-sm font-medium text-[#71717A]">{t("planNotFound")}</p>
+            {loadError ? (
+              <>
+                <AlertTriangle className="h-12 w-12 text-[#EF4444] mb-3" />
+                <p className="text-sm font-medium text-[#EF4444]">{t("loadError")}</p>
+                <button
+                  onClick={() => { setLoading(true); fetchPlan(); }}
+                  className="mt-4 rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A]"
+                >
+                  {t("retry")}
+                </button>
+              </>
+            ) : (
+              <>
+                <FileText className="h-12 w-12 text-[#A1A1AA] mb-3" />
+                <p className="text-sm font-medium text-[#A1A1AA]">{t("planNotFound")}</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -391,7 +422,7 @@ export default function PlanDetailPage() {
   return (
     <div className="flex-1 overflow-y-auto min-h-full bg-[#0F0F11]">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-        <Link href="/plans" className="flex items-center gap-1.5 text-sm text-[#71717A] hover:text-[#FAFAFA] mb-4">
+        <Link href="/plans" className="flex items-center gap-1.5 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] mb-4">
           <ArrowLeft className="h-4 w-4" />
           {t("title")}
         </Link>

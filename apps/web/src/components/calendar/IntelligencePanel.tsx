@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import {
   Zap,
   Mail,
@@ -17,6 +18,7 @@ import {
   ExternalLink,
   MapPin,
   Check,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -245,14 +247,14 @@ function WeatherWidget({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t("searchCity")}
-                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-xs text-[#FAFAFA] placeholder-[#52525B] outline-none focus:border-[#F97316]/50"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-xs text-[#FAFAFA] placeholder-[#71717A] outline-none focus:border-[#F97316]/50"
                 />
               </div>
 
               {/* City list */}
               <div className="max-h-60 overflow-y-auto py-1">
                 {filteredCities.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-[#52525B]">{t("noResults")}</p>
+                  <p className="px-3 py-2 text-xs text-[#A1A1AA]">{t("noResults")}</p>
                 ) : (
                   filteredCities.map((city) => {
                     const isActive = city.name === currentCity.name;
@@ -270,7 +272,7 @@ function WeatherWidget({
                         <div className="flex items-center gap-2">
                           <MapPin className="w-3 h-3 flex-shrink-0" />
                           <span>{city.name}</span>
-                          <span className="text-[10px] text-[#52525B]">{city.canton}</span>
+                          <span className="text-[10px] text-[#A1A1AA]">{city.canton}</span>
                         </div>
                         {isActive && <Check className="w-3 h-3 text-[#F97316]" />}
                       </button>
@@ -329,7 +331,7 @@ function PrepSection({
               {count}
             </span>
           )}
-          <Icon className="w-3.5 h-3.5 text-[#52525B]" />
+          <Icon className="w-3.5 h-3.5 text-[#A1A1AA]" />
         </div>
       </button>
       {open && <div className="pb-3 space-y-2">{children}</div>}
@@ -362,12 +364,12 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
             <Mail className="w-3 h-3 mt-0.5 text-[#3B82F6] flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-xs text-[#FAFAFA] truncate">{email.subject}</p>
-              <p className="text-[10px] text-[#71717A]">{email.sender}</p>
+              <p className="text-[10px] text-[#A1A1AA]">{email.sender}</p>
             </div>
           </div>
         ))}
         {prep.unread_emails.length === 0 && (
-          <p className="text-[10px] text-[#52525B] px-1">{t("prepNoEmails")}</p>
+          <p className="text-[10px] text-[#A1A1AA] px-1">{t("prepNoEmails")}</p>
         )}
       </PrepSection>
 
@@ -388,7 +390,7 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
                   {t("daysOverdue", { count: task.days_overdue })}
                 </span>
                 {task.assignee && (
-                  <span className="text-[#71717A]">{task.assignee}</span>
+                  <span className="text-[#A1A1AA]">{task.assignee}</span>
                 )}
               </div>
             </div>
@@ -416,7 +418,7 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
                   {reserve.description}
                 </p>
                 {reserve.location && (
-                  <p className="text-[10px] text-[#71717A]">{reserve.location}</p>
+                  <p className="text-[10px] text-[#A1A1AA]">{reserve.location}</p>
                 )}
               </div>
             </div>
@@ -440,7 +442,7 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
               />
               <div className="min-w-0">
                 <p className="text-xs text-[#FAFAFA]">{point.point}</p>
-                <p className="text-[10px] text-[#52525B]">{point.source}</p>
+                <p className="text-[10px] text-[#A1A1AA]">{point.source}</p>
               </div>
             </li>
           ))}
@@ -462,9 +464,9 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
               <div className="min-w-0">
                 <p className="text-xs text-[#FAFAFA]">{item.topic}</p>
                 <div className="flex items-center gap-2 text-[10px]">
-                  <span className="text-[#71717A]">{item.duration_min} min</span>
+                  <span className="text-[#A1A1AA]">{item.duration_min} min</span>
                   {item.context && (
-                    <span className="text-[#52525B] truncate">{item.context}</span>
+                    <span className="text-[#A1A1AA] truncate">{item.context}</span>
                   )}
                 </div>
               </div>
@@ -475,6 +477,27 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
     </div>
   );
 }
+
+// ── Team availability constants ───────────────────────────
+
+const SLOT_COLORS: Record<string, string> = {
+  free: "#10B981",
+  partial: "#84CC16",
+  meeting: "#F59E0B",
+  busy: "#EF4444",
+  unknown: "#3F3F46",
+};
+
+// i18n-pending: calendar.slot* labels
+const SLOT_LABELS: Record<string, string> = {
+  free: "libre",
+  partial: "partiellement occupé",
+  meeting: "réunion",
+  busy: "occupé",
+  unknown: "inconnu",
+};
+
+const AVAILABILITY_SLOT_LABELS = ["08-10", "10-12", "12-14", "14-16", "16-18"];
 
 // ── Feed Card ─────────────────────────────────────────────
 
@@ -497,7 +520,7 @@ function FeedCard({ item }: { item: IntelligenceFeedItem }) {
       />
 
       {/* Icon */}
-      <Icon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#71717A]" />
+      <Icon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#A1A1AA]" />
 
       {/* Content */}
       <div className="min-w-0 flex-1">
@@ -513,7 +536,7 @@ function FeedCard({ item }: { item: IntelligenceFeedItem }) {
               {item.project_name}
             </span>
           )}
-          <span className="text-[10px] text-[#52525B]">
+          <span className="text-[10px] text-[#A1A1AA]">
             {formatRelativeTime(item.timestamp, t)}
           </span>
         </div>
@@ -521,16 +544,16 @@ function FeedCard({ item }: { item: IntelligenceFeedItem }) {
 
       {/* Link arrow */}
       {item.link && (
-        <ExternalLink className="mt-0.5 h-3 w-3 flex-shrink-0 text-[#52525B] opacity-0 group-hover:opacity-100 transition-opacity" />
+        <ExternalLink className="mt-0.5 h-3 w-3 flex-shrink-0 text-[#A1A1AA] opacity-0 group-hover:opacity-100 transition-opacity" />
       )}
     </div>
   );
 
   if (item.link) {
     return (
-      <a href={item.link} className="block">
+      <Link href={item.link} className="block">
         {inner}
-      </a>
+      </Link>
     );
   }
   return inner;
@@ -571,7 +594,7 @@ function DeadlineCard({ item }: { item: IntelligenceFeedItem }) {
         />
       </div>
       {item.project_name && (
-        <p className="mt-1.5 text-[10px] text-[#52525B]">{item.project_name}</p>
+        <p className="mt-1.5 text-[10px] text-[#A1A1AA]">{item.project_name}</p>
       )}
     </div>
   );
@@ -582,6 +605,7 @@ function DeadlineCard({ item }: { item: IntelligenceFeedItem }) {
 export function IntelligencePanel({
   feed,
   weather,
+  teamAvailability,
   selectedEvent,
   meetingPrep,
   onCityChange,
@@ -617,7 +641,7 @@ export function IntelligencePanel({
           </div>
 
           {selectedEvent && meetingPrep && (
-            <p className="text-[11px] text-[#71717A] mb-2 truncate">
+            <p className="text-[11px] text-[#A1A1AA] mb-2 truncate">
               {selectedEvent.title}
             </p>
           )}
@@ -626,8 +650,8 @@ export function IntelligencePanel({
             <MeetingPrepSection prep={meetingPrep} />
           ) : (
             <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4 text-center">
-              <Sparkles className="mx-auto h-5 w-5 text-[#52525B] mb-2" />
-              <p className="text-xs text-[#52525B]">
+              <Sparkles className="mx-auto h-5 w-5 text-[#A1A1AA] mb-2" />
+              <p className="text-xs text-[#A1A1AA]">
                 {t("selectEventForPrep")}
               </p>
             </div>
@@ -649,6 +673,56 @@ export function IntelligencePanel({
             <div className="space-y-2">
               {deadlines.map((item) => (
                 <DeadlineCard key={item.id} item={item} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Team availability ─────────────────────────
+            `teamAvailability` was computed by the API and passed down, but
+            NOTHING rendered it. Worse, members who never connected a calendar
+            were reported as fully free — a confident lie. The API now marks
+            them `synced: false` and this strip says so. */}
+        {teamAvailability && teamAvailability.length > 0 && (
+          <section>
+            <div className="mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4 text-[#3B82F6]" />
+              {/* i18n-pending: calendar.teamAvailabilityTitle */}
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">Disponibilités</h3>
+            </div>
+            <div className="space-y-1.5">
+              {teamAvailability.map((member) => (
+                <div
+                  key={member.user_id}
+                  className="flex items-center gap-2 rounded-lg border border-[#27272A] bg-[#18181B] px-2.5 py-2"
+                >
+                  <span
+                    className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                    style={{ backgroundColor: member.avatar_color }}
+                  >
+                    {member.initials}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[12px] text-[#FAFAFA]">
+                    {member.name}
+                  </span>
+                  {member.synced === false ? (
+                    /* i18n-pending: calendar.notSynced */
+                    <span className="flex-shrink-0 rounded bg-[#27272A] px-1.5 py-0.5 text-[10px] font-medium text-[#A1A1AA]">
+                      non synchronisé
+                    </span>
+                  ) : (
+                    <span className="flex flex-shrink-0 items-center gap-0.5">
+                      {member.slots.map((slot, i) => (
+                        <span
+                          key={i}
+                          className="h-3 w-3 rounded-[2px]"
+                          style={{ backgroundColor: SLOT_COLORS[slot] || SLOT_COLORS.unknown }}
+                          title={`${AVAILABILITY_SLOT_LABELS[i]} — ${SLOT_LABELS[slot] || slot}`}
+                        />
+                      ))}
+                    </span>
+                  )}
+                </div>
               ))}
             </div>
           </section>
@@ -676,7 +750,7 @@ export function IntelligencePanel({
             </div>
           ) : (
             <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4 text-center">
-              <p className="text-xs text-[#52525B]">
+              <p className="text-xs text-[#A1A1AA]">
                 {t("noAlerts")}
               </p>
               <span className="mt-1 inline-block h-2.5 w-2.5 rounded-full bg-[#10B981]" />

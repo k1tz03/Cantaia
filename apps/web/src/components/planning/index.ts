@@ -12,6 +12,8 @@ export { default as GanttToolbar } from "./GanttToolbar";
 export { default as GanttContextMenu, ColorPickerRow } from "./GanttContextMenu";
 export type { ContextMenuItem, GanttContextMenuProps } from "./GanttContextMenu";
 export { default as DurationTooltip } from "./DurationTooltip";
+export { default as PlanningAiPanel } from "./PlanningAiPanel";
+export { default as LookaheadView } from "./LookaheadView";
 export { default as useUndoRedo } from "./useUndoRedo";
 export type { UndoRedoAction, UseUndoRedoReturn } from "./useUndoRedo";
 
@@ -24,6 +26,11 @@ export type {
   ZoomLevel,
   TaskPosition,
   ProjectType,
+  BaselineSnapshot,
+  PlanningConfigBlob,
+  PlanningAiRisk,
+  PlanningAiRecommendation,
+  PlanningProcurementItem,
 } from "./planning-types";
 export {
   PHASE_COLORS,
@@ -32,4 +39,6 @@ export {
   HEADER_HEIGHT,
   PIXELS_PER_DAY,
   COLUMN_WIDTH,
+  MILESTONE_COLORS,
+  milestoneColor,
 } from "./planning-types";

@@ -10,6 +10,8 @@ import {
   isSuccessfulToolResult,
   extractSavedCount,
   countToolInputArray,
+  canRunNightlyAgents,
+  fetchOrgNotifiees,
 } from "../agent-cron-utils";
 
 export const maxDuration = 300;
@@ -78,8 +80,16 @@ export async function POST(request: NextRequest) {
 
   const results: { orgId: string; followupsCreated: number; status: string; error?: string }[] = [];
   const skippedOrgs: string[] = [];
+  const gatedOrgs: Array<{ orgId: string; reason: string }> = [];
 
   for (const [orgId, userId] of orgUserMap) {
+    // Nightly agents are a Pro+ feature and can be switched off per org.
+    const gate = await canRunNightlyAgents(admin, orgId);
+    if (!gate.allowed) {
+      gatedOrgs.push({ orgId, reason: gate.reason || "plan" });
+      continue;
+    }
+
     // AGT.H4 — stop cleanly before Vercel kills the function mid-org.
     const orgBudgetMs = nextAgentBudgetMs(cronStart, agentConfig.maxDurationMs);
     if (orgBudgetMs === null) {
@@ -187,18 +197,17 @@ export async function POST(request: NextRequest) {
         });
       } catch { /* non-critical */ }
 
-      // Notify all org users if followups were found
+      // Notify every admin/director — not the whole org (field users cannot
+      // action a followup) and not just the attributed user (nobody else
+      // would learn the run happened).
       if (followupsCreated > 0) {
         try {
-          const { data: orgMembers } = await (admin as any)
-            .from("users")
-            .select("id")
-            .eq("organization_id", orgId);
+          const notifiees = await fetchOrgNotifiees(admin, orgId);
 
-          if (orgMembers) {
-            const notifications = orgMembers.map((m: { id: string }) => ({
+          if (notifiees.length > 0) {
+            const notifications = notifiees.map((notifieeId: string) => ({
               organization_id: orgId,
-              user_id: m.id,
+              user_id: notifieeId,
               agent_type: "followup-engine",
               title: `${followupsCreated} relance${followupsCreated > 1 ? "s" : ""} détectée${followupsCreated > 1 ? "s" : ""}`,
               description: `L'agent Followup Engine a identifié ${followupsCreated} action${followupsCreated > 1 ? "s" : ""} en retard nécessitant un suivi.`,
@@ -233,6 +242,7 @@ export async function POST(request: NextRequest) {
     total_orgs: results.length,
     total_followups: totalFollowups,
     skipped_orgs: skippedOrgs,
+    gated_orgs: gatedOrgs,
     duration_ms: Date.now() - cronStart,
     results,
   });

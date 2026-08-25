@@ -49,11 +49,23 @@ interface CreditsState {
    * quota UI instead of showing a broken balance.
    */
   unavailable: boolean;
+  /**
+   * Server-reported `degraded` flag: the credit meter itself is broken
+   * (migration missing / RPC unreachable) and AI actions are running WITHOUT
+   * being debited. Distinct from `unavailable`, which merely means this client
+   * could not use the route.
+   */
+  degraded: boolean;
 }
 
 // ── Module-level shared store ───────────────────────────────
 
-let state: CreditsState = { balance: null, loading: true, unavailable: false };
+let state: CreditsState = {
+  balance: null,
+  loading: true,
+  unavailable: false,
+  degraded: false,
+};
 const listeners = new Set<(s: CreditsState) => void>();
 let inFlight: Promise<void> | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -72,12 +84,21 @@ export function fetchCredits(): Promise<void> {
     try {
       const res = await fetch("/api/credits", { cache: "no-store" });
       if (!res.ok) {
-        setState({ loading: false, unavailable: true });
+        // The 404 `credits_unavailable` body still carries `degraded`, which
+        // tells apart "meter broken" from "org not on credits yet".
+        let degraded = false;
+        try {
+          const body = await res.json();
+          degraded = body?.degraded === true;
+        } catch {
+          /* non-JSON error body */
+        }
+        setState({ loading: false, unavailable: true, degraded });
         return;
       }
       const data = await res.json();
       if (!data || typeof data.total !== "number") {
-        setState({ loading: false, unavailable: true });
+        setState({ loading: false, unavailable: true, degraded: false });
         return;
       }
       setState({
@@ -93,10 +114,11 @@ export function fetchCredits(): Promise<void> {
         },
         loading: false,
         unavailable: false,
+        degraded: data.degraded === true,
       });
     } catch {
       // Network error / offline — degrade silently, never break the app shell.
-      setState({ loading: false, unavailable: true });
+      setState({ loading: false, unavailable: true, degraded: false });
     } finally {
       inFlight = null;
     }
@@ -120,6 +142,8 @@ export interface UseCreditsReturn {
   balance: CreditBalance | null;
   loading: boolean;
   unavailable: boolean;
+  /** Credit meter broken server-side — actions currently run un-debited. */
+  degraded: boolean;
   refresh: () => Promise<void>;
 }
 
@@ -165,6 +189,7 @@ export function useCredits(): UseCreditsReturn {
     balance: local.balance,
     loading: local.loading,
     unavailable: local.unavailable,
+    degraded: local.degraded,
     refresh,
   };
 }

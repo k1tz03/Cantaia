@@ -7,8 +7,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Returns a chronological timeline of all interactions with this supplier:
  * - supplier_offers (received offers)
  * - price_requests (sent price requests) via both legacy and enhanced tables
- * - email_records (emails from supplier)
+ * - email_records (emails from supplier — scoped to the org's own users)
  * Ordered by date desc, limited to 20 items by default.
+ *
+ * Every source degrades gracefully: on a Supabase error the source is skipped and
+ * `partial: true` is returned so the client can tell "no history" from "load failed".
  */
 export async function GET(
   request: NextRequest,
@@ -61,10 +64,13 @@ export async function GET(
   };
 
   const items: TimelineItem[] = [];
+  // Flipped whenever a source query returns a Supabase error so the client can
+  // distinguish an empty timeline from a partial failure.
+  let partial = false;
 
   // 1. Supplier offers
-  try {
-    const { data: offers } = await (adminClient as any)
+  {
+    const { data: offers, error } = await (adminClient as any)
       .from("supplier_offers")
       .select("id, received_at, created_at, total_amount, currency, status, submission_id, submissions(title)")
       .eq("supplier_id", supplierId)
@@ -72,7 +78,10 @@ export async function GET(
       .order("received_at", { ascending: false, nullsFirst: false })
       .limit(limit);
 
-    if (offers) {
+    if (error) {
+      console.warn("[supplier-history] Offers query failed:", error.message);
+      partial = true;
+    } else if (offers) {
       for (const o of offers) {
         const submTitle = (o as any).submissions?.title || "Sans titre";
         const amount = o.total_amount
@@ -92,13 +101,11 @@ export async function GET(
         });
       }
     }
-  } catch (err) {
-    console.warn("[supplier-history] Offers query failed:", err);
   }
 
   // 2. Price requests (legacy table)
-  try {
-    const { data: legacyRequests } = await (adminClient as any)
+  {
+    const { data: legacyRequests, error } = await (adminClient as any)
       .from("price_requests")
       .select("id, created_at, sent_at, status, submission_id, submissions(title)")
       .eq("supplier_id", supplierId)
@@ -106,7 +113,12 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (legacyRequests) {
+    // The legacy table may not exist in every environment — a "relation does not
+    // exist" is expected here and not counted as a partial failure.
+    if (error && !/does not exist|relation/i.test(error.message || "")) {
+      console.warn("[supplier-history] Legacy requests query failed:", error.message);
+      partial = true;
+    } else if (legacyRequests) {
       for (const pr of legacyRequests) {
         const submTitle = (pr as any).submissions?.title || "Sans titre";
         items.push({
@@ -121,20 +133,23 @@ export async function GET(
         });
       }
     }
-  } catch {
-    // table may not exist
   }
 
-  // 2b. Price requests (enhanced table from migration 049)
-  try {
-    const { data: enhancedRequests } = await (adminClient as any)
+  // 2b. Price requests (enhanced table from migration 049), scoped to the org
+  //     through the parent submission.
+  {
+    const { data: enhancedRequests, error } = await (adminClient as any)
       .from("submission_price_requests")
-      .select("id, created_at, sent_at, status, submission_id, submissions(title)")
+      .select("id, created_at, sent_at, status, submission_id, submissions!inner(title, organization_id)")
       .eq("supplier_id", supplierId)
+      .eq("submissions.organization_id", userOrg.organization_id)
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (enhancedRequests) {
+    if (error && !/does not exist|relation/i.test(error.message || "")) {
+      console.warn("[supplier-history] Enhanced requests query failed:", error.message);
+      partial = true;
+    } else if (enhancedRequests) {
       // Deduplicate by checking if already in items from legacy table
       const existingIds = new Set(items.map((i) => i.id));
       for (const pr of enhancedRequests) {
@@ -152,37 +167,51 @@ export async function GET(
         });
       }
     }
-  } catch {
-    // table may not exist (migration 049)
   }
 
-  // 3. Emails from supplier
+  // 3. Emails from supplier — scoped to the org's own mailboxes.
+  // email_records is user-scoped (user_id NOT NULL): filtering only on
+  // sender_email would surface every org's emails for that address (cross-tenant
+  // leak). Restrict to the user_ids belonging to this organization.
   if (supplier.email) {
-    try {
-      const { data: emails } = await (adminClient as any)
-        .from("email_records")
-        .select("id, received_at, subject, sender_email")
-        .eq("sender_email", supplier.email)
-        .order("received_at", { ascending: false })
-        .limit(limit);
+    const { data: orgUsers, error: usersErr } = await adminClient
+      .from("users")
+      .select("id")
+      .eq("organization_id", userOrg.organization_id);
 
-      if (emails) {
-        for (const em of emails) {
-          const subject = em.subject || "(Sans objet)";
-          items.push({
-            id: em.id,
-            type: "email",
-            date: em.received_at,
-            description: `Email — ${subject.length > 60 ? subject.substring(0, 57) + "..." : subject}`,
-            meta: {
-              email_id: em.id,
-              subject: em.subject,
-            },
-          });
+    if (usersErr) {
+      console.warn("[supplier-history] Org users query failed:", usersErr.message);
+      partial = true;
+    } else {
+      const orgUserIds = (orgUsers || []).map((u: any) => u.id);
+      if (orgUserIds.length > 0) {
+        const { data: emails, error } = await (adminClient as any)
+          .from("email_records")
+          .select("id, received_at, subject, sender_email")
+          .eq("sender_email", supplier.email)
+          .in("user_id", orgUserIds)
+          .order("received_at", { ascending: false })
+          .limit(limit);
+
+        if (error) {
+          console.warn("[supplier-history] Emails query failed:", error.message);
+          partial = true;
+        } else if (emails) {
+          for (const em of emails) {
+            const subject = em.subject || "(Sans objet)";
+            items.push({
+              id: em.id,
+              type: "email",
+              date: em.received_at,
+              description: `Email — ${subject.length > 60 ? subject.substring(0, 57) + "..." : subject}`,
+              meta: {
+                email_id: em.id,
+                subject: em.subject,
+              },
+            });
+          }
         }
       }
-    } catch {
-      // email_records may not have matching data
     }
   }
 
@@ -192,9 +221,9 @@ export async function GET(
   const limited = items.slice(0, limit);
 
   // 4. Price trend data (for chart)
-  let priceTrend: { date: string; avg_price: number; cfc_group: string }[] = [];
-  try {
-    const { data: offerPrices } = await (adminClient as any)
+  const priceTrend: { date: string; avg_price: number; cfc_group: string }[] = [];
+  {
+    const { data: offerPrices, error } = await (adminClient as any)
       .from("offer_line_items")
       .select("unit_price, cfc_subcode, created_at, supplier_offers!inner(received_at)")
       .eq("supplier_id", supplierId)
@@ -202,7 +231,10 @@ export async function GET(
       .not("unit_price", "is", null)
       .order("created_at", { ascending: true });
 
-    if (offerPrices && offerPrices.length >= 3) {
+    if (error && !/does not exist|relation/i.test(error.message || "")) {
+      console.warn("[supplier-history] Price trend query failed:", error.message);
+      partial = true;
+    } else if (offerPrices && offerPrices.length >= 3) {
       // Group by month and CFC group (first 3 digits)
       const byMonth: Record<string, { prices: number[]; cfc: string }> = {};
       for (const p of offerPrices) {
@@ -226,17 +258,15 @@ export async function GET(
       }
       priceTrend.sort((a, b) => a.date.localeCompare(b.date));
     }
-  } catch {
-    // ignore
   }
 
   // 5. Alerts
   const alerts: { type: string; message: string; severity: "warning" | "info" }[] = [];
 
   // Alert: No response to recent request
-  try {
+  {
     // Check latest price_request without a matching offer
-    const { data: pendingRequests } = await (adminClient as any)
+    const { data: pendingRequests, error } = await (adminClient as any)
       .from("price_requests")
       .select("id, sent_at, created_at")
       .eq("supplier_id", supplierId)
@@ -245,29 +275,34 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (!pendingRequests || pendingRequests.length === 0) {
-      // Also check submission_price_requests
-      try {
-        const { data: pendingEnhanced } = await (adminClient as any)
-          .from("submission_price_requests")
-          .select("id, sent_at, created_at")
-          .eq("supplier_id", supplierId)
-          .eq("status", "sent")
-          .order("created_at", { ascending: false })
-          .limit(1);
+    if (error && !/does not exist|relation/i.test(error.message || "")) {
+      console.warn("[supplier-history] Pending requests query failed:", error.message);
+      partial = true;
+    } else if (!pendingRequests || pendingRequests.length === 0) {
+      // Also check submission_price_requests (scoped through the submission's org)
+      const { data: pendingEnhanced, error: enhErr } = await (adminClient as any)
+        .from("submission_price_requests")
+        .select("id, sent_at, created_at, submissions!inner(organization_id)")
+        .eq("supplier_id", supplierId)
+        .eq("submissions.organization_id", userOrg.organization_id)
+        .eq("status", "sent")
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-        if (pendingEnhanced && pendingEnhanced.length > 0) {
-          const sentDate = new Date(pendingEnhanced[0].sent_at || pendingEnhanced[0].created_at);
-          const daysSince = (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24);
-          if (daysSince > 14) {
-            alerts.push({
-              type: "no_response",
-              message: `Pas de réponse depuis ${Math.round(daysSince)} jours`,
-              severity: "warning",
-            });
-          }
+      if (enhErr && !/does not exist|relation/i.test(enhErr.message || "")) {
+        console.warn("[supplier-history] Pending enhanced query failed:", enhErr.message);
+        partial = true;
+      } else if (pendingEnhanced && pendingEnhanced.length > 0) {
+        const sentDate = new Date(pendingEnhanced[0].sent_at || pendingEnhanced[0].created_at);
+        const daysSince = (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSince > 14) {
+          alerts.push({
+            type: "no_response",
+            message: `Pas de réponse depuis ${Math.round(daysSince)} jours`,
+            severity: "warning",
+          });
         }
-      } catch { /* ignore */ }
+      }
     } else {
       const sentDate = new Date(pendingRequests[0].sent_at || pendingRequests[0].created_at);
       const daysSince = (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -279,20 +314,24 @@ export async function GET(
         });
       }
     }
-  } catch { /* ignore */ }
+  }
 
   // Alert: Expired certifications
-  try {
-    const { data: supplierFull } = await (adminClient as any)
+  {
+    const { data: supplierFull, error } = await (adminClient as any)
       .from("suppliers")
       .select("certifications")
       .eq("id", supplierId)
+      .eq("organization_id", userOrg.organization_id)
       .maybeSingle();
 
-    if (supplierFull?.certifications) {
+    if (error) {
+      console.warn("[supplier-history] Certifications query failed:", error.message);
+      partial = true;
+    } else if (supplierFull?.certifications) {
       const certs = supplierFull.certifications as string[];
       for (const cert of certs) {
-        // Check if cert contains a date pattern like YYYY or DD.MM.YYYY
+        // Check if cert contains a date pattern like DD.MM.YYYY
         const dateMatch = cert.match(/(\d{2}\.\d{2}\.\d{4})/);
         if (dateMatch) {
           const parts = dateMatch[1].split(".");
@@ -307,7 +346,7 @@ export async function GET(
         }
       }
     }
-  } catch { /* ignore */ }
+  }
 
   return NextResponse.json({
     items: limited,
@@ -315,5 +354,6 @@ export async function GET(
     has_more: total > limit,
     price_trend: priceTrend,
     alerts,
+    partial,
   });
 }

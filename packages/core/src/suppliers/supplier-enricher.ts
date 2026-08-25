@@ -3,7 +3,7 @@
 // ============================================================
 
 import { buildSupplierEnrichPrompt } from "../ai/prompts";
-import { MODEL_FOR_TASK } from "../ai/ai-utils";
+import { MODEL_FOR_TASK, parseAIJson } from "../ai/ai-utils";
 
 export interface EnrichmentResult {
   website_found: boolean;
@@ -35,7 +35,7 @@ export async function enrichSupplier(
     const response = await anthropic.messages.create({
       model: MODEL_FOR_TASK.supplier_enrichment,
       max_tokens: 1024,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
+      messages: [{ role: "user", content: prompt }],
     });
 
     if (onUsage) {
@@ -48,18 +48,26 @@ export async function enrichSupplier(
     }
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const jsonStr = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-    return JSON.parse(jsonStr) as EnrichmentResult;
-  } catch (err: any) {
-    console.error("[supplier-enricher] AI error:", err?.message || err);
-    const status = err?.status;
-    if (status === 429 || status === 503 || status === 529) throw err;
+    const parsed = parseAIJson<EnrichmentResult>(text);
+    if (!parsed) {
+      throw new Error("Réponse IA illisible (JSON invalide)");
+    }
+    // Normalise the arrays the caller depends on.
     return {
-      website_found: false,
-      additional_contacts: [],
-      certifications_found: [],
-      specialties_suggested: [],
+      website_found: parsed.website_found ?? false,
+      website_url: parsed.website_url,
+      additional_contacts: parsed.additional_contacts ?? [],
+      certifications_found: parsed.certifications_found ?? [],
+      specialties_suggested: parsed.specialties_suggested ?? [],
+      company_description: parsed.company_description,
+      employee_count_estimate: parsed.employee_count_estimate,
+      founded_year: parsed.founded_year,
     };
+  } catch (err: any) {
+    // The org is debited before this call, so a swallowed failure would bill the
+    // user for nothing and show "rien à enrichir". Propagate so the route can
+    // classify the error (and, upstream, refund / surface it).
+    console.error("[supplier-enricher] AI error:", err?.message || err);
+    throw err;
   }
 }

@@ -168,7 +168,7 @@ export function NotificationDropdown() {
                 className={`flex-1 text-center py-2 text-[12px] font-medium transition-colors ${
                   activeTab === tab.key
                     ? "text-[#F97316] border-b-2 border-[#F97316]"
-                    : "text-[#71717A] hover:text-[#A1A1AA]"
+                    : "text-[#A1A1AA] hover:text-[#A1A1AA]"
                 }`}
               >
                 {tab.label}
@@ -181,12 +181,12 @@ export function NotificationDropdown() {
             {loading && notifications.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <div className="w-5 h-5 border-2 border-[#3F3F46] border-t-[#F97316] rounded-full animate-spin mx-auto" />
-                <p className="text-[12px] text-[#71717A] mt-2">Chargement...</p>
+                <p className="text-[12px] text-[#A1A1AA] mt-2">Chargement...</p>
               </div>
             ) : filtered.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Bell className="h-6 w-6 text-[#3F3F46] mx-auto mb-2" />
-                <p className="text-[13px] text-[#71717A]">Aucune notification</p>
+                <p className="text-[13px] text-[#A1A1AA]">Aucune notification</p>
               </div>
             ) : (
               filtered.map((notification) => {
@@ -220,11 +220,11 @@ export function NotificationDropdown() {
                         )}
                       </div>
                       {notification.description && (
-                        <p className="text-[11px] text-[#71717A] mt-0.5 line-clamp-2">
+                        <p className="text-[11px] text-[#A1A1AA] mt-0.5 line-clamp-2">
                           {notification.description}
                         </p>
                       )}
-                      <p className="text-[10px] text-[#52525B] mt-1">
+                      <p className="text-[10px] text-[#A1A1AA] mt-1">
                         {formatRelative(notification.created_at)}
                       </p>
                     </div>

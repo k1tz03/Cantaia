@@ -10,6 +10,7 @@
  */
 
 import { analyzeHandwrittenNotes } from "./handwritten-notes-analyzer";
+import { MODEL_FOR_TASK } from "../ai/ai-utils";
 import type { HandwrittenNotesAnalysis } from "@cantaia/database";
 
 /** Minimal shape of the Supabase service-role client we rely on. */
@@ -141,9 +142,12 @@ export async function runHandwrittenNotesAnalysis(
       await admin.from("api_usage_logs").insert({
         user_id: userId,
         organization_id: photo.organization_id,
-        action_type: "handwritten_notes_analysis",
+        // Canonical key — must match CREDIT_COSTS.handwritten_notes, which is
+        // what /api/visits/analyze-notes actually debits. It used to say
+        // "handwritten_notes_analysis", a name no cost dashboard knows.
+        action_type: "handwritten_notes",
         api_provider: "anthropic",
-        model: "claude-sonnet-4-5-20250929",
+        model: MODEL_FOR_TASK.handwritten_notes,
         input_tokens: Math.round(result.tokens_used * 0.8),
         output_tokens: Math.round(result.tokens_used * 0.2),
         estimated_cost_chf: (result.tokens_used * 0.003) / 1000,

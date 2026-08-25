@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { learnFromClassificationAction } from "@cantaia/core/emails";
+import { logLearningFailure } from "@cantaia/core/learning";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 
 /**
@@ -78,6 +79,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Email not found" }, { status: 404 });
   }
 
+  // Anti-IDOR: a change_project target must belong to the caller's org.
+  // Admin client bypasses RLS, so validate the ownership explicitly.
+  if (action === "change_project") {
+    if (!userOrg?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const { data: proj } = await admin
+      .from("projects")
+      .select("id, organization_id")
+      .eq("id", project_id!)
+      .maybeSingle();
+    if (!proj || proj.organization_id !== userOrg.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   // 4. Handle each action
   if (action === "confirm") {
     // Confirm the existing AI suggestion
@@ -93,21 +110,31 @@ export async function POST(request: NextRequest) {
 
     // If the email had a "suggested" status and a project_id, add sender to project email_senders
     if (email.classification_status === "suggested" && email.project_id) {
-      await addSenderToProject(admin, email.sender_email, email.project_id);
+      await addSenderToProject(admin, email.sender_email, email.project_id, userOrg?.organization_id);
     }
 
-    // Learn from confirmation
+    // Learn from confirmation.
+    // AUDIT 08/2026 — le `.catch(() => {})` nu avalait tout échec de ce chemin
+    // d'apprentissage : il part désormais dans learning_events (write_failed).
     if (userOrg?.organization_id) {
+      const orgIdForLog = userOrg.organization_id;
       learnFromClassificationAction({
         supabase: admin,
-        organizationId: userOrg.organization_id,
+        organizationId: orgIdForLog,
         senderEmail: email.sender_email,
         subject: email.subject || "",
         projectId: email.project_id,
         action: "confirm",
         emailId: email.id,
         userId: user.id,
-      }).catch(() => {});
+      }).catch((err) =>
+        logLearningFailure(admin, {
+          organizationId: orgIdForLog,
+          module: "mail",
+          error: err,
+          context: { op: "learnFromClassificationAction", action: "confirm" },
+        })
+      );
     }
 
     if (process.env.NODE_ENV === "development") console.log("[emails/confirm-classification] Email confirmed:", email_id);
@@ -130,13 +157,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Add sender to the new project's email_senders
-    await addSenderToProject(admin, email.sender_email, project_id!);
+    await addSenderToProject(admin, email.sender_email, project_id!, userOrg?.organization_id);
 
     // Learn from correction
     if (userOrg?.organization_id) {
+      const orgIdForLog = userOrg.organization_id;
       learnFromClassificationAction({
         supabase: admin,
-        organizationId: userOrg.organization_id,
+        organizationId: orgIdForLog,
         senderEmail: email.sender_email,
         subject: email.subject || "",
         projectId: project_id!,
@@ -146,7 +174,14 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         originalClassification: email.classification_status || undefined,
         correctedClassification: "confirmed",
-      }).catch(() => {});
+      }).catch((err) =>
+        logLearningFailure(admin, {
+          organizationId: orgIdForLog,
+          module: "mail",
+          error: err,
+          context: { op: "learnFromClassificationAction", action: "correct" },
+        })
+      );
     }
 
     if (process.env.NODE_ENV === "development") console.log("[emails/confirm-classification] Email reassigned to project:", project_id, "email:", email_id);
@@ -171,9 +206,10 @@ export async function POST(request: NextRequest) {
 
     // Learn from rejection
     if (userOrg?.organization_id) {
+      const orgIdForLog = userOrg.organization_id;
       learnFromClassificationAction({
         supabase: admin,
-        organizationId: userOrg.organization_id,
+        organizationId: orgIdForLog,
         senderEmail: email.sender_email,
         subject: email.subject || "",
         projectId: null,
@@ -182,7 +218,14 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         originalClassification: email.classification_status || undefined,
         correctedClassification: "rejected",
-      }).catch(() => {});
+      }).catch((err) =>
+        logLearningFailure(admin, {
+          organizationId: orgIdForLog,
+          module: "mail",
+          error: err,
+          context: { op: "learnFromClassificationAction", action: "reject" },
+        })
+      );
     }
 
     if (process.env.NODE_ENV === "development") console.log("[emails/confirm-classification] Email classification rejected:", email_id);
@@ -194,11 +237,16 @@ export async function POST(request: NextRequest) {
 
 /**
  * Helper: adds a sender email to a project's email_senders array (if not already present).
+ *
+ * AUDIT 08/2026 — l'update n'était pas vérifié ({error} ignoré, supabase-js ne
+ * throw pas) : un expéditeur jamais ajouté = la boucle "expéditeur confirmé →
+ * classification locale gratuite" ne se fermait pas, sans aucune trace.
  */
 async function addSenderToProject(
   admin: ReturnType<typeof createAdminClient>,
   senderEmail: string | null,
-  projectId: string
+  projectId: string,
+  organizationId?: string | null
 ) {
   if (!senderEmail) return;
 
@@ -214,14 +262,31 @@ async function addSenderToProject(
       const normalizedSender = senderEmail.toLowerCase();
       if (!currentSenders.includes(normalizedSender)) {
         const updatedSenders = [...currentSenders, normalizedSender];
-        await admin
+        const { error: updateError } = await admin
           .from("projects")
           .update({ email_senders: updatedSenders } as Record<string, unknown>)
           .eq("id", projectId);
+        if (updateError && organizationId) {
+          await logLearningFailure(admin, {
+            organizationId,
+            module: "mail",
+            error: updateError,
+            context: { table: "projects", op: "email_senders_append", project_id: projectId },
+          });
+        }
         if (process.env.NODE_ENV === "development") console.log(`[emails/confirm-classification] Added sender "${normalizedSender}" to project ${projectId}`);
       }
     }
   } catch (err) {
-    console.error("[emails/confirm-classification] Warning: Failed to update project email_senders:", err);
+    if (organizationId) {
+      await logLearningFailure(admin, {
+        organizationId,
+        module: "mail",
+        error: err,
+        context: { table: "projects", op: "email_senders_append", project_id: projectId },
+      });
+    } else {
+      console.error("[emails/confirm-classification] Failed to update project email_senders:", err);
+    }
   }
 }

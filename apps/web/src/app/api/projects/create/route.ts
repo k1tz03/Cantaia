@@ -210,65 +210,129 @@ export async function POST(request: NextRequest) {
     metadata: { project_id: project.id, project_name: body.name },
   });
 
-  // Fire-and-forget: check if this project was created from a prospect visit
-  // If a client_visit matches by client_name AND is_prospect=true, mark it as converted
-  trackProspectConversion(admin, userRow.organization_id, project.id, body).catch((err) => {
-    console.warn("[projects/create] Prospect conversion tracking error:", err);
-  });
+  // Prospect visit → project conversion.
+  //
+  // This used to be a fire-and-forget fuzzy match on client_name against every
+  // prospect visit of the org ("Dupont" converted "Dupont SA", "Dupont Immo"
+  // and "Chez Dupont" all at once, and missed the visit entirely when the
+  // project was named differently). The visit id is now explicit: the
+  // "Convertir en projet" button on /visits/[id] sends source_visit_id.
+  let conversion: ConversionResult | null = null;
+  if (body.source_visit_id) {
+    conversion = await linkVisitToProject(
+      admin,
+      userRow.organization_id,
+      project.id,
+      String(body.source_visit_id),
+      user.id,
+    );
+  }
 
-  return NextResponse.json({ success: true, project });
+  return NextResponse.json({ success: true, project, conversion });
 }
 
 // ============================================================================
-// Prospect conversion tracking: link new projects back to prospect visits
+// Prospect conversion: link one visit to the project it produced
 // ============================================================================
 
-async function trackProspectConversion(
+interface ConversionResult {
+  visit_id: string;
+  linked: boolean;
+  tasks_created: number;
+  error?: string;
+}
+
+/**
+ * Attaches a prospect visit to the project it produced, then replays the task
+ * generation that was skipped while the visit had no project.
+ *
+ * `tasks.project_id` is NOT NULL, so a prospect visit's report generates zero
+ * tasks: the "Établir devis" task and every next step of the AI report are
+ * dropped on the floor. Conversion is the moment they become creatable, so the
+ * same createVisitTasks() used by generate-report is run here (idempotent — it
+ * bails out if tasks already exist for that visit).
+ */
+async function linkVisitToProject(
   admin: ReturnType<typeof createAdminClient>,
   orgId: string,
   projectId: string,
-  body: Record<string, any>,
-): Promise<void> {
-  const clientName = (body.client_name || "").trim().toLowerCase();
-  if (!clientName) return;
+  visitId: string,
+  userId: string,
+): Promise<ConversionResult> {
+  const result: ConversionResult = { visit_id: visitId, linked: false, tasks_created: 0 };
 
-  // Search for prospect visits with matching client name in the same org
-  const { data: visits } = await (admin as any)
-    .from("client_visits")
-    .select("id, client_name, is_prospect")
-    .eq("organization_id", orgId)
-    .eq("is_prospect", true)
-    .limit(50);
+  try {
+    // Anti-IDOR: the visit must belong to the caller's organization.
+    const { data: visit } = await (admin as any)
+      .from("client_visits")
+      .select("id, organization_id, project_id, client_name, visit_date, created_by, title, report")
+      .eq("id", visitId)
+      .maybeSingle();
 
-  if (!visits || visits.length === 0) return;
-
-  // Find visits where client name matches (case-insensitive, partial match)
-  const matchingVisits = visits.filter((v: any) => {
-    const visitClient = (v.client_name || "").trim().toLowerCase();
-    return visitClient === clientName ||
-      visitClient.includes(clientName) ||
-      clientName.includes(visitClient);
-  });
-
-  if (matchingVisits.length === 0) return;
-
-  // Mark matching visits as converted
-  for (const visit of matchingVisits) {
-    try {
-      await (admin as any)
-        .from("client_visits")
-        .update({
-          prospect_converted: true,
-          converted_project_id: projectId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", visit.id);
-    } catch {
-      // Columns may not exist yet (needs migration 064) — non-blocking
+    if (!visit || visit.organization_id !== orgId) {
+      result.error = "Visite introuvable dans cette organisation";
+      return result;
     }
+
+    if (visit.project_id) {
+      result.error = "Cette visite est déjà rattachée à un projet";
+      return result;
+    }
+
+    const updates: Record<string, unknown> = {
+      project_id: projectId,
+      is_prospect: false,
+      updated_at: new Date().toISOString(),
+    };
+
+    // prospect_converted / converted_project_id arrive with migration 064 —
+    // retry without them rather than losing the project_id link.
+    const { error: updateErr } = await (admin as any)
+      .from("client_visits")
+      .update({ ...updates, prospect_converted: true, converted_project_id: projectId })
+      .eq("id", visitId);
+
+    if (updateErr) {
+      console.warn("[projects/create] Conversion columns missing, retrying minimal:", updateErr.message);
+      const { error: retryErr } = await (admin as any)
+        .from("client_visits")
+        .update(updates)
+        .eq("id", visitId);
+      if (retryErr) {
+        result.error = retryErr.message;
+        return result;
+      }
+    }
+
+    result.linked = true;
+
+    // Replay the report's tasks now that a project exists to hang them on.
+    if (visit.report) {
+      const { createVisitTasks } = await import("@cantaia/core/visits");
+      const taskResult = await createVisitTasks({
+        admin,
+        visit: {
+          id: visitId,
+          project_id: projectId,
+          client_name: visit.client_name,
+          visit_date: visit.visit_date,
+          created_by: visit.created_by,
+          title: visit.title,
+        },
+        report: visit.report,
+        fallbackUserId: userId,
+      });
+      result.tasks_created =
+        taskResult.createdTaskIds.length + (taskResult.quoteTaskId ? 1 : 0);
+    }
+
+    console.log(
+      `[projects/create] Visit ${visitId} converted → project ${projectId} (${result.tasks_created} task(s))`,
+    );
+  } catch (err) {
+    console.error("[projects/create] Visit conversion failed:", err);
+    result.error = err instanceof Error ? err.message : "Conversion échouée";
   }
 
-  if (matchingVisits.length > 0) {
-    console.log(`[projects/create] Linked ${matchingVisits.length} prospect visit(s) to project ${projectId}`);
-  }
+  return result;
 }

@@ -48,7 +48,7 @@ export default function CookieConsent() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4">
       <div className="mx-auto flex max-w-3xl items-center gap-4 rounded-xl border border-[#27272A] bg-[#0F0F11] px-5 py-4 shadow-lg">
-        <p className="flex-1 text-sm text-[#71717A]">
+        <p className="flex-1 text-sm text-[#A1A1AA]">
           Ce site utilise des cookies pour fonctionner et améliorer votre expérience.{" "}
           <a
             href={`/${locale}/legal/privacy`}
@@ -59,7 +59,7 @@ export default function CookieConsent() {
         </p>
         <button
           onClick={handleAccept}
-          className="shrink-0 rounded-lg bg-[#F97316] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#F97316]/90"
+          className="shrink-0 rounded-lg bg-[#F97316] px-5 py-2 text-sm font-medium text-[#0F0F11] transition-colors hover:bg-[#F97316]/90"
         >
           Accepter
         </button>

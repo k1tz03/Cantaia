@@ -22,16 +22,16 @@ function formatCHF(n: number | null | undefined): string {
 
 function SourceBadge({ source }: { source: PriceSource }) {
   const config: Record<string, { label: string; className: string }> = {
-    historique_interne: { label: "Historique", className: "bg-green-100 text-green-800 dark:text-green-300" },
+    historique_interne: { label: "Historique", className: "bg-[#10B981]/10 text-[#10B981]" },
     // Agrégat cross-organisations (mv_reference_prices) — pas l'historique
     // de l'utilisateur, cf. B11.
-    donnees_communautaires: { label: "Communautaire", className: "bg-teal-100 text-teal-800 dark:text-teal-300" },
-    benchmark_cantaia: { label: "Benchmark", className: "bg-blue-100 text-blue-800 dark:text-blue-300" },
-    referentiel_crb: { label: "CRB", className: "bg-yellow-100 text-yellow-800 dark:text-yellow-300" },
-    ratio_estimation: { label: "Ratio", className: "bg-orange-100 text-orange-800 dark:text-orange-300" },
-    estimation_ia: { label: "IA", className: "bg-red-100 text-red-800 dark:text-red-300" },
-    consensus_multi_ia: { label: "Consensus IA", className: "bg-orange-100 text-orange-800 dark:text-orange-300" },
-    prix_non_disponible: { label: "Non dispo.", className: "bg-[#27272A] text-[#71717A]" },
+    donnees_communautaires: { label: "Communautaire", className: "bg-[#10B981]/10 text-[#10B981]" },
+    benchmark_cantaia: { label: "Benchmark", className: "bg-[#3B82F6]/10 text-[#3B82F6]" },
+    referentiel_crb: { label: "CRB", className: "bg-[#F59E0B]/10 text-[#F59E0B]" },
+    ratio_estimation: { label: "Ratio", className: "bg-[#F97316]/10 text-[#F97316]" },
+    estimation_ia: { label: "IA", className: "bg-[#EF4444]/10 text-[#EF4444]" },
+    consensus_multi_ia: { label: "Consensus IA", className: "bg-[#F97316]/10 text-[#F97316]" },
+    prix_non_disponible: { label: "Non dispo.", className: "bg-[#27272A] text-[#A1A1AA]" },
   };
   const c = config[source] ?? config.prix_non_disponible;
   return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${c.className}`}>{c.label}</span>;
@@ -76,22 +76,22 @@ export default function PriceCalibrationModal({ poste, onSave, onClose, error }:
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-[#0F0F11] rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold text-[#0A1F30] mb-4">Renseigner un prix réel</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-[#18181B] border border-[#27272A] rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-[#FAFAFA] mb-4">Renseigner un prix réel</h3>
 
         <div className="space-y-4">
           {/* Poste info */}
-          <div className="bg-[#F5F2EB] rounded-lg p-3">
-            <div className="text-xs text-[#8A9CA8]">Poste</div>
-            <div className="font-medium text-[#0A1F30]">{poste.cfc_code} — {poste.description}</div>
+          <div className="bg-[#0F0F11] border border-[#27272A] rounded-lg p-3">
+            <div className="text-xs text-[#A1A1AA]">Poste</div>
+            <div className="font-medium text-[#FAFAFA]">{poste.cfc_code} — {poste.description}</div>
           </div>
 
           {/* Prix estimé */}
           <div>
-            <label className="text-sm text-[#8A9CA8]">Prix estimé (fourchette)</label>
+            <label className="text-sm text-[#A1A1AA]">Prix estimé (fourchette)</label>
             <div className="flex items-center gap-2 mt-1">
-              <div className="bg-[#27272A] rounded px-3 py-2 font-mono text-sm">
+              <div className="bg-[#27272A] text-[#FAFAFA] rounded px-3 py-2 font-mono text-sm">
                 {formatCHF(poste.prix_unitaire.min)} — <span className="font-semibold">{formatCHF(poste.prix_unitaire.median)}</span> — {formatCHF(poste.prix_unitaire.max)} CHF/{poste.unite}
               </div>
               <SourceBadge source={poste.prix_unitaire.source} />
@@ -100,19 +100,19 @@ export default function PriceCalibrationModal({ poste, onSave, onClose, error }:
 
           {/* Prix réel */}
           <div>
-            <label className="text-sm text-[#8A9CA8]">Prix réel (CHF/{poste.unite})</label>
+            <label className="text-sm text-[#A1A1AA]">Prix réel (CHF/{poste.unite})</label>
             <div className="flex items-center gap-2 mt-1">
               <input
                 type="number"
                 step="0.01"
                 value={prixReel}
                 onChange={(e) => setPrixReel(e.target.value)}
-                className="border border-[#27272A] rounded-lg px-3 py-2 font-mono text-lg w-40 focus:outline-none focus:ring-2 focus:ring-[#C4A661]"
+                className="bg-[#0F0F11] text-[#FAFAFA] border border-[#27272A] rounded-lg px-3 py-2 font-mono text-lg w-40 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
                 placeholder="0.00"
               />
-              <span className="text-sm text-[#8A9CA8]">CHF/{poste.unite}</span>
+              <span className="text-sm text-[#A1A1AA]">CHF/{poste.unite}</span>
               {ecartPct !== null && (
-                <span className={`text-sm font-medium ${ecartPct > 0 ? 'text-red-500' : ecartPct < 0 ? 'text-green-500' : 'text-[#71717A]'}`}>
+                <span className={`text-sm font-medium ${ecartPct > 0 ? 'text-[#EF4444]' : ecartPct < 0 ? 'text-[#10B981]' : 'text-[#A1A1AA]'}`}>
                   {ecartPct > 0 ? '+' : ''}{ecartPct}%
                 </span>
               )}
@@ -121,11 +121,11 @@ export default function PriceCalibrationModal({ poste, onSave, onClose, error }:
 
           {/* Source */}
           <div>
-            <label className="text-sm text-[#8A9CA8]">Source du prix réel</label>
+            <label className="text-sm text-[#A1A1AA]">Source du prix réel</label>
             <select
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              className="w-full border border-[#27272A] rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-[#C4A661]"
+              className="w-full bg-[#0F0F11] text-[#FAFAFA] border border-[#27272A] rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
             >
               {SOURCES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -135,39 +135,39 @@ export default function PriceCalibrationModal({ poste, onSave, onClose, error }:
 
           {/* Fournisseur */}
           <div>
-            <label className="text-sm text-[#8A9CA8]">Fournisseur (optionnel)</label>
+            <label className="text-sm text-[#A1A1AA]">Fournisseur (optionnel)</label>
             <input
               type="text"
               value={fournisseur}
               onChange={(e) => setFournisseur(e.target.value)}
-              className="w-full border border-[#27272A] rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-[#C4A661]"
+              className="w-full bg-[#0F0F11] text-[#FAFAFA] border border-[#27272A] rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
               placeholder="Nom du fournisseur"
             />
-            <div className="text-xs text-[#8A9CA8] mt-1">
+            <div className="text-xs text-[#A1A1AA] mt-1">
               Le nom sera anonymisé (hash SHA-256) dans les benchmarks agrégés.
             </div>
           </div>
 
           {/* Info */}
-          <div className="text-xs text-[#8A9CA8] bg-[#F97316]/10 rounded p-2">
+          <div className="text-xs text-[#A1A1AA] bg-[#F97316]/10 rounded p-2">
             Ce prix réel calibrera automatiquement les estimations futures pour ce type de poste.
           </div>
 
           {error && (
-            <div className="rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-400">
+            <div className="rounded border border-[#EF4444]/30 bg-[#EF4444]/10 p-2 text-xs text-[#EF4444]">
               {error}
             </div>
           )}
 
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-[#71717A] hover:text-[#FAFAFA]">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-[#A1A1AA] hover:text-[#FAFAFA]">
               Annuler
             </button>
             <button
               onClick={handleSave}
               disabled={saving || !prixReel}
-              className="px-4 py-2 bg-[#0A1F30] text-white rounded-lg text-sm hover:bg-[#0A1F30]/90 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-[#F97316] text-[#0F0F11] rounded-lg text-sm font-medium hover:bg-[#EA580C] disabled:opacity-50 transition-colors"
             >
               {saving ? 'Enregistrement...' : 'Enregistrer'}
             </button>

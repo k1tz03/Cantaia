@@ -41,25 +41,25 @@ export function ProjectOverviewTab({
       <div className="lg:col-span-2">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-md border border-[#27272A] bg-[#0F0F11] p-4">
-            <p className="text-xs font-medium text-[#71717A]">{t("openTasks")}</p>
+            <p className="text-xs font-medium text-[#A1A1AA]">{t("openTasks")}</p>
             <p className="mt-1 text-xl font-semibold text-[#FAFAFA]">
               {openTasks.length}
             </p>
           </div>
           <div className="rounded-md border border-[#27272A] bg-[#0F0F11] p-4">
-            <p className="text-xs font-medium text-[#71717A]">{t("overdueTasks")}</p>
+            <p className="text-xs font-medium text-[#A1A1AA]">{t("overdueTasks")}</p>
             <p className="mt-1 text-2xl font-bold text-red-400">
               {overdueTasks.length}
             </p>
           </div>
           <div className="rounded-md border border-[#27272A] bg-[#0F0F11] p-4">
-            <p className="text-xs font-medium text-[#71717A]">{t("meetingsCount")}</p>
+            <p className="text-xs font-medium text-[#A1A1AA]">{t("meetingsCount")}</p>
             <p className="mt-1 text-xl font-semibold text-[#FAFAFA]">
               {meetings.length}
             </p>
           </div>
           <div className="rounded-md border border-[#27272A] bg-[#0F0F11] p-4">
-            <p className="text-xs font-medium text-[#71717A]">{t("budget")}</p>
+            <p className="text-xs font-medium text-[#A1A1AA]">{t("budget")}</p>
             <p className="mt-1 text-lg font-bold text-[#FAFAFA]">
               {project.budget_total
                 ? formatCurrency(project.budget_total, project.currency)
@@ -67,7 +67,7 @@ export function ProjectOverviewTab({
             </p>
           </div>
           <div className="rounded-md border border-[#27272A] bg-[#0F0F11] p-4">
-            <p className="text-xs font-medium text-[#71717A]">Emails</p>
+            <p className="text-xs font-medium text-[#A1A1AA]">Emails</p>
             <p className="mt-1 text-xl font-semibold text-[#FAFAFA]">{emailCount}</p>
           </div>
         </div>
@@ -88,7 +88,7 @@ export function ProjectOverviewTab({
                     <p className="truncate text-sm font-medium text-[#FAFAFA]">
                       {task.title}
                     </p>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-[#71717A]">
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-[#A1A1AA]">
                       {task.assigned_to_name && (
                         <span>{task.assigned_to_name}</span>
                       )}
@@ -104,7 +104,7 @@ export function ProjectOverviewTab({
                 </div>
               ))
             ) : (
-              <p className="py-8 text-center text-sm text-[#71717A]">
+              <p className="py-8 text-center text-sm text-[#A1A1AA]">
                 {t("noTasksYet")}
               </p>
             )}
@@ -120,24 +120,24 @@ export function ProjectOverviewTab({
           <dl className="mt-4 space-y-3">
             {project.description && (
               <div>
-                <dt className="text-xs font-medium text-[#71717A]">{t("description")}</dt>
-                <dd className="mt-0.5 text-sm text-[#71717A]">
+                <dt className="text-xs font-medium text-[#A1A1AA]">{t("description")}</dt>
+                <dd className="mt-0.5 text-sm text-[#A1A1AA]">
                   {project.description}
                 </dd>
               </div>
             )}
             {project.address && (
               <div>
-                <dt className="text-xs font-medium text-[#71717A]">{t("address")}</dt>
-                <dd className="mt-0.5 text-sm text-[#71717A]">
+                <dt className="text-xs font-medium text-[#A1A1AA]">{t("address")}</dt>
+                <dd className="mt-0.5 text-sm text-[#A1A1AA]">
                   {project.address}, {project.city}
                 </dd>
               </div>
             )}
             {project.start_date && (
               <div>
-                <dt className="text-xs font-medium text-[#71717A]">{t("dates")}</dt>
-                <dd className="mt-0.5 text-sm text-[#71717A]">
+                <dt className="text-xs font-medium text-[#A1A1AA]">{t("dates")}</dt>
+                <dd className="mt-0.5 text-sm text-[#A1A1AA]">
                   {formatDate(project.start_date)}
                   {project.end_date && ` — ${formatDate(project.end_date)}`}
                 </dd>
@@ -145,7 +145,7 @@ export function ProjectOverviewTab({
             )}
             {project.email_keywords.length > 0 && (
               <div>
-                <dt className="text-xs font-medium text-[#71717A]">{t("emailKeywords")}</dt>
+                <dt className="text-xs font-medium text-[#A1A1AA]">{t("emailKeywords")}</dt>
                 <dd className="mt-1 flex flex-wrap gap-1">
                   {project.email_keywords.map((kw: string) => (
                     <span

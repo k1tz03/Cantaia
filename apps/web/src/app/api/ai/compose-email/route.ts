@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
-import { callAnthropicWithRetry, classifyAIError, MODEL_FOR_TASK } from "@cantaia/core/ai";
+import { callAnthropicWithRetry, classifyAIError, MODEL_FOR_TASK, parseAIJson } from "@cantaia/core/ai";
+import type { ApiActionType } from "@cantaia/database";
 import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 60;
@@ -107,7 +108,7 @@ ${org?.name || ""}`;
 
     const response = await callAnthropicWithRetry(
       () => client.messages.create({
-        model: MODEL_FOR_TASK.reply_generation || "claude-sonnet-4-5-20250929",
+        model: MODEL_FOR_TASK.reply_generation,
         max_tokens: maxTokens,
         messages: [{ role: "user", content: prompt }],
       })
@@ -115,34 +116,34 @@ ${org?.name || ""}`;
 
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
 
-    // Fire-and-forget usage tracking
+    // Fire-and-forget usage tracking.
+    // actionType MUST match the debited action (compose_email) so the credit
+    // ledger and api_usage_logs tell the same story.
     const inputTokens = response.usage?.input_tokens || 0;
     const outputTokens = response.usage?.output_tokens || 0;
     trackApiUsage({
       supabase: admin,
       userId: user.id,
       organizationId: orgId,
-      actionType: "email_reply" as any,
+      // Aligned with the debited credit action. `compose_email` is not yet a
+      // member of the api_usage_logs ApiActionType enum (types.ts is generated);
+      // the cast keeps the correct value until the enum is regenerated.
+      actionType: "compose_email" as unknown as ApiActionType,
       apiProvider: "anthropic",
-      model: MODEL_FOR_TASK.reply_generation || "claude-sonnet-4-5-20250929",
+      model: MODEL_FOR_TASK.reply_generation,
       inputTokens,
       outputTokens,
       metadata: { action: "email_compose" },
     }).catch(() => {});
 
-    // Parse JSON response
-    try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return NextResponse.json({
-          success: true,
-          subject: parsed.subject || "",
-          body: parsed.body || "",
-        });
-      }
-    } catch {
-      // Fall through to raw text fallback
+    // Tolerant JSON parse (no assistant prefill; parser handles fences/preamble).
+    const parsed = parseAIJson<{ subject?: string; body?: string }>(text);
+    if (parsed) {
+      return NextResponse.json({
+        success: true,
+        subject: parsed.subject || "",
+        body: parsed.body || "",
+      });
     }
 
     // Fallback: return raw text as body

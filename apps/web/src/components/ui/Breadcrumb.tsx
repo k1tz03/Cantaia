@@ -14,7 +14,7 @@ interface BreadcrumbProps {
 
 export function Breadcrumb({ items }: BreadcrumbProps) {
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-[#71717A] mb-4">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-[#A1A1AA] mb-4">
       {items.map((item, index) => (
         <span key={index} className="flex items-center gap-1.5">
           {index > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0" />}

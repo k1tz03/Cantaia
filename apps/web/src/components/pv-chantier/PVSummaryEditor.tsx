@@ -19,7 +19,7 @@ export function PVSummaryEditor({
   return (
     <div className="mb-6 rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
       <div className="mb-3">
-        <label className="mb-1 block text-xs font-medium text-[#71717A]">
+        <label className="mb-1 block text-xs font-medium text-[#A1A1AA]">
           {t("summary")}
         </label>
         <textarea
@@ -36,13 +36,13 @@ export function PVSummaryEditor({
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[#71717A]">
+        <label className="mb-1 block text-xs font-medium text-[#A1A1AA]">
           {t("next_steps")}
         </label>
         {(pvContent.next_steps || []).map(
           (step: string, i: number) => (
             <div key={i} className="mb-1 flex items-center gap-1">
-              <span className="text-xs text-[#71717A]">
+              <span className="text-xs text-[#A1A1AA]">
                 {i + 1}.
               </span>
               <input
@@ -64,7 +64,7 @@ export function PVSummaryEditor({
                     ).filter((_: any, idx: number) => idx !== i);
                     setPvContent({ ...pvContent, next_steps: steps });
                   }}
-                  className="rounded p-0.5 text-[#71717A] hover:text-red-500"
+                  className="rounded p-0.5 text-[#A1A1AA] hover:text-red-500"
                 >
                   <X className="h-3 w-3" />
                 </button>

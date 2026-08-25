@@ -94,7 +94,78 @@ export class MicrosoftProvider implements EmailProvider {
     const token = connection.oauth_access_token;
     if (!token) throw new Error("No Microsoft access token");
 
-    await withRetry(() => sendReply(token, originalId, draft.bodyHtml));
+    const hasAttachments = !!draft.attachments && draft.attachments.length > 0;
+    const hasBcc = !!draft.bcc && draft.bcc.length > 0;
+
+    // The /reply shortcut cannot carry attachments or Bcc — it only accepts a
+    // comment. When the reply has either, build a proper draft reply
+    // (createReply → PATCH body/Bcc → add attachments → send) so nothing is
+    // silently dropped. Otherwise keep the lightweight path.
+    if (!hasAttachments && !hasBcc) {
+      await withRetry(() => sendReply(token, originalId, draft.bodyHtml));
+      return "replied";
+    }
+
+    // 1. Create a reply draft (preserves threading headers + original recipients)
+    const createRes = await fetch(`${GRAPH_BASE_URL}/me/messages/${originalId}/createReply`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+    if (!createRes.ok) {
+      const errorText = await createRes.text().catch(() => "");
+      throw new Error(`createReply failed: ${createRes.status} ${createRes.statusText} ${errorText}`);
+    }
+    const replyDraft = (await createRes.json()) as { id: string };
+
+    // 2. Set the body (and Bcc) on the draft
+    const patchPayload: Record<string, unknown> = {
+      body: { contentType: "HTML", content: draft.bodyHtml },
+    };
+    if (hasBcc) {
+      patchPayload.bccRecipients = draft.bcc!.map((addr) => ({ emailAddress: { address: addr } }));
+    }
+    const patchRes = await fetch(`${GRAPH_BASE_URL}/me/messages/${replyDraft.id}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(patchPayload),
+    });
+    if (!patchRes.ok) {
+      const errorText = await patchRes.text().catch(() => "");
+      throw new Error(`reply draft patch failed: ${patchRes.status} ${patchRes.statusText} ${errorText}`);
+    }
+
+    // 3. Attach files (small-attachment endpoint; the send route caps total size)
+    for (const att of draft.attachments || []) {
+      const contentBytes = Buffer.isBuffer(att.content)
+        ? att.content.toString("base64")
+        : typeof att.content === "string"
+          ? att.content
+          : Buffer.from(att.content as ArrayBuffer).toString("base64");
+      const attRes = await fetch(`${GRAPH_BASE_URL}/me/messages/${replyDraft.id}/attachments`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          name: att.filename,
+          contentType: att.contentType,
+          contentBytes,
+        }),
+      });
+      if (!attRes.ok) {
+        const errorText = await attRes.text().catch(() => "");
+        throw new Error(`reply attachment failed: ${attRes.status} ${attRes.statusText} ${errorText}`);
+      }
+    }
+
+    // 4. Send the draft
+    const sendRes = await fetch(`${GRAPH_BASE_URL}/me/messages/${replyDraft.id}/send`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!sendRes.ok) {
+      const errorText = await sendRes.text().catch(() => "");
+      throw new Error(`reply send failed: ${sendRes.status} ${sendRes.statusText} ${errorText}`);
+    }
     return "replied";
   }
 

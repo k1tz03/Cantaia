@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useTranslations } from "next-intl";
-import { X, Loader2, AlertCircle, Sparkles, Plus, MapPin, Calendar, Clock, Users } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
+import { X, Loader2, AlertCircle, Sparkles, Plus, MapPin, Calendar, Clock, Users, Repeat } from "lucide-react";
 import { toast } from "sonner";
-import { toLocalISOString } from "./datetime-utils";
+import { toLocalISOString, toLocaleTag } from "./datetime-utils";
+
+type RecurrenceFreq = "none" | "daily" | "weekly" | "monthly";
+
+/** RRULE weekday codes indexed 0=Sun … 6=Sat. */
+const RRULE_DAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
 interface CreateEventModalProps {
   open: boolean;
@@ -65,6 +70,7 @@ export function CreateEventModal({
   defaultStartTime,
 }: CreateEventModalProps) {
   const t = useTranslations("calendar");
+  const localeTag = toLocaleTag(useLocale());
 
   // Form state
   const [title, setTitle] = useState("");
@@ -79,7 +85,13 @@ export function CreateEventModal({
       : "10:00"
   );
   const [allDay, setAllDay] = useState(false);
+  // Recurrence (writes an RRULE the sync/expander already supports).
+  const [recurrenceFreq, setRecurrenceFreq] = useState<RecurrenceFreq>("none");
+  const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
   const [projectId, setProjectId] = useState<string>("");
+  // Liaison Calendrier ↔ PV: create the `meetings` row alongside the event.
+  const [createPv, setCreatePv] = useState(false);
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
 
@@ -115,7 +127,11 @@ export function CreateEventModal({
           : "10:00"
       );
       setAllDay(false);
+      setRecurrenceFreq("none");
+      setWeeklyDays([]);
+      setRecurrenceEndDate("");
       setProjectId("");
+      setCreatePv(false);
       setLocation("");
       setDescription("");
       setAttendeeInput("");
@@ -218,12 +234,58 @@ export function CreateEventModal({
   // Validation
   const missingTitle = !title.trim();
 
+  // Weekday index (0=Sun…6=Sat) of the currently selected date.
+  function selectedDateDow(): number {
+    const [y, mo, d] = date.split("-").map(Number);
+    return new Date(y, (mo || 1) - 1, d || 1).getDay();
+  }
+
+  function toggleWeeklyDay(dow: number) {
+    setWeeklyDays((prev) =>
+      prev.includes(dow) ? prev.filter((d) => d !== dow) : [...prev, dow].sort()
+    );
+  }
+
+  /** Build the RRULE + optional series end from the recurrence controls. */
+  function buildRecurrence(): { rule: string | null; end: string | null } {
+    if (recurrenceFreq === "none") return { rule: null, end: null };
+    const parts: string[] = [];
+    if (recurrenceFreq === "daily") {
+      parts.push("FREQ=DAILY");
+    } else if (recurrenceFreq === "weekly") {
+      parts.push("FREQ=WEEKLY");
+      const days = (weeklyDays.length ? weeklyDays : [selectedDateDow()]).map(
+        (d) => RRULE_DAY_CODES[d]
+      );
+      if (days.length) parts.push(`BYDAY=${days.join(",")}`);
+    } else {
+      parts.push("FREQ=MONTHLY");
+    }
+    const end = recurrenceEndDate
+      ? toLocalISOString(recurrenceEndDate, "23:59")
+      : null;
+    return { rule: parts.join(";"), end };
+  }
+
+  // Short localized weekday labels for the weekly picker (S M T W T F S order,
+  // 0=Sun). 2024-01-07 is a Sunday, used as a stable reference week.
+  const weekdayLabels = Array.from({ length: 7 }, (_, dow) =>
+    new Date(2024, 0, 7 + dow).toLocaleDateString(localeTag, { weekday: "short" })
+  );
+
   // Submit
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
     setError("");
     if (missingTitle) return;
+
+    // Reject an inverted time range before hitting the server (the Graph push
+    // is non-fatal, so an inverted event would otherwise be stored silently).
+    if (!allDay && endTime <= startTime) {
+      setError(t("endBeforeStart"));
+      return;
+    }
 
     setSaving(true);
     try {
@@ -246,6 +308,8 @@ export function CreateEventModal({
         endAt = toLocalISOString(date, endTime);
       }
 
+      const { rule: recurrenceRule, end: recurrenceEnd } = buildRecurrence();
+
       // Selected agenda items are persisted in the description (there is no
       // dedicated agenda_items column on calendar_events — migration 075).
       let finalDescription = description.trim();
@@ -264,7 +328,11 @@ export function CreateEventModal({
         start_at: startAt,
         end_at: endAt,
         is_all_day: allDay,
+        recurrence_rule: recurrenceRule,
+        recurrence_end: recurrenceEnd,
         project_id: projectId || null,
+        // Only meaningful for a project-linked meeting; the API re-checks.
+        create_pv: createPv && !!projectId && eventType === "meeting",
         location: location.trim() || null,
         description: finalDescription || null,
         attendees: attendees.length > 0
@@ -286,7 +354,12 @@ export function CreateEventModal({
         return;
       }
 
+      const created = await res.json().catch(() => ({}));
       toast.success(t("eventCreatedSuccess"));
+      // i18n-pending: calendar.pvCreatedWithEvent
+      if (created?.pv_meeting_id) {
+        toast.success("PV de séance créé et lié au projet.");
+      }
       onCreated();
       onClose();
     } catch {
@@ -317,7 +390,7 @@ export function CreateEventModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#A1A1AA] transition-colors"
+            className="rounded-lg p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA] transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -343,7 +416,7 @@ export function CreateEventModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={200}
-                className={`w-full rounded-lg border bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors ${
+                className={`w-full rounded-lg border bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors ${
                   submitted && missingTitle ? fieldErrorClass : "border-[#27272A]"
                 }`}
                 placeholder={t("titlePlaceholder")}
@@ -366,7 +439,7 @@ export function CreateEventModal({
                     onClick={() => setEventType(et.value)}
                     className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-150 ${
                       eventType === et.value
-                        ? "bg-[#F97316] text-white shadow-sm shadow-[#F97316]/25"
+                        ? "bg-[#F97316] text-[#0F0F11] shadow-sm shadow-[#F97316]/25"
                         : "bg-[#1C1C1F] text-[#A1A1AA] border border-[#27272A] hover:border-[#3F3F46] hover:text-[#FAFAFA]"
                     }`}
                   >
@@ -398,7 +471,7 @@ export function CreateEventModal({
                   {t("timeLabel")}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-xs text-[#71717A]">{t("allDay")}</span>
+                  <span className="text-xs text-[#A1A1AA]">{t("allDay")}</span>
                   <button
                     type="button"
                     role="switch"
@@ -434,6 +507,74 @@ export function CreateEventModal({
               )}
             </div>
 
+            {/* Recurrence */}
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[#A1A1AA]">
+                <Repeat className="h-3.5 w-3.5" />
+                {t("recurrenceLabel")}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  ["none", t("recurrenceNone")],
+                  ["daily", t("recurrenceDaily")],
+                  ["weekly", t("recurrenceWeekly")],
+                  ["monthly", t("recurrenceMonthly")],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setRecurrenceFreq(value)}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-150 ${
+                      recurrenceFreq === value
+                        ? "bg-[#F97316] text-[#0F0F11] shadow-sm shadow-[#F97316]/25"
+                        : "bg-[#1C1C1F] text-[#A1A1AA] border border-[#27272A] hover:border-[#3F3F46] hover:text-[#FAFAFA]"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {recurrenceFreq === "weekly" && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {weekdayLabels.map((label, dow) => {
+                    const active =
+                      weeklyDays.includes(dow) ||
+                      (weeklyDays.length === 0 && dow === selectedDateDow());
+                    return (
+                      <button
+                        key={dow}
+                        type="button"
+                        onClick={() => toggleWeeklyDay(dow)}
+                        className={`h-8 min-w-8 rounded-lg px-2 text-xs font-medium capitalize transition-colors ${
+                          active
+                            ? "bg-[#F97316]/15 text-[#F97316] border border-[#F97316]/40"
+                            : "bg-[#0F0F11] text-[#A1A1AA] border border-[#27272A] hover:border-[#3F3F46] hover:text-[#FAFAFA]"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {recurrenceFreq !== "none" && (
+                <div className="mt-2.5">
+                  <label className="mb-1.5 block text-[11px] font-medium text-[#A1A1AA]">
+                    {t("recurrenceEndLabel")}
+                  </label>
+                  <input
+                    type="date"
+                    value={recurrenceEndDate}
+                    min={date}
+                    onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                    className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors [color-scheme:dark]"
+                  />
+                </div>
+              )}
+            </div>
+
             {/* Project selector */}
             <div>
               <label className="mb-1.5 block text-xs font-medium text-[#A1A1AA]">
@@ -452,6 +593,27 @@ export function CreateEventModal({
                   </option>
                 ))}
               </select>
+
+              {/* Créer le PV de séance en même temps que l'événement.
+                  i18n-pending: calendar.preparePv / calendar.preparePvHint */}
+              {projectId && eventType === "meeting" && (
+                <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={createPv}
+                    onChange={(e) => setCreatePv(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[#F97316]"
+                  />
+                  <span>
+                    <span className="block text-[13px] font-medium text-[#FAFAFA]">
+                      Préparer le PV de cette séance
+                    </span>
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-[#A1A1AA]">
+                      Crée le procès-verbal lié au projet, prérempli avec la date et les participants.
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
 
             {/* Location */}
@@ -465,7 +627,7 @@ export function CreateEventModal({
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 maxLength={300}
-                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors"
+                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors"
                 placeholder={t("locationPlaceholder")}
               />
             </div>
@@ -479,7 +641,7 @@ export function CreateEventModal({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors resize-none"
+                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors resize-none"
                 placeholder={t("descriptionPlaceholder")}
               />
             </div>
@@ -507,7 +669,7 @@ export function CreateEventModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveAttendee(email)}
-                        className="ml-0.5 rounded-full p-0.5 text-[#52525B] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors"
+                        className="ml-0.5 rounded-full p-0.5 text-[#A1A1AA] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -521,11 +683,11 @@ export function CreateEventModal({
                   value={attendeeInput}
                   onChange={(e) => setAttendeeInput(e.target.value)}
                   onKeyDown={handleAddAttendee}
-                  className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] pl-3 pr-9 py-2.5 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors"
+                  className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] pl-3 pr-9 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors"
                   placeholder={t("attendeePlaceholder")}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Plus className="h-4 w-4 text-[#52525B]" />
+                  <Plus className="h-4 w-4 text-[#A1A1AA]" />
                 </div>
               </div>
             </div>
@@ -544,8 +706,8 @@ export function CreateEventModal({
 
                 {loadingSuggestions ? (
                   <div className="flex items-center gap-2 py-2">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-[#71717A]" />
-                    <span className="text-xs text-[#71717A]">{t("loadingShort")}</span>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-[#A1A1AA]" />
+                    <span className="text-xs text-[#A1A1AA]">{t("loadingShort")}</span>
                   </div>
                 ) : suggestions.length > 0 ? (
                   <div className="space-y-2">
@@ -562,7 +724,7 @@ export function CreateEventModal({
                         />
                         <span
                           className={`text-sm transition-colors ${
-                            s.checked ? "text-[#FAFAFA]" : "text-[#71717A] group-hover:text-[#A1A1AA]"
+                            s.checked ? "text-[#FAFAFA]" : "text-[#A1A1AA] group-hover:text-[#FAFAFA]"
                           }`}
                         >
                           {s.topic}
@@ -573,7 +735,7 @@ export function CreateEventModal({
                     {/* Show selected items summary */}
                     {suggestions.some((s) => s.checked) && (
                       <div className="mt-3 rounded-lg bg-[#0F0F11] border border-[#27272A] px-3 py-2.5">
-                        <p className="text-xs text-[#71717A] mb-1.5">
+                        <p className="text-xs text-[#A1A1AA] mb-1.5">
                           {t("agendaSelected")}
                         </p>
                         <ol className="list-decimal list-inside space-y-0.5">
@@ -589,7 +751,7 @@ export function CreateEventModal({
                     )}
                   </div>
                 ) : (
-                  <p className="text-xs text-[#52525B]">
+                  <p className="text-xs text-[#A1A1AA]">
                     {t("noSuggestions")}
                   </p>
                 )}
@@ -602,14 +764,14 @@ export function CreateEventModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2.5 text-sm font-medium text-[#71717A] hover:bg-[#27272A] hover:text-[#A1A1AA] transition-colors"
+              className="rounded-lg px-4 py-2.5 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA] transition-colors"
             >
               {t("cancel")}
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#F97316] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50 transition-colors shadow-sm shadow-[#F97316]/20"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#F97316] px-5 py-2.5 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50 transition-colors shadow-sm shadow-[#F97316]/20"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {t("createEvent")}

@@ -222,7 +222,7 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
           <div className="space-y-4">
             {/* Link */}
             <div>
-              <label className="text-xs font-medium text-[#71717A] uppercase mb-1 block">{t("shareLink")}</label>
+              <label className="text-xs font-medium text-[#A1A1AA] uppercase mb-1 block">{t("shareLink")}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -230,7 +230,7 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
                   value={config?.portal_url || ""}
                   className="flex-1 rounded-md border border-[#27272A] bg-[#27272A] px-3 py-2 text-sm text-[#FAFAFA] font-mono"
                 />
-                <button onClick={copyLink} className="rounded-md border border-[#27272A] px-3 py-2 text-sm hover:bg-[#27272A]">
+                <button aria-label="Copier" onClick={copyLink} className="rounded-md border border-[#27272A] px-3 py-2 text-sm hover:bg-[#27272A]">
                   {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
@@ -238,12 +238,12 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
 
             {/* PIN */}
             <div>
-              <label className="text-xs font-medium text-[#71717A] uppercase mb-1 block">{t("pinCode")}</label>
+              <label className="text-xs font-medium text-[#A1A1AA] uppercase mb-1 block">{t("pinCode")}</label>
               <div className="flex items-center gap-3">
                 {pin ? (
                   <span className="text-2xl font-mono font-bold tracking-[0.3em] text-[#FAFAFA]">{pin}</span>
                 ) : (
-                  <span className="text-sm text-[#71717A]">••••••</span>
+                  <span className="text-sm text-[#A1A1AA]">••••••</span>
                 )}
                 <button
                   onClick={regeneratePin}
@@ -261,7 +261,7 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
 
             {/* Submission picker */}
             <div>
-              <label className="text-xs font-medium text-[#71717A] uppercase mb-1 block">{t("selectSubmission")}</label>
+              <label className="text-xs font-medium text-[#A1A1AA] uppercase mb-1 block">{t("selectSubmission")}</label>
               <select
                 value={config?.portal_submission_id || ""}
                 onChange={e => updateConfig("portal_submission_id", e.target.value || null)}
@@ -276,7 +276,7 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
 
             {/* Description */}
             <div>
-              <label className="text-xs font-medium text-[#71717A] uppercase mb-1 block">{t("portalDescription")}</label>
+              <label className="text-xs font-medium text-[#A1A1AA] uppercase mb-1 block">{t("portalDescription")}</label>
               <textarea
                 defaultValue={config?.portal_description || ""}
                 onBlur={e => updateConfig("portal_description", e.target.value)}
@@ -294,61 +294,63 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
         <h3 className="text-base font-semibold text-[#FAFAFA] mb-4 flex items-center gap-2">
           <ClipboardList className="h-5 w-5 text-[#F97316]" />
           {t("siteReports")}
-          <span className="text-sm font-normal text-[#71717A]">({reports.length})</span>
+          <span className="text-sm font-normal text-[#A1A1AA]">({reports.length})</span>
         </h3>
 
         {reports.length === 0 ? (
-          <p className="text-sm text-[#71717A] text-center py-8">Aucun rapport reçu</p>
+          <p className="text-sm text-[#A1A1AA] text-center py-8">Aucun rapport reçu</p>
         ) : (
           <div className="rounded-lg border border-[#27272A] overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[#27272A] bg-[#27272A]/50">
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">Date</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">Chef d'équipe</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">Statut</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-medium text-[#71717A]">Ouvriers</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-medium text-[#71717A]">Heures</th>
-                  <th className="px-4 py-2.5 w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {reports.map(report => (
-                  <tr
-                    key={report.id}
-                    className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/30 cursor-pointer transition-colors"
-                    onClick={() => openDetail(report.id)}
-                  >
-                    <td className="px-4 py-2.5 text-sm text-[#FAFAFA]">
-                      {new Date(report.report_date).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                    </td>
-                    <td className="px-4 py-2.5 text-sm text-[#FAFAFA]">{report.submitted_by_name || "—"}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        report.status === "draft" ? "bg-[#27272A] text-[#71717A]" :
-                        report.status === "submitted" ? "bg-green-500/10 text-green-400" :
-                        "bg-[#F97316]/10 text-[#F97316]"
-                      }`}>
-                        {t(report.status as any)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-sm text-right text-[#FAFAFA]">{report.workers_count}</td>
-                    <td className="px-4 py-2.5 text-sm text-right text-[#FAFAFA]">{report.total_hours.toFixed(1)}h</td>
-                    <td className="px-4 py-2.5">
-                      {report.status === "submitted" && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleReportLock(report.id, report.status); }}
-                          className="text-[#71717A] hover:text-[#FAFAFA]"
-                          title={t("unlock")}
-                        >
-                          <Unlock className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </td>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-[#A1A1AA]">Date</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-[#A1A1AA]">Chef d'équipe</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-[#A1A1AA]">Statut</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-medium text-[#A1A1AA]">Ouvriers</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-medium text-[#A1A1AA]">Heures</th>
+                    <th className="px-4 py-2.5 w-10"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {reports.map(report => (
+                    <tr
+                      key={report.id}
+                      className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/30 cursor-pointer transition-colors"
+                      onClick={() => openDetail(report.id)}
+                    >
+                      <td className="px-4 py-2.5 text-sm text-[#FAFAFA]">
+                        {new Date(report.report_date).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </td>
+                      <td className="px-4 py-2.5 text-sm text-[#FAFAFA]">{report.submitted_by_name || "—"}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          report.status === "draft" ? "bg-[#27272A] text-[#A1A1AA]" :
+                          report.status === "submitted" ? "bg-green-500/10 text-green-400" :
+                          "bg-[#F97316]/10 text-[#F97316]"
+                        }`}>
+                          {t(report.status as any)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-sm text-right text-[#FAFAFA]">{report.workers_count}</td>
+                      <td className="px-4 py-2.5 text-sm text-right text-[#FAFAFA]">{report.total_hours.toFixed(1)}h</td>
+                      <td className="px-4 py-2.5">
+                        {report.status === "submitted" && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleReportLock(report.id, report.status); }}
+                            className="text-[#A1A1AA] hover:text-[#FAFAFA]"
+                            title={t("unlock")}
+                          >
+                            <Unlock className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -372,7 +374,7 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
                 t={t}
               />
             ) : (
-              <div className="p-6 text-center text-sm text-[#71717A]">
+              <div className="p-6 text-center text-sm text-[#A1A1AA]">
                 Erreur de chargement
                 <button onClick={closeDetail} className="block mx-auto mt-4 text-[#F97316] hover:underline">Fermer</button>
               </div>
@@ -410,10 +412,10 @@ function ReportDetailContent({
           <h3 className="text-base font-semibold text-[#FAFAFA]">
             Rapport du {new Date(report.report_date).toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </h3>
-          <p className="text-sm text-[#71717A] mt-0.5">
+          <p className="text-sm text-[#A1A1AA] mt-0.5">
             {report.submitted_by_name || "—"}
             <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-              report.status === "draft" ? "bg-[#27272A] text-[#71717A]" :
+              report.status === "draft" ? "bg-[#27272A] text-[#A1A1AA]" :
               report.status === "submitted" ? "bg-green-500/10 text-green-400" :
               "bg-[#F97316]/10 text-[#F97316]"
             }`}>
@@ -421,7 +423,7 @@ function ReportDetailContent({
             </span>
           </p>
         </div>
-        <button onClick={onClose} className="rounded-lg p-2 hover:bg-[#27272A] text-[#71717A]">
+        <button onClick={onClose} className="rounded-lg p-2 hover:bg-[#27272A] text-[#A1A1AA]">
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -430,7 +432,7 @@ function ReportDetailContent({
         {/* Weather */}
         {report.weather && (
           <div className="flex items-start gap-3 rounded-lg bg-[#27272A]/50 px-4 py-3">
-            <Cloud className="h-4 w-4 text-[#71717A] mt-0.5 shrink-0" />
+            <Cloud className="h-4 w-4 text-[#A1A1AA] mt-0.5 shrink-0" />
             <p className="text-sm text-[#FAFAFA]">{report.weather}</p>
           </div>
         )}
@@ -439,15 +441,15 @@ function ReportDetailContent({
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg border border-[#27272A] bg-[#27272A]/30 px-3 py-2.5 text-center">
             <div className="text-lg font-semibold text-[#FAFAFA]">{laborGroups.length}</div>
-            <div className="text-xs text-[#71717A]">{t("workers")}</div>
+            <div className="text-xs text-[#A1A1AA]">{t("workers")}</div>
           </div>
           <div className="rounded-lg border border-[#27272A] bg-[#27272A]/30 px-3 py-2.5 text-center">
             <div className="text-lg font-semibold text-[#FAFAFA]">{totalHours.toFixed(1)}h</div>
-            <div className="text-xs text-[#71717A]">{t("totalHours")}</div>
+            <div className="text-xs text-[#A1A1AA]">{t("totalHours")}</div>
           </div>
           <div className="rounded-lg border border-[#27272A] bg-[#27272A]/30 px-3 py-2.5 text-center">
             <div className="text-lg font-semibold text-[#FAFAFA]">{machineEntries.length}</div>
-            <div className="text-xs text-[#71717A]">{t("machines")}</div>
+            <div className="text-xs text-[#A1A1AA]">{t("machines")}</div>
           </div>
         </div>
 
@@ -465,14 +467,14 @@ function ReportDetailContent({
                   <div key={gi} className="rounded-lg border border-[#27272A] bg-[#0F0F11] overflow-hidden">
                     <div className="flex items-center gap-3 px-4 py-2.5 bg-[#27272A]/30">
                       <span className="text-sm font-medium text-[#FAFAFA]">{group.name}</span>
-                      {group.role && <span className="text-xs text-[#71717A]">{group.role}</span>}
+                      {group.role && <span className="text-xs text-[#A1A1AA]">{group.role}</span>}
                       {group.is_driver && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-[#F97316]/10 text-[#F97316] px-2 py-0.5 text-xs">
                           <Truck className="h-3 w-3" />
                           {t("driver")}
                         </span>
                       )}
-                      <span className="ml-auto text-xs font-medium text-[#71717A] flex items-center gap-1">
+                      <span className="ml-auto text-xs font-medium text-[#A1A1AA] flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {workerHours.toFixed(1)}h
                       </span>
@@ -498,7 +500,7 @@ function ReportDetailContent({
             <h4 className="text-sm font-semibold text-[#FAFAFA] mb-3 flex items-center gap-2">
               <Wrench className="h-4 w-4 text-[#F97316]" />
               {t("machines")} ({machineEntries.length})
-              <span className="ml-auto text-xs font-normal text-[#71717A]">{machineHours.toFixed(1)}h total</span>
+              <span className="ml-auto text-xs font-normal text-[#A1A1AA]">{machineHours.toFixed(1)}h total</span>
             </h4>
             <div className="rounded-lg border border-[#27272A] overflow-hidden divide-y divide-border">
               {machineEntries.map((entry, i) => (
@@ -530,7 +532,7 @@ function ReportDetailContent({
                 <div key={i} className="px-4 py-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-[#FAFAFA]">{entry.note_number || "—"}</span>
-                    <span className="text-sm text-[#71717A]">{entry.supplier_name || "—"}</span>
+                    <span className="text-sm text-[#A1A1AA]">{entry.supplier_name || "—"}</span>
                   </div>
                   {entry.photo_url && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -561,7 +563,7 @@ function ReportDetailContent({
 
         {/* Empty state */}
         {laborGroups.length === 0 && machineEntries.length === 0 && deliveryEntries.length === 0 && !report.remarks && (
-          <p className="text-sm text-[#71717A] text-center py-6">Aucune donnée dans ce rapport</p>
+          <p className="text-sm text-[#A1A1AA] text-center py-6">Aucune donnée dans ce rapport</p>
         )}
       </div>
     </>

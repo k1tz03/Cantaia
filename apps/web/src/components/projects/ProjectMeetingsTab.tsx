@@ -17,7 +17,7 @@ export function ProjectMeetingsTab({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="text-sm text-[#71717A]">
+        <p className="text-sm text-[#A1A1AA]">
           {meetings.length} PV
         </p>
         <Link
@@ -59,17 +59,17 @@ export function ProjectMeetingsTab({
                 href={`/pv-chantier/${meeting.id}`}
                 className="flex items-center gap-4 rounded-md border border-[#27272A] bg-[#0F0F11] p-4 transition-colors hover:bg-[#27272A]"
               >
-                <FileText className="h-5 w-5 flex-shrink-0 text-[#71717A]" />
+                <FileText className="h-5 w-5 flex-shrink-0 text-[#A1A1AA]" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-[#FAFAFA] truncate">
                     {meeting.title}
                     {meeting.meeting_number != null && (
-                      <span className="ml-1 text-xs text-[#71717A]">
+                      <span className="ml-1 text-xs text-[#A1A1AA]">
                         #{meeting.meeting_number}
                       </span>
                     )}
                   </p>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-[#71717A]">
+                  <div className="mt-1 flex items-center gap-3 text-xs text-[#A1A1AA]">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {formatDate(meeting.meeting_date)}
@@ -86,8 +86,8 @@ export function ProjectMeetingsTab({
         </div>
       ) : (
         <div className="mt-4 flex h-40 flex-col items-center justify-center rounded-md border border-dashed border-[#27272A] bg-[#0F0F11]">
-          <FileText className="h-8 w-8 text-[#71717A]" />
-          <p className="mt-2 text-sm text-[#71717A]">{t("noMeetingsYet")}</p>
+          <FileText className="h-8 w-8 text-[#A1A1AA]" />
+          <p className="mt-2 text-sm text-[#A1A1AA]">{t("noMeetingsYet")}</p>
           <Link
             href={`/pv-chantier/nouveau?project_id=${projectId}`}
             className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80"

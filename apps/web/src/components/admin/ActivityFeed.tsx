@@ -65,7 +65,7 @@ export default function ActivityFeed({
 
   if (activities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-[#71717A]">
+      <div className="flex flex-col items-center justify-center py-8 text-[#A1A1AA]">
         <Inbox className="mb-2 h-8 w-8" />
         <p className="text-sm">{t("noActivity")}</p>
       </div>
@@ -93,9 +93,9 @@ export default function ActivityFeed({
                 <p className="truncate text-sm text-[#FAFAFA]">
                   {activity.title}
                 </p>
-                <p className="text-xs text-[#71717A]">
+                <p className="text-xs text-[#A1A1AA]">
                   {activity.user && (
-                    <span className="font-medium text-[#71717A]">
+                    <span className="font-medium text-[#A1A1AA]">
                       {activity.user}
                       {" — "}
                     </span>

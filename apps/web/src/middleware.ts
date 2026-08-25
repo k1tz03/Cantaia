@@ -24,6 +24,7 @@ const protectedPaths = [
   "/plans",
   "/visits",
   "/chat",
+  "/agents",
   "/support",
   "/cantaia-prix",
   "/site-reports",
@@ -82,12 +83,16 @@ export async function middleware(request: NextRequest) {
 
   // Skip intl middleware entirely for API routes — they must not get locale prefixes
   if (pathname.startsWith("/api")) {
-    // For API routes, still pass subdomain as header
+    // Forward the resolved subdomain on the REQUEST headers so route handlers can
+    // read it via next/headers `headers()`. A middleware RESPONSE header is sent
+    // to the browser and is NOT visible to server code, so it is kept only for
+    // backward compatibility.
     const subdomain = resolveSubdomain(request);
-    const response = NextResponse.next();
-    if (subdomain) {
-      response.headers.set("x-organization-subdomain", subdomain);
-    }
+    if (!subdomain) return NextResponse.next();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-organization-subdomain", subdomain);
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set("x-organization-subdomain", subdomain);
     return response;
   }
 

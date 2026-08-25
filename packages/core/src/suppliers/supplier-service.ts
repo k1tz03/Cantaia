@@ -3,94 +3,6 @@
 // CRUD + Scoring automatique
 // ============================================================
 
-import type { Supplier, SupplierStatus } from "@cantaia/database";
-
-// ---------- Interfaces ----------
-
-export interface SupplierFilters {
-  specialty?: string;
-  geo_zone?: string;
-  status?: SupplierStatus;
-  min_score?: number;
-  search?: string;
-  cfc_code?: string;
-}
-
-export interface SupplierScoreInput {
-  total_requests_sent: number;
-  total_offers_received: number;
-  avg_response_days: number;
-  price_competitiveness: number; // 1-100, higher = more competitive
-  reliability_score: number; // 0-100
-  manual_rating: number; // 0-5
-}
-
-// ---------- Scoring ----------
-
-/**
- * Calculate supplier overall score (0-100)
- * Weighted: response_rate × 0.25 + competitiveness × 0.35 + reliability × 0.25 + manual_rating × 0.15
- */
-export function calculateSupplierScore(input: SupplierScoreInput): {
-  response_rate: number;
-  overall_score: number;
-} {
-  const response_rate =
-    input.total_requests_sent > 0
-      ? (input.total_offers_received / input.total_requests_sent) * 100
-      : 0;
-
-  // Normalize manual_rating from 0-5 to 0-100
-  const manualNormalized = (input.manual_rating / 5) * 100;
-
-  const overall_score =
-    response_rate * 0.25 +
-    input.price_competitiveness * 0.35 +
-    input.reliability_score * 0.25 +
-    manualNormalized * 0.15;
-
-  return {
-    response_rate: Math.round(response_rate * 100) / 100,
-    overall_score: Math.round(overall_score * 100) / 100,
-  };
-}
-
-// ---------- Filtering ----------
-
-export function filterSuppliers(
-  suppliers: Supplier[],
-  filters: SupplierFilters
-): Supplier[] {
-  return suppliers.filter((s) => {
-    if (filters.specialty && !s.specialties.includes(filters.specialty)) {
-      return false;
-    }
-    if (filters.geo_zone && s.geo_zone !== filters.geo_zone) {
-      return false;
-    }
-    if (filters.status && s.status !== filters.status) {
-      return false;
-    }
-    if (filters.min_score && s.overall_score < filters.min_score) {
-      return false;
-    }
-    if (filters.cfc_code && !s.cfc_codes.includes(filters.cfc_code)) {
-      return false;
-    }
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      const matchesName = s.company_name.toLowerCase().includes(q);
-      const matchesEmail = s.email?.toLowerCase().includes(q) || false;
-      const matchesContact = s.contact_name?.toLowerCase().includes(q) || false;
-      const matchesCity = s.city?.toLowerCase().includes(q) || false;
-      if (!matchesName && !matchesEmail && !matchesContact && !matchesCity) {
-        return false;
-      }
-    }
-    return true;
-  });
-}
-
 // ---------- Specialties ----------
 
 export const SUPPLIER_SPECIALTIES = [
@@ -421,20 +333,28 @@ export async function calculateAutoScore(
   const offersCount = answeredRequests.length;
   const ratePct = requestsCount > 0 ? Math.round((offersCount / requestsCount) * 100) : 0;
 
-  // ---------- 4. Quality (manual reliability_score) ----------
-  let reliabilityScore: number | null = null;
+  // ---------- 4. Quality ----------
+  // Primary: reliability_score (0-100). Fallback: the user's 5-star manual_rating
+  // normalised to 0-100 — otherwise the note the form lets the user enter is never
+  // reflected in the score. Neutral (50) when neither is set.
+  let qualityScore: number | null = null;
   let qualitySource: "manual" | "neutral" = "neutral";
-  try {
-    const { data: supplier } = await (adminClient as any)
+  {
+    const { data: supplier, error } = await (adminClient as any)
       .from("suppliers")
-      .select("reliability_score")
+      .select("reliability_score, manual_rating")
       .eq("id", supplierId)
       .maybeSingle();
-    if (supplier?.reliability_score != null && supplier.reliability_score > 0) {
-      reliabilityScore = parseFloat(supplier.reliability_score);
+    if (error) {
+      console.warn("[auto-score] quality query failed:", error.message);
+    } else if (supplier?.reliability_score != null && Number(supplier.reliability_score) > 0) {
+      qualityScore = parseFloat(supplier.reliability_score);
+      qualitySource = "manual";
+    } else if (supplier?.manual_rating != null && Number(supplier.manual_rating) > 0) {
+      qualityScore = Math.min(100, (Number(supplier.manual_rating) / 5) * 100);
       qualitySource = "manual";
     }
-  } catch { /* ignore */ }
+  }
 
   // ---------- 5. Projects delivered ----------
   // An award is recorded as submissions.budget_estimate.awarded_request_id.
@@ -485,7 +405,7 @@ export async function calculateAutoScore(
       rate_pct: ratePct,
     },
     quality: {
-      score: reliabilityScore != null ? reliabilityScore : 50,
+      score: qualityScore != null ? qualityScore : 50,
       weight: WEIGHTS.quality,
       source: qualitySource,
     },

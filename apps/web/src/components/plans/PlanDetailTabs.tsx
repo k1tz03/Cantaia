@@ -40,7 +40,7 @@ export function PlanDetailTabs({
           onClick={() => setActiveTab(key)}
           className={cn(
             "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-            activeTab === key ? "border-brand text-brand" : "border-transparent text-[#71717A] hover:text-[#FAFAFA]"
+            activeTab === key ? "border-brand text-brand" : "border-transparent text-[#A1A1AA] hover:text-[#FAFAFA]"
           )}
         >
           <Icon className="h-4 w-4" />

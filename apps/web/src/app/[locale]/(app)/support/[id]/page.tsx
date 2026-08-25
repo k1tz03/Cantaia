@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { TicketStatusBadge } from "@/components/support/TicketStatusBadge";
@@ -88,13 +89,20 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content, attachments }),
     });
-    if (res.ok) {
-      await fetchTicket();
+    if (!res.ok) {
+      // Propagate so the reply input keeps the text/files and shows an error
+      // instead of clearing the composer on a failed send.
+      throw new Error("Failed to send message");
     }
+    await fetchTicket();
   }
 
   async function handleReopen() {
-    await handleSend("Ticket rouvert par l'utilisateur.", []);
+    try {
+      await handleSend("Ticket rouvert par l'utilisateur.", []);
+    } catch {
+      toast.error(t("replyFailed"));
+    }
   }
 
   function formatDate(dateStr: string): string {
@@ -107,8 +115,8 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center px-5 py-20 text-[#71717A] text-[13px]">
-        Chargement...
+      <div className="flex items-center justify-center px-5 py-20 text-[#A1A1AA] text-[13px]">
+        {t("loading")}
       </div>
     );
   }
@@ -117,7 +125,7 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
     return (
       <div className="flex flex-col items-center justify-center px-5 py-20">
         <AlertCircle className="w-8 h-8 text-[#EF4444] mb-2" />
-        <p className="text-[#71717A] text-sm">{error || "Ticket introuvable"}</p>
+        <p className="text-[#A1A1AA] text-sm">{error || "Ticket introuvable"}</p>
         <Link href="/support" className="mt-4 text-[13px] text-[#F97316] no-underline">
           {"\u2190"} Retour
         </Link>
@@ -135,7 +143,7 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
         <div className="px-6 py-3.5 border-b border-[#27272A]">
           <Link
             href="/support"
-            className="text-xs text-[#71717A] cursor-pointer flex items-center gap-1 mb-2 no-underline hover:text-[#D4D4D8]"
+            className="text-xs text-[#A1A1AA] cursor-pointer flex items-center gap-1 mb-2 no-underline hover:text-[#D4D4D8]"
           >
             {"\u2190"} {t("myTickets")}
           </Link>
@@ -149,7 +157,7 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
               className="w-[7px] h-[7px] rounded-full inline-block"
               style={{ background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium }}
             />
-            <span className="text-[11px] text-[#71717A]">
+            <span className="text-[11px] text-[#A1A1AA]">
               {formatDate(ticket.created_at)}
             </span>
           </div>

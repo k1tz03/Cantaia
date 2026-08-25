@@ -76,6 +76,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Cap the invited role to the inviter's own level. A project_manager can
+  // invite members/foremen/site_managers/other PMs, but must NOT be able to
+  // mint an admin/director invitation (indirect privilege escalation): only
+  // org admins/directors (and superadmins) may invite into those roles.
+  const inviterIsOrgAdmin =
+    userProfile.role === "admin" ||
+    userProfile.role === "director" ||
+    userProfile.is_superadmin === true;
+  const PRIVILEGED_ROLES = ["admin", "director"];
+  if (!inviterIsOrgAdmin && role && PRIVILEGED_ROLES.includes(role)) {
+    return NextResponse.json(
+      { error: "You cannot invite a role higher than your own" },
+      { status: 403 }
+    );
+  }
+
   // Get org info
   const { data: org } = await (admin.from("organizations") as any)
     .select("id, name, subdomain, max_users")

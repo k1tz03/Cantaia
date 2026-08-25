@@ -16,6 +16,8 @@ const SCOPES = [
   "Mail.ReadWrite",
   "Mail.Send",
   "User.Read",
+  "People.Read",
+  "Contacts.Read",
   "offline_access",
   "openid",
   "email",
@@ -38,6 +40,14 @@ const SCOPE_DESCRIPTIONS: Record<string, { fr: string; why: string }> = {
   "User.Read": {
     fr: "Lire votre profil",
     why: "Récupérer votre nom et email pour le compte",
+  },
+  "People.Read": {
+    fr: "Lire vos contacts fréquents",
+    why: "Proposer les bons destinataires lors de l'envoi d'emails",
+  },
+  "Contacts.Read": {
+    fr: "Lire votre carnet d'adresses",
+    why: "Retrouver les coordonnées des fournisseurs et intervenants",
   },
   "offline_access": {
     fr: "Accès hors-ligne",
@@ -243,38 +253,40 @@ Cordialement`,
           className="w-full flex items-center justify-between p-4 text-left"
         >
           <div className="flex items-center gap-2">
-            <HelpCircle className="h-4 w-4 text-[#71717A]" />
+            <HelpCircle className="h-4 w-4 text-[#A1A1AA]" />
             <span className="text-sm font-medium text-[#A1A1AA]">
               Quelles permissions sont demandées ?
             </span>
           </div>
-          <span className="text-xs text-[#71717A]">
+          <span className="text-xs text-[#A1A1AA]">
             {showScopes ? "Masquer" : "Voir le détail"}
           </span>
         </button>
         {showScopes && (
           <div className="px-4 pb-4 border-t border-[#27272A]">
-            <table className="w-full text-sm mt-3">
-              <thead>
-                <tr className="text-left text-[#71717A] text-xs uppercase">
-                  <th className="pb-2 font-medium">Permission</th>
-                  <th className="pb-2 font-medium">Utilisation</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#27272A]">
-                {SCOPES.map((scope) => (
-                  <tr key={scope}>
-                    <td className="py-2 text-[#A1A1AA] font-mono text-xs">
-                      {SCOPE_DESCRIPTIONS[scope]?.fr || scope}
-                    </td>
-                    <td className="py-2 text-[#A1A1AA] text-xs">
-                      {SCOPE_DESCRIPTIONS[scope]?.why || ""}
-                    </td>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm mt-3">
+                <thead>
+                  <tr className="text-left text-[#A1A1AA] text-xs uppercase">
+                    <th className="pb-2 font-medium">Permission</th>
+                    <th className="pb-2 font-medium">Utilisation</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="text-xs text-[#71717A] mt-3">
+                </thead>
+                <tbody className="divide-y divide-[#27272A]">
+                  {SCOPES.map((scope) => (
+                    <tr key={scope}>
+                      <td className="py-2 text-[#A1A1AA] font-mono text-xs">
+                        {SCOPE_DESCRIPTIONS[scope]?.fr || scope}
+                      </td>
+                      <td className="py-2 text-[#A1A1AA] text-xs">
+                        {SCOPE_DESCRIPTIONS[scope]?.why || ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-[#A1A1AA] mt-3">
               Toutes les permissions sont de type &quot;déléguées&quot; — Cantaia
               n&apos;accède qu&apos;aux données de l&apos;utilisateur connecté,
               jamais à celles d&apos;autres utilisateurs.
@@ -284,7 +296,7 @@ Cordialement`,
       </div>
 
       {/* Security note */}
-      <p className="text-center text-xs text-[#71717A] mt-6">
+      <p className="text-center text-xs text-[#A1A1AA] mt-6">
         Cantaia est hébergé en Europe. Vos données restent privées.
         <br />
         <a

@@ -38,6 +38,16 @@ const NEWSLETTER_PATTERNS = [
   /klaviyo\.com$/i,
 ];
 
+// AUDIT 08/2026 — vocabulaire suisse légitime RETIRÉ de cette liste :
+//   * "Mitteilung"       — une "Mitteilung der Bauleitung" est une communication
+//                          de chantier parfaitement normale en Suisse alémanique
+//   * "Benachrichtigung" — notification standard (Behörde, banque, fournisseur)
+//   * "Rundschreiben"    — circulaire professionnelle (SIA, association,
+//                          direction de travaux), pas une newsletter marketing
+//   * "solde"            — le singulier ("solde de facture", "solde du compte")
+//                          est du vocabulaire comptable courant ; seul "soldes"
+//                          (pluriel promotionnel) reste, hors contexte facture
+// Ces mots classaient en newsletter des emails de chantier légitimes.
 const NEWSLETTER_SUBJECT_PATTERNS = [
   /newsletter/i,
   /\bnews\b.*\bweekly\b/i,
@@ -48,11 +58,9 @@ const NEWSLETTER_SUBJECT_PATTERNS = [
   /\babbestellen\b/i,
   /\bkundennews\b/i,
   /\binfoblatt\b/i,
-  /\brundschreiben\b/i,
-  /\bmitteilung\b/i,
-  /\bbenachrichtigung\b/i,
   /\bblack friday\b/i,
-  /\bsoldes?\b/i,
+  // "soldes" pluriel uniquement, et pas suivi de "de/du/des" (soldes de factures)
+  /\bsoldes\b(?!\s+(?:de|du|des)\b)/i,
   /\bpromo(tion)?\b/i,
   /\b(20|30|40|50|60|70)%\s*(off|rabais|de r[eé]duction|rabatt)\b/i,
   /\baktionsangebot\b/i,

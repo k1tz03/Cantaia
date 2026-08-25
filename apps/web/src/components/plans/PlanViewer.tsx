@@ -21,8 +21,8 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
     return (
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] overflow-hidden">
         <div className="flex flex-col items-center justify-center py-20">
-          <FileText className="h-12 w-12 text-[#71717A] mb-3" />
-          <p className="text-sm text-[#71717A]">{t("noFileAvailable")}</p>
+          <FileText className="h-12 w-12 text-[#A1A1AA] mb-3" />
+          <p className="text-sm text-[#A1A1AA]">{t("noFileAvailable")}</p>
         </div>
       </div>
     );
@@ -33,26 +33,26 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
   return (
     <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] overflow-hidden">
       <div className="flex items-center justify-between border-b border-[#27272A] px-4 py-2 bg-[#27272A]">
-        <div className="flex items-center gap-2 text-sm text-[#71717A]">
-          <FileText className="h-4 w-4 text-[#71717A]" />
+        <div className="flex items-center gap-2 text-sm text-[#A1A1AA]">
+          <FileText className="h-4 w-4 text-[#A1A1AA]" />
           <span className="font-medium truncate max-w-[200px]">{version.file_name}</span>
-          <span className="text-[#71717A]">&middot;</span>
-          <span className="text-xs text-[#71717A]">{formatFileSize(version.file_size)}</span>
+          <span className="text-[#A1A1AA]">&middot;</span>
+          <span className="text-xs text-[#A1A1AA]">{formatFileSize(version.file_size)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {isImage && (
             <>
               <button
                 onClick={() => setZoom((z) => Math.max(25, z - 25))}
-                className="rounded p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+                className="rounded p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
                 title="Zoom -"
               >
                 <ZoomOut className="h-4 w-4" />
               </button>
-              <span className="text-xs text-[#71717A] min-w-[3rem] text-center">{zoom}%</span>
+              <span className="text-xs text-[#A1A1AA] min-w-[3rem] text-center">{zoom}%</span>
               <button
                 onClick={() => setZoom((z) => Math.min(400, z + 25))}
-                className="rounded p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+                className="rounded p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
                 title="Zoom +"
               >
                 <ZoomIn className="h-4 w-4" />
@@ -64,7 +64,7 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
             href={version.file_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+            className="flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             {t("openNewTab")}
@@ -72,7 +72,7 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
           <a
             href={version.file_url}
             download={version.file_name}
-            className="flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+            className="flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
           >
             <Download className="h-3.5 w-3.5" />
             {t("download")}
@@ -84,7 +84,7 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
         {viewerLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#27272A] z-10">
             <Loader2 className="h-8 w-8 animate-spin text-brand mb-3" />
-            <p className="text-sm text-[#71717A]">{t("loadingViewer")}</p>
+            <p className="text-sm text-[#A1A1AA]">{t("loadingViewer")}</p>
           </div>
         )}
 

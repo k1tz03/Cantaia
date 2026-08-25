@@ -82,6 +82,10 @@ export interface PipelineParams {
 export async function runEstimationPipeline(params: PipelineParams): Promise<EstimationPipelineResult> {
   const pipelineStart = Date.now();
   let totalTokens = 0;
+  // Ventilation des tokens par provider — permet à la route d'émettre un
+  // trackApiUsage PAR modèle (tarifs GPT-4o/Gemini distincts de Sonnet) au lieu
+  // d'un split 80/20 arbitraire attribué à Anthropic.
+  const tokensByProvider: Record<ModelProvider, number> = { claude: 0, gpt4o: 0, gemini: 0 };
 
   // ═══ PASSE 1 — Identification (Claude seul) ═══
   console.log('[estimation] Passe 1 — Identification du plan...');
@@ -96,6 +100,7 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
 
   const passe1Duration = Date.now() - passe1Start;
   totalTokens += passe1Call.tokens_used;
+  tokensByProvider.claude += passe1Call.tokens_used;
 
   if (!passe1Call.result) {
     throw new Error(`Passe 1 échouée : ${passe1Call.error}`);
@@ -131,6 +136,9 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
   ];
 
   totalTokens += claudeResult.tokens_used + gptResult.tokens_used + geminiResult.tokens_used;
+  tokensByProvider.claude += claudeResult.tokens_used;
+  tokensByProvider.gpt4o += gptResult.tokens_used;
+  tokensByProvider.gemini += geminiResult.tokens_used;
 
   const validModels = metrages.filter((m) => m.error === null);
   if (validModels.length === 0) {
@@ -169,6 +177,7 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
 
   const passe3Duration = Date.now() - passe3Start;
   totalTokens += passe3Call.tokens_used;
+  tokensByProvider.claude += passe3Call.tokens_used;
 
   const passe3: Passe3Result = passe3Call.result ?? {
     verification_ratios: [],
@@ -213,6 +222,18 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
   const allPostes = metrageForVerification.metrage_par_zone.flatMap((z) => z.postes);
   const quarter = params.periode_travaux || `${new Date().getFullYear()}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
 
+  // Coefficient d'accès chantier — AUDIT 08/2026 : il était écrit dans
+  // `parametres_estimation.ajustements_appliques` mais AUCUN montant ne le
+  // multipliait. Un chantier « très difficile » produisait la même estimation
+  // qu'un accès normal tout en affichant qu'un ajustement était « appliqué ».
+  // On l'applique désormais au prix unitaire résolu de chaque poste, en amont
+  // des totaux — tout l'aval (sous-total, frais, prix/m², groupes CFC) reste
+  // cohérent.
+  const accessCoeff =
+    params.acces_chantier === 'difficile' ? 1.10
+    : params.acces_chantier === 'tres_difficile' ? 1.15
+    : 1.0;
+
   const postesChiffres: PosteChiffre[] = [];
 
   for (const poste of allPostes) {
@@ -230,16 +251,29 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
       supabase: params.supabase,
     });
 
-    // Appliquer la calibration prix si disponible
+    // Appliquer la calibration prix si disponible.
+    // AUDIT 08/2026 — anti-cliquet : on persiste le prix médian BRUT avant
+    // d'appliquer le coefficient. L'auto-calibration (adjudication) compare le
+    // prix réel à ce brut ; sinon chaque cycle recalibrait un prix déjà
+    // calibré et les coefficients se composaient indéfiniment.
     if (params.priceCalibrations) {
       const calKey = `${poste.cfc_code}::${params.region}`;
       const coeff = params.priceCalibrations.get(calKey);
       if (coeff && prix.min !== null && prix.median !== null && prix.max !== null) {
+        prix.median_brut = prix.median;
         prix.min = Math.round(prix.min * coeff * 100) / 100;
         prix.median = Math.round(prix.median * coeff * 100) / 100;
         prix.max = Math.round(prix.max * coeff * 100) / 100;
         prix.ajustements.push(`Calibration prix: ×${coeff.toFixed(3)}`);
       }
+    }
+
+    // Appliquer le coefficient d'accès chantier au prix unitaire résolu.
+    if (accessCoeff !== 1.0 && prix.min !== null && prix.median !== null && prix.max !== null) {
+      prix.min = Math.round(prix.min * accessCoeff * 100) / 100;
+      prix.median = Math.round(prix.median * accessCoeff * 100) / 100;
+      prix.max = Math.round(prix.max * accessCoeff * 100) / 100;
+      prix.ajustements.push(`Accès chantier ${params.acces_chantier}: ×${accessCoeff.toFixed(2)}`);
     }
 
     // Déterminer la confiance prix
@@ -297,7 +331,9 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
     max: Math.round(totalEstimation.max / sbp),
   };
 
-  const ratioRef = RATIOS_M2_SBP[params.type_batiment] ?? { min: 3000, max: 6000, source: 'Estimation' };
+  // Le fallback doit porter `median` (consommé par comparaison_marche) sinon
+  // `prix_m2_marche_median` sort `undefined` pour tout type_batiment inconnu.
+  const ratioRef = RATIOS_M2_SBP[params.type_batiment] ?? { min: 3000, median: 4000, max: 6000, source: 'Estimation' };
 
   // Regrouper par CFC
   const cfcGroups = new Map<string, PosteChiffre[]>();
@@ -425,6 +461,7 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
       });
 
       totalTokens += p5.tokens_used;
+      tokensByProvider.claude += p5.tokens_used;
       passe5Output = {
         scene: p5.scene,
         tokens_used: p5.tokens_used,
@@ -479,6 +516,7 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
       passe4_duration_ms: passe4Duration,
       ...(passe5Output ? { passe5_duration_ms: passe5Output.duration_ms } : {}),
       total_tokens: totalTokens,
+      tokens_by_provider: tokensByProvider,
       total_cost_usd: estimateCost(totalTokens),
       models_used: consensus.modeles_utilises,
     },

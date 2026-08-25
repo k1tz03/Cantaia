@@ -10,6 +10,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgentType } from "@cantaia/core/agents";
+import { AI_MODELS, callAnthropicWithRetry } from "@cantaia/core/ai";
+import { trackApiUsage } from "@cantaia/core/tracking";
 
 interface ToolContext {
   userId: string;
@@ -40,8 +42,12 @@ export async function executeCustomTool(
 function isAllowedUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace("https://", "") ?? "";
-    return supabaseHost.length > 0 && parsed.hostname.endsWith(supabaseHost.split("/")[0]);
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!base) return false;
+    // Strict hostname EQUALITY (not endsWith): "evil-<ref>.supabase.co" would
+    // pass a suffix test against "<ref>.supabase.co".
+    const allowedHost = new URL(base).hostname;
+    return parsed.protocol === "https:" && parsed.hostname === allowedHost;
   } catch {
     return false;
   }
@@ -130,6 +136,256 @@ function extractStorageObjectPath(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Agents send structured payloads as JSON *strings* (the tool schemas declare
+ * `type: "string"`), but a model occasionally sends the parsed value instead.
+ * Accept both, and never throw: a malformed field degrades to the fallback.
+ */
+function parseJsonArray(value: unknown): any[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    console.warn("[tool-handlers] Invalid JSON array, using []:", value.slice(0, 160));
+    return [];
+  }
+}
+
+/**
+ * Map the plan-estimator agent's JSON onto the `EstimationPipelineResult`
+ * shape the rest of the product reads.
+ *
+ * Why here and not only in the prompt: the registry prompt was asking for
+ * `passe1.title_block` / `passe1.discipline` and a flat
+ * `consensus_metrage.postes`, while every consumer (plan detail, scene
+ * extraction, calibration) reads `passe1.classification`,
+ * `consensus_metrage.metrage_fusionne` and `passe3`. The prompt has been
+ * corrected too, but a prompt is a request, not a guarantee — a model that
+ * drifts one field would silently produce an unreadable estimation. This
+ * normaliser accepts BOTH shapes and always emits the canonical one, so the
+ * stored row is valid whatever the model returned.
+ */
+function normalizeAgentEstimation(
+  raw: any,
+  ids: { planId: string; projectId: string; orgId: string }
+): any {
+  const passe1Raw = raw.passe1 || {};
+  const titleBlock = passe1Raw.title_block || passe1Raw.cartouche || {};
+
+  const passe1 = {
+    cartouche: {
+      numero_plan: titleBlock.numero ?? titleBlock.numero_plan ?? null,
+      indice_revision: titleBlock.indice ?? titleBlock.indice_revision ?? null,
+      date: titleBlock.date ?? null,
+      auteur_bureau: titleBlock.company ?? titleBlock.author ?? titleBlock.auteur_bureau ?? null,
+      projet: titleBlock.titre ?? titleBlock.projet ?? null,
+      echelle: titleBlock.scale ?? titleBlock.echelle ?? null,
+    },
+    // The field every consumer keys on. Built from the agent's flat fields
+    // when it did not nest them itself.
+    classification: passe1Raw.classification ?? {
+      discipline: normalizeDiscipline(passe1Raw.discipline),
+      type_plan: normalizePlanType(passe1Raw.plan_type),
+      phase_sia: passe1Raw.phase_sia ?? "projet",
+      vues_presentes: Array.isArray(passe1Raw.vues_presentes) ? passe1Raw.vues_presentes : [],
+    },
+    contexte_metrage: passe1Raw.contexte_metrage ?? {
+      echelle_detectee: titleBlock.scale ?? titleBlock.echelle ?? "inconnue",
+      echelle_fiable: !!(titleBlock.scale || titleBlock.echelle),
+      cotations_presentes: passe1Raw.cotations_presentes ?? false,
+      legende_presente: passe1Raw.legende_presente ?? false,
+      qualite_image: mapImageQuality(passe1Raw.image_quality ?? passe1Raw.qualite_image),
+      zones_illisibles: [],
+    },
+    avertissements: Array.isArray(passe1Raw.avertissements) ? passe1Raw.avertissements : [],
+  };
+
+  const consensusRaw = raw.consensus_metrage || {};
+  const postes = Array.isArray(consensusRaw.postes) ? consensusRaw.postes : [];
+
+  // `metrage_fusionne` is a full Passe2Result. The single-model agent has no
+  // per-zone breakdown, so the fused métré is one synthetic zone plus the
+  // per-CFC totals derived from the consensus postes.
+  const metrageFusionne = consensusRaw.metrage_fusionne ?? {
+    metrage_par_zone: [
+      {
+        zone: "Plan complet",
+        dimensions_zone: {
+          longueur: null,
+          largeur: null,
+          hauteur: null,
+          surface: null,
+          source_mesure: "echelle",
+        },
+        postes: postes.map((p: any) => ({
+          cfc_code: p.cfc_code ?? "",
+          cfc_libelle: p.cfc_libelle ?? p.description ?? "",
+          description_detaillee: p.description ?? p.cfc_libelle ?? "",
+          quantite: Number(p.quantite_consensuelle ?? p.quantite ?? 0),
+          unite: p.unite ?? "",
+          methode_mesure: p.methode_consensus ?? "detection_unique",
+          vue_source: "plan",
+          confiance: p.confiance_consensus ?? "medium",
+          hypotheses: p.note ? [p.note] : [],
+          decomposition: [],
+        })),
+      },
+    ],
+    elements_hors_plan: [],
+    totaux_par_cfc: aggregateTotalsByCfc(postes),
+    avertissements_metrage: Array.isArray(consensusRaw.avertissements_metrage)
+      ? consensusRaw.avertissements_metrage
+      : [],
+    surface_reference: consensusRaw.surface_reference ?? {
+      surface_brute_plancher: null,
+      surface_nette_plancher: null,
+      surface_facade: null,
+      volume_bati: null,
+      source: "non_determinee",
+    },
+  };
+
+  const consensus_metrage = {
+    postes,
+    modeles_utilises: consensusRaw.modeles_utilises ?? ["claude"],
+    modeles_en_erreur: consensusRaw.modeles_en_erreur ?? [],
+    stats: consensusRaw.stats ?? {
+      total_postes: postes.length,
+      concordance_forte_pct: 0,
+      concordance_partielle_pct: 0,
+      divergence_pct: 0,
+      score_consensus_global: 0.6,
+    },
+    metrage_fusionne: metrageFusionne,
+  };
+
+  const passe3Raw = raw.passe3 || {};
+  const passe3 = {
+    verification_ratios: passe3Raw.verification_ratios ?? [],
+    alertes_coherence: passe3Raw.alertes_coherence ?? [],
+    doublons_potentiels: passe3Raw.doublons_potentiels ?? [],
+    elements_probablement_manquants: passe3Raw.elements_probablement_manquants ?? [],
+    score_fiabilite_metrage: passe3Raw.score_fiabilite_metrage ?? {
+      score: Number(raw.confidence?.score_global) || 0.6,
+      facteurs_positifs: [],
+      facteurs_negatifs: [],
+      recommandation: raw.confidence?.recommandation_globale ?? "Estimation préliminaire",
+    },
+  };
+
+  return {
+    plan_id: ids.planId,
+    project_id: ids.projectId,
+    org_id: ids.orgId,
+    created_at: new Date().toISOString(),
+    passe1,
+    consensus_metrage,
+    passe3,
+    passe4: raw.passe4 ?? null,
+    pipeline_stats: raw.pipeline_stats ?? {
+      total_duration_ms: 0,
+      passe1_duration_ms: 0,
+      passe2_duration_ms: 0,
+      consensus_duration_ms: 0,
+      passe3_duration_ms: 0,
+      passe4_duration_ms: 0,
+      total_tokens: 0,
+      total_cost_usd: 0,
+      models_used: ["claude"],
+    },
+    // Marks the row as agent-produced (single model, no real consensus).
+    source: "managed-agent",
+  };
+}
+
+function aggregateTotalsByCfc(postes: any[]): any[] {
+  const byCfc = new Map<string, any>();
+  for (const p of postes) {
+    const code = p.cfc_code ?? "";
+    const entry = byCfc.get(code) || {
+      cfc_code: code,
+      cfc_libelle: p.cfc_libelle ?? p.description ?? "",
+      quantite_totale: 0,
+      unite: p.unite ?? "",
+      nb_zones: 1,
+      confiance_moyenne: p.confiance_consensus ?? "medium",
+    };
+    entry.quantite_totale += Number(p.quantite_consensuelle ?? p.quantite ?? 0);
+    byCfc.set(code, entry);
+  }
+  return Array.from(byCfc.values());
+}
+
+const DISCIPLINE_MAP: Record<string, string> = {
+  architecture: "architecture",
+  structure: "structure",
+  cvc: "cvcs",
+  cvcs: "cvcs",
+  "cvc/s": "cvcs",
+  electricite: "electricite",
+  "électricité": "electricite",
+  sanitaire: "sanitaire",
+  facades: "facades",
+  "façades": "facades",
+  amenagement_exterieur: "amenagement_exterieur",
+  demolition: "demolition",
+};
+
+function normalizeDiscipline(value: unknown): string {
+  const key = String(value ?? "").toLowerCase().trim();
+  return DISCIPLINE_MAP[key] ?? "architecture";
+}
+
+const PLAN_TYPE_MAP: Record<string, string> = {
+  "plan d'étage": "plan_etage",
+  "plan d'etage": "plan_etage",
+  plan_etage: "plan_etage",
+  coupe: "coupe",
+  facade: "facade",
+  "façade": "facade",
+  detail: "detail",
+  "détail": "detail",
+  situation: "situation",
+  schema_principe: "schema_principe",
+  plan_toiture: "plan_toiture",
+  plan_fondation: "plan_fondation",
+};
+
+function normalizePlanType(value: unknown): string {
+  const key = String(value ?? "").toLowerCase().trim();
+  return PLAN_TYPE_MAP[key] ?? "plan_etage";
+}
+
+function mapImageQuality(value: unknown): string {
+  const key = String(value ?? "").toLowerCase().trim();
+  if (key.startsWith("haut") || key === "high" || key === "bonne") return "haute";
+  if (key.startsWith("bas") || key === "low" || key === "mauvaise") return "basse";
+  return "moyenne";
+}
+
+/** Verify a project belongs to the caller's org before reading or writing it. */
+async function checkProjectAccess(
+  ctx: ToolContext,
+  projectId: string | null | undefined,
+  columns = "id, name, code, status, organization_id"
+): Promise<{ allowed: false; error: ToolError } | { allowed: true; project: any }> {
+  if (!projectId) {
+    return { allowed: false, error: { error: true, message: "project_id is required" } };
+  }
+  const { data: project } = await (ctx.admin as any)
+    .from("projects")
+    .select(columns.includes("organization_id") ? columns : `${columns}, organization_id`)
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (!project || project.organization_id !== ctx.organizationId) {
+    return { allowed: false, error: { error: true, message: "Project not found or access denied" } };
+  }
+  return { allowed: true, project };
 }
 
 // ── Tool Handler Registry ─────────────────────────────────
@@ -226,28 +482,48 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
         console.log(`[fetch_submission_file] PDF has ${meaningfulChars} meaningful chars — using Vision OCR`);
         try {
           const Anthropic = (await import("@anthropic-ai/sdk")).default;
-          const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-          const response = await client.messages.create({
-            model: "claude-sonnet-4-5-20250929",
-            max_tokens: 16000,
-            messages: [{
-              role: "user",
-              content: [
-                {
-                  type: "document",
-                  source: {
-                    type: "base64",
-                    media_type: "application/pdf",
-                    data: buffer.toString("base64"),
-                  },
-                } as any,
-                {
-                  type: "text",
-                  text: "Extrais TOUT le texte de ce document PDF de soumission de construction. Retourne uniquement le texte brut fidèlement, ligne par ligne, sans résumé ni reformulation. Inclus tous les numéros de postes, descriptions, unités et quantités.",
-                },
-              ],
-            }],
+          // maxRetries:0 — retries owned by callAnthropicWithRetry (§8).
+          const client = new Anthropic({
+            apiKey: process.env.ANTHROPIC_API_KEY,
+            maxRetries: 0,
           });
+          const visionModel = AI_MODELS.SONNET; // vision-capable
+          const response = await callAnthropicWithRetry(() =>
+            client.messages.create({
+              model: visionModel,
+              max_tokens: 16000,
+              messages: [{
+                role: "user",
+                content: [
+                  {
+                    type: "document",
+                    source: {
+                      type: "base64",
+                      media_type: "application/pdf",
+                      data: buffer.toString("base64"),
+                    },
+                  } as any,
+                  {
+                    type: "text",
+                    text: "Extrais TOUT le texte de ce document PDF de soumission de construction. Retourne uniquement le texte brut fidèlement, ligne par ligne, sans résumé ni reformulation. Inclus tous les numéros de postes, descriptions, unités et quantités.",
+                  },
+                ],
+              }],
+            })
+          );
+          // Track the OCR call — a full base64 PDF can be 100k+ input tokens
+          // and was previously billed by Anthropic but invisible in our logs.
+          trackApiUsage({
+            supabase: ctx.admin as any,
+            userId: ctx.userId,
+            organizationId: ctx.organizationId,
+            actionType: "agent_submission_analysis_ocr" as any,
+            apiProvider: "anthropic" as any,
+            model: visionModel,
+            inputTokens: response.usage?.input_tokens || 0,
+            outputTokens: response.usage?.output_tokens || 0,
+            metadata: { session_id: ctx.sessionId, phase: "vision_ocr" },
+          }).catch(() => {});
           const visionText = response.content
             .filter((b: any) => b.type === "text")
             .map((b: any) => b.text)
@@ -393,14 +669,22 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       },
     }));
 
-    // ── Delete existing items (stale from previous analysis) ──
-    const { error: delError } = await (ctx.admin as any)
+    // ── Snapshot the existing item ids BEFORE inserting ──
+    // Insert-then-delete (§8): the previous analysis is only removed once the
+    // new items are safely written. Deleting first meant a failed insert wiped
+    // the prior analysis and left the submission in analysis_status='error'
+    // with no items at all.
+    const { data: previousItems, error: prevError } = await (ctx.admin as any)
       .from("submission_items")
-      .delete()
+      .select("id")
       .eq("submission_id", submissionId);
-    if (delError) {
-      console.warn("[tool:save_analysis_result] Delete error (non-fatal):", delError.message);
+    if (prevError) {
+      console.warn(
+        "[tool:save_analysis_result] Could not list previous items:",
+        prevError.message
+      );
     }
+    const previousItemIds: string[] = (previousItems || []).map((r: any) => r.id);
 
     // ── Insert — with fallback if optional columns don't exist yet ──
     let insertError: any = null;
@@ -445,6 +729,22 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
         })
         .eq("id", submissionId);
       return { error: true, message: `Insert failed: ${insertError.message}` };
+    }
+
+    // ── Insert succeeded → now remove the previous analysis's items ──
+    if (previousItemIds.length > 0) {
+      const { error: delError } = await (ctx.admin as any)
+        .from("submission_items")
+        .delete()
+        .in("id", previousItemIds);
+      if (delError) {
+        // Non-fatal: the new items are already saved. Worst case a few stale
+        // rows linger, which is far better than losing the analysis entirely.
+        console.warn(
+          "[tool:save_analysis_result] Stale item cleanup failed (non-fatal):",
+          delError.message
+        );
+      }
     }
 
     // ── Mark submission as done ──
@@ -581,12 +881,16 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     // FIX #4: Never trust agent-supplied organization_id
     const orgId = ctx.organizationId;
 
-    const { data: projects } = await (ctx.admin as any)
+    const { data: projects, error } = await (ctx.admin as any)
       .from("projects")
       .select("id, name, code, email_keywords, email_senders, client_name, status")
       .eq("organization_id", orgId)
       .in("status", ["active", "planning"]);
 
+    if (error) {
+      console.error("[tool:get_projects_list] Query error:", error.message);
+      return { error: true, message: "Failed to load projects", projects: [] };
+    }
     return { projects: projects || [] };
   },
 
@@ -608,8 +912,12 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       query = query.or("classification_status.is.null,classification_status.eq.pending");
     }
 
-    const { data: emails } = await query;
+    const { data: emails, error } = await query;
 
+    if (error) {
+      console.error("[tool:fetch_emails_batch] Query error:", error.message);
+      return { error: true, message: "Failed to load emails", emails: [], count: 0, mode };
+    }
     return {
       emails: emails || [],
       count: emails?.length || 0,
@@ -767,33 +1075,73 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     } catch {
       return { error: true, message: "Invalid result JSON" };
     }
+    if (!result || typeof result !== "object") {
+      return { error: true, message: "result must be a JSON object" };
+    }
 
-    // FIX #1: IDOR check — verify org ownership before writing
+    // FIX #1: IDOR check — verify org ownership before writing.
+    // `project_id` is read here too: plan_estimates.project_id and
+    // .organization_id are NOT NULL (migration 022), so the previous insert
+    // — which sent neither — failed with a 23502 on every single run. The
+    // agent reported success (the error was returned but never surfaced) and
+    // no estimation was ever persisted.
     const { data: plan } = await (ctx.admin as any)
       .from("plan_registry")
-      .select("organization_id")
+      .select("id, organization_id, project_id, plan_title")
       .eq("id", planId)
       .maybeSingle();
 
     if (!plan || plan.organization_id !== ctx.organizationId) {
       return { error: true, message: "Plan not found or access denied" };
     }
+    if (!plan.project_id) {
+      return {
+        error: true,
+        message:
+          "Ce plan n'est rattaché à aucun projet — l'estimation ne peut pas être enregistrée.",
+      };
+    }
 
-    const { error } = await (ctx.admin as any)
+    // Normalise the agent's JSON to the EstimationPipelineResult shape the
+    // downstream consumers read (`passe1.classification`,
+    // `consensus_metrage.metrage_fusionne`, `passe3`).
+    const normalized = normalizeAgentEstimation(result, {
+      planId,
+      projectId: plan.project_id,
+      orgId: ctx.organizationId,
+    });
+
+    const { data: inserted, error } = await (ctx.admin as any)
       .from("plan_estimates")
       .insert({
         plan_id: planId,
-        estimate_result: result,
-        grand_total: result.grand_total || 0,
-        confidence_summary: result.confidence || {},
+        project_id: plan.project_id,
+        organization_id: ctx.organizationId,
+        // plan_analysis_id is nullable since migration 084 (standalone V2 runs)
+        plan_analysis_id: null,
+        config: { source: "managed-agent", agent_session_id: ctx.sessionId },
+        estimate_result: normalized,
+        grand_total: Number(result.grand_total) || 0,
+        confidence_summary: result.confidence || normalized.passe4?.analyse_fiabilite || {},
+        items_count: normalized.consensus_metrage.postes.length,
+        status: "completed",
         created_at: new Date().toISOString(),
-      });
+      })
+      .select("id")
+      .single();
 
     if (error) {
+      console.error("[tool:save_estimation]", error.message);
       return { error: true, message: `Save failed: ${error.message}` };
     }
 
-    return { success: true, message: "Estimation saved" };
+    return {
+      success: true,
+      estimate_id: inserted?.id ?? null,
+      postes: normalized.consensus_metrage.postes.length,
+      grand_total: Number(result.grand_total) || 0,
+      message: `Estimation enregistrée pour "${plan.plan_title || planId}"`,
+    };
   },
 
   // ── Price Extractor Tools ───────────────────────────────
@@ -1198,22 +1546,32 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     const sevenDaysFromNow = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
     const results: any[] = [];
+    // supabase-js does not throw: a query error lands in {error}, not the
+    // catch. Track it so the agent/notification does not report "nothing
+    // overdue" when a scan actually failed.
+    let partial = false;
 
     // 1. Price requests without response (> 7 days)
     try {
-      const { data: priceRequests } = await (ctx.admin as any)
+      const { data: priceRequests, error: prErr } = await (ctx.admin as any)
         .from("submission_price_requests")
         .select("id, submission_id, supplier_id, status, sent_at, submissions!inner(title, deadline, project_id, projects!inner(name, organization_id)), suppliers(company_name, contact_name, email)")
         .eq("submissions.projects.organization_id", orgId)
         .eq("status", "sent")
         .lt("sent_at", sevenDaysAgo);
+      if (prErr) { partial = true; console.warn("[scan_overdue_items] Price requests error:", prErr.message); }
 
       for (const pr of priceRequests || []) {
         const daysSent = Math.floor((Date.now() - new Date(pr.sent_at).getTime()) / 86400000);
         results.push({
           followup_type: "price_request_no_response",
-          source_type: "submission",
-          source_id: pr.submission_id,
+          // source_id is the PRICE REQUEST itself, so the "send" action can
+          // resolve and remind exactly this supplier. It used to be the
+          // submission id, which made deliverFollowup re-scan the submission
+          // and sometimes remind the wrong supplier.
+          source_type: "price_request",
+          source_id: pr.id,
+          submission_id: pr.submission_id, // metadata for the agent's context
           project_id: pr.submissions?.project_id,
           supplier_id: pr.supplier_id,
           title: `Prix sans réponse : ${pr.suppliers?.company_name || "Fournisseur"}`,
@@ -1232,7 +1590,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
 
     // 2. Overdue tasks
     try {
-      const { data: tasks } = await (ctx.admin as any)
+      const { data: tasks, error: tasksErr } = await (ctx.admin as any)
         .from("tasks")
         .select("id, title, status, priority, due_date, project_id, assigned_to, projects!inner(name, organization_id)")
         .eq("projects.organization_id", orgId)
@@ -1240,6 +1598,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
         .lt("due_date", today)
         .order("due_date", { ascending: true })
         .limit(30);
+      if (tasksErr) { partial = true; console.warn("[scan_overdue_items] Tasks error:", tasksErr.message); }
 
       for (const task of tasks || []) {
         const daysOver = Math.floor((Date.now() - new Date(task.due_date).getTime()) / 86400000);
@@ -1261,13 +1620,14 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
 
     // 3. Submission deadlines approaching (< 7 days)
     try {
-      const { data: submissions } = await (ctx.admin as any)
+      const { data: submissions, error: subErr } = await (ctx.admin as any)
         .from("submissions")
         .select("id, title, deadline, status, project_id, projects!inner(name, organization_id)")
         .eq("projects.organization_id", orgId)
         .in("status", ["draft", "sent", "responses"])
         .gte("deadline", today)
         .lte("deadline", sevenDaysFromNow);
+      if (subErr) { partial = true; console.warn("[scan_overdue_items] Submissions error:", subErr.message); }
 
       for (const sub of submissions || []) {
         const daysRemaining = Math.floor((new Date(sub.deadline).getTime() - Date.now()) / 86400000);
@@ -1312,12 +1672,43 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       console.warn("[scan_overdue_items] Reserves scan skipped:", e.message);
     }
 
-    return { items: results, total: results.length };
+    // `partial: true` tells the agent one or more scans failed, so it must not
+    // conclude "nothing is overdue" from an incomplete result set.
+    return { items: results, total: results.length, partial };
   },
 
   fetch_item_context: async (input, ctx) => {
     const sourceType = input.source_type as string;
     const sourceId = input.source_id as string;
+
+    if (sourceType === "price_request") {
+      const { data: pr } = await (ctx.admin as any)
+        .from("submission_price_requests")
+        .select("id, submission_id, status, sent_at, material_group, tracking_code, relance_count, last_relance_at, supplier_id, suppliers(company_name, email, contact_name), submissions!inner(title, deadline, status, project_id, projects!inner(name, code, client_name, organization_id))")
+        .eq("id", sourceId)
+        .maybeSingle();
+
+      if (!pr || pr.submissions?.projects?.organization_id !== ctx.organizationId) {
+        return { error: true, message: "Not found or access denied" };
+      }
+
+      return {
+        type: "price_request",
+        price_request: {
+          status: pr.status,
+          sent_at: pr.sent_at,
+          material_group: pr.material_group,
+          tracking_code: pr.tracking_code,
+          relance_count: pr.relance_count,
+          last_relance_at: pr.last_relance_at,
+          supplier: pr.suppliers?.company_name,
+          email: pr.suppliers?.email,
+          contact: pr.suppliers?.contact_name,
+        },
+        submission: { title: pr.submissions?.title, deadline: pr.submissions?.deadline, status: pr.submissions?.status },
+        project: { name: pr.submissions?.projects?.name, code: pr.submissions?.projects?.code, client: pr.submissions?.projects?.client_name },
+      };
+    }
 
     if (sourceType === "submission") {
       const { data: sub } = await (ctx.admin as any)
@@ -1404,32 +1795,44 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       agent_session_id: ctx.sessionId,
     }));
 
-    // ── AGT.H3: dedup against the NON-partial unique index (migration 085) ──
-    // The index is (source_id, followup_type) with no WHERE clause, so
-    // ON CONFLICT can infer it (the old partial index raised 42P10 and nothing
-    // was ever persisted). Because the index is no longer restricted to
-    // status='pending', a plain upsert would resurrect items the user already
-    // dismissed — so existing rows are handled explicitly:
-    //   • still pending  → refresh the mutable fields
-    //   • already handled (approved/sent/dismissed/snoozed) → left untouched
-    //   • unknown        → inserted
+    // ── Dedup against the PARTIAL unique index (migration 104) ──
+    // The index is (organization_id, followup_type, source_id)
+    // WHERE status IN ('pending','snoozed') — ON CONFLICT cannot infer a
+    // partial index (42P10), so this handler NEVER uses upsert: it pre-checks
+    // the existing rows and inserts plainly, treating 23505 as a concurrent-run
+    // skip. Existing rows are handled explicitly:
+    //   • still pending                        → refresh the mutable fields
+    //   • snoozed / approved                   → left untouched
+    //   • sent > 5 days ago                    → re-detect (insert a new item)
+    //   • dismissed > 14 days ago              → re-detect (insert a new item)
+    //   • sent/dismissed more recently         → skip (still fresh in memory)
+    //   • unknown                              → inserted
+    const RESURFACE_AFTER_SENT_MS = 5 * 86400000;
+    const RESURFACE_AFTER_DISMISSED_MS = 14 * 86400000;
+
     const sourceIds = Array.from(
       new Set(rows.map((r) => r.source_id).filter(Boolean))
     ) as string[];
 
-    const existingByKey = new Map<string, { id: string; status: string }>();
+    // Several rows per key can exist now (handled history + one open item).
+    const existingByKey = new Map<string, any[]>();
     if (sourceIds.length > 0) {
-      const { data: existing } = await (ctx.admin as any)
+      // select("*") on purpose: sent_at only exists from migration 099 on, and
+      // naming it explicitly would fail the whole query on an older database.
+      const { data: existing, error: existingError } = await (ctx.admin as any)
         .from("followup_items")
-        .select("id, source_id, followup_type, status")
+        .select("*")
         .eq("organization_id", ctx.organizationId)
         .in("source_id", sourceIds);
 
+      if (existingError) {
+        console.warn("[save_followup_items] existing lookup failed:", existingError.message);
+      }
       for (const row of existing || []) {
-        existingByKey.set(`${row.source_id}|${row.followup_type}`, {
-          id: row.id,
-          status: row.status,
-        });
+        const key = `${row.source_id}|${row.followup_type}`;
+        const list = existingByKey.get(key) || [];
+        list.push(row);
+        existingByKey.set(key, list);
       }
     }
 
@@ -1440,64 +1843,105 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
 
     for (const row of rows) {
       const key = row.source_id ? `${row.source_id}|${row.followup_type}` : null;
-      const existing = key ? existingByKey.get(key) : undefined;
+      const existingList = key ? existingByKey.get(key) || [] : [];
 
-      if (!existing) {
-        // Guard against the model listing the same source twice in one batch.
-        if (key) {
-          if (queuedKeys.has(key)) {
-            skipped++;
-            continue;
-          }
-          queuedKeys.add(key);
+      const openItem = existingList.find(
+        (e) => e.status === "pending" || e.status === "snoozed"
+      );
+
+      if (openItem) {
+        if (openItem.status === "snoozed") {
+          skipped++; // deliberately postponed by a human — do not touch
+          continue;
         }
-        newRows.push(row);
+        // pending → refresh the mutable fields
+        const { error: updateError } = await (ctx.admin as any)
+          .from("followup_items")
+          .update({
+            title: row.title,
+            description: row.description,
+            urgency: row.urgency,
+            suggested_action: row.suggested_action,
+            draft_email_subject: row.draft_email_subject,
+            draft_email_body: row.draft_email_body,
+            recipient_email: row.recipient_email,
+            recipient_name: row.recipient_name,
+            days_overdue: row.days_overdue,
+            project_id: row.project_id,
+            supplier_id: row.supplier_id,
+            agent_session_id: row.agent_session_id,
+          })
+          .eq("id", openItem.id);
+
+        if (updateError) {
+          console.warn("[save_followup_items] Refresh failed:", updateError.message);
+        } else {
+          refreshed++;
+        }
         continue;
       }
 
-      if (existing.status !== "pending") {
-        skipped++; // already handled by a human — do not resurrect
-        continue;
+      if (existingList.length > 0) {
+        // Only handled items exist — the most recent one decides re-detection.
+        const latest = existingList.reduce((a, b) =>
+          String(a.updated_at || a.created_at || "") >= String(b.updated_at || b.created_at || "")
+            ? a
+            : b
+        );
+        const referenceTs = new Date(
+          latest.sent_at || latest.updated_at || latest.created_at || 0
+        ).getTime();
+        const age = Date.now() - (Number.isFinite(referenceTs) ? referenceTs : 0);
+
+        const canResurface =
+          (latest.status === "sent" && age > RESURFACE_AFTER_SENT_MS) ||
+          (latest.status === "dismissed" && age > RESURFACE_AFTER_DISMISSED_MS);
+
+        if (!canResurface) {
+          skipped++; // recently handled — do not resurrect yet
+          continue;
+        }
       }
 
-      const { error: updateError } = await (ctx.admin as any)
-        .from("followup_items")
-        .update({
-          title: row.title,
-          description: row.description,
-          urgency: row.urgency,
-          suggested_action: row.suggested_action,
-          draft_email_subject: row.draft_email_subject,
-          draft_email_body: row.draft_email_body,
-          recipient_email: row.recipient_email,
-          recipient_name: row.recipient_name,
-          days_overdue: row.days_overdue,
-          project_id: row.project_id,
-          supplier_id: row.supplier_id,
-          agent_session_id: row.agent_session_id,
-        })
-        .eq("id", existing.id);
-
-      if (updateError) {
-        console.warn("[save_followup_items] Refresh failed:", updateError.message);
-      } else {
-        refreshed++;
+      // Guard against the model listing the same source twice in one batch.
+      if (key) {
+        if (queuedKeys.has(key)) {
+          skipped++;
+          continue;
+        }
+        queuedKeys.add(key);
       }
+      newRows.push(row);
     }
 
     let saved = 0;
     if (newRows.length > 0) {
-      // ignoreDuplicates keeps concurrent cron runs from raising 23505.
       const { data: inserted, error } = await (ctx.admin as any)
         .from("followup_items")
-        .upsert(newRows, { onConflict: "source_id,followup_type", ignoreDuplicates: true })
+        .insert(newRows)
         .select("id");
 
-      if (error) {
+      if (error && error.code === "23505") {
+        // Concurrent run won the race on some rows: retry one by one and skip
+        // the conflicting ones (a batch insert is all-or-nothing).
+        for (const row of newRows) {
+          const { error: rowError } = await (ctx.admin as any)
+            .from("followup_items")
+            .insert(row);
+          if (!rowError) {
+            saved++;
+          } else if (rowError.code === "23505") {
+            skipped++;
+          } else {
+            console.warn("[save_followup_items] row insert failed:", rowError.message);
+          }
+        }
+      } else if (error) {
         console.error("[save_followup_items]", error.message);
         return { error: true, message: error.message };
+      } else {
+        saved = inserted?.length ?? newRows.length;
       }
-      saved = inserted?.length ?? newRows.length;
     }
 
     return {
@@ -1531,25 +1975,28 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     let pendingRequests: any[] = [];
 
     if (supplierIds.length > 0) {
-      try {
-        const { data: offers } = await (ctx.admin as any)
-          .from("supplier_offers")
-          .select("id, supplier_id, total_amount, status, submitted_at")
-          .in("supplier_id", supplierIds)
-          .order("submitted_at", { ascending: false })
-          .limit(200);
-        recentOffers = offers || [];
-      } catch { /* non-fatal */ }
+      // supabase-js does not throw — the error is in {error}, not the catch.
+      const { data: offers, error: offersErr } = await (ctx.admin as any)
+        .from("supplier_offers")
+        .select("id, supplier_id, total_amount, status, submitted_at")
+        .in("supplier_id", supplierIds)
+        .order("submitted_at", { ascending: false })
+        .limit(200);
+      if (offersErr) {
+        console.warn("[fetch_all_suppliers_data] Offers error (non-fatal):", offersErr.message);
+      }
+      recentOffers = offers || [];
 
-      try {
-        const { data: requests } = await (ctx.admin as any)
-          .from("submission_price_requests")
-          .select("id, supplier_id, status, sent_at")
-          .in("supplier_id", supplierIds)
-          .order("sent_at", { ascending: false })
-          .limit(200);
-        pendingRequests = requests || [];
-      } catch { /* non-fatal */ }
+      const { data: requests, error: reqErr } = await (ctx.admin as any)
+        .from("submission_price_requests")
+        .select("id, supplier_id, status, sent_at")
+        .in("supplier_id", supplierIds)
+        .order("sent_at", { ascending: false })
+        .limit(200);
+      if (reqErr) {
+        console.warn("[fetch_all_suppliers_data] Requests error (non-fatal):", reqErr.message);
+      }
+      pendingRequests = requests || [];
     }
 
     // Build per-supplier metrics
@@ -1587,20 +2034,26 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     }
 
     // Fetch offers history
-    const { data: offers } = await (ctx.admin as any)
+    const { data: offers, error: offersErr } = await (ctx.admin as any)
       .from("supplier_offers")
       .select("id, total_amount, status, submitted_at, submission_id")
       .eq("supplier_id", supplierId)
       .order("submitted_at", { ascending: false })
       .limit(50);
+    if (offersErr) {
+      console.warn("[fetch_supplier_history] Offers error (non-fatal):", offersErr.message);
+    }
 
     // Fetch price request history
-    const { data: requests } = await (ctx.admin as any)
+    const { data: requests, error: reqErr } = await (ctx.admin as any)
       .from("submission_price_requests")
       .select("id, status, sent_at, responded_at")
       .eq("supplier_id", supplierId)
       .order("sent_at", { ascending: false })
       .limit(50);
+    if (reqErr) {
+      console.warn("[fetch_supplier_history] Requests error (non-fatal):", reqErr.message);
+    }
 
     // Calculate trends
     const offerAmounts = (offers || [])
@@ -1718,5 +2171,689 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       .in("id", claimedSupplierIds);
 
     return { success: true, saved: rows.length, total: alerts.length };
+  },
+
+  // ── Project Memory Tools (AGT.C1 — were missing entirely) ──
+  //
+  // The "project-memory" agent declared these three tools in the registry but
+  // no handler existed, so every call returned "Unknown custom tool": the loop
+  // burned its Sonnet iterations per org per run and `project_memory` was
+  // never written. That is why its schedule was pulled from vercel.json.
+
+  fetch_org_projects: async (_input, ctx) => {
+    const { data: projects, error } = await (ctx.admin as any)
+      .from("projects")
+      .select("id, name, code, status, client_name, city, start_date, end_date, updated_at")
+      .eq("organization_id", ctx.organizationId)
+      .in("status", ["planning", "active", "paused", "on_hold", "closing"])
+      .order("updated_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error("[tool:fetch_org_projects]", error.message);
+      return { error: true, message: error.message };
+    }
+
+    // Tell the agent which projects already have a memory snapshot and how
+    // old it is, so it can prioritise instead of redoing everything.
+    const ids = (projects || []).map((p: any) => p.id);
+    const memoryAge: Record<string, string | null> = {};
+    if (ids.length > 0) {
+      const { data: memories } = await (ctx.admin as any)
+        .from("project_memory")
+        .select("project_id, generated_at")
+        .eq("organization_id", ctx.organizationId)
+        .in("project_id", ids);
+      for (const m of memories || []) memoryAge[m.project_id] = m.generated_at;
+    }
+
+    return {
+      projects: (projects || []).map((p: any) => ({
+        ...p,
+        memory_generated_at: memoryAge[p.id] || null,
+      })),
+      count: projects?.length || 0,
+    };
+  },
+
+  fetch_project_full_state: async (input, ctx) => {
+    const projectId = input.project_id as string;
+
+    const access = await checkProjectAccess(
+      ctx,
+      projectId,
+      "id, name, code, status, client_name, city, description, budget_total, start_date, end_date"
+    );
+    if (!access.allowed) return access.error;
+    const project = access.project;
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Every source is independently tolerant: a module whose migration is not
+    // applied yet must not abort the whole snapshot.
+    const [
+      emailsRes,
+      tasksRes,
+      submissionsRes,
+      meetingsRes,
+      plansRes,
+      reportsRes,
+      visitsRes,
+      planningRes,
+      reservesRes,
+    ] = await Promise.allSettled([
+      (ctx.admin as any)
+        .from("email_records")
+        .select("id, subject, sender_name, classification, ai_summary, received_at, is_processed")
+        .eq("project_id", projectId)
+        .gte("received_at", sevenDaysAgo)
+        .order("received_at", { ascending: false })
+        .limit(30),
+
+      (ctx.admin as any)
+        .from("tasks")
+        .select("id, title, status, priority, due_date, lot_code, assigned_to, created_at")
+        .eq("project_id", projectId)
+        .in("status", ["todo", "in_progress", "waiting"])
+        .order("due_date", { ascending: true })
+        .limit(50),
+
+      (ctx.admin as any)
+        .from("submissions")
+        .select("id, title, reference, status, deadline, product_name, created_at")
+        .eq("project_id", projectId)
+        .in("status", ["draft", "sent", "responses", "comparing"])
+        .order("deadline", { ascending: true })
+        .limit(20),
+
+      (ctx.admin as any)
+        .from("meetings")
+        .select("id, title, meeting_number, meeting_date, status")
+        .eq("project_id", projectId)
+        .order("meeting_date", { ascending: false })
+        .limit(10),
+
+      (ctx.admin as any)
+        .from("plan_registry")
+        .select("id, plan_number, plan_title, discipline, status, updated_at")
+        .eq("project_id", projectId)
+        .eq("organization_id", ctx.organizationId)
+        .order("updated_at", { ascending: false })
+        .limit(20),
+
+      (ctx.admin as any)
+        .from("site_reports")
+        .select("id, report_date, status, submitted_by_name, weather, remarks")
+        .eq("project_id", projectId)
+        .order("report_date", { ascending: false })
+        .limit(15),
+
+      (ctx.admin as any)
+        .from("client_visits")
+        .select("id, title, client_name, visit_date, transcription_status")
+        .eq("project_id", projectId)
+        .eq("organization_id", ctx.organizationId)
+        .order("visit_date", { ascending: false })
+        .limit(10),
+
+      (ctx.admin as any)
+        .from("planning_tasks")
+        .select("id, name, cfc_code, start_date, end_date, progress, is_milestone, ai_risks, project_plannings!inner(project_id, organization_id)")
+        .eq("project_plannings.project_id", projectId)
+        .eq("project_plannings.organization_id", ctx.organizationId)
+        .order("end_date", { ascending: true })
+        .limit(60),
+
+      (ctx.admin as any)
+        .from("reception_reserves")
+        .select("id, description, severity, status, deadline, location")
+        .eq("project_id", projectId)
+        .eq("organization_id", ctx.organizationId)
+        .in("status", ["open", "in_progress", "disputed"])
+        .limit(40),
+    ]);
+
+    const unwrap = (r: PromiseSettledResult<any>, label: string): any[] => {
+      if (r.status === "rejected") {
+        console.warn(`[tool:fetch_project_full_state] ${label} failed:`, r.reason?.message);
+        return [];
+      }
+      if (r.value?.error) {
+        console.warn(`[tool:fetch_project_full_state] ${label}:`, r.value.error.message);
+        return [];
+      }
+      return r.value?.data || [];
+    };
+
+    const tasks = unwrap(tasksRes, "tasks");
+    const planningTasks = unwrap(planningRes, "planning");
+    const reports = unwrap(reportsRes, "site_reports");
+
+    const overdueTasks = tasks.filter(
+      (t: any) => t.due_date && t.due_date < today
+    );
+    const latePlanningTasks = planningTasks.filter(
+      (t: any) => t.end_date && t.end_date < today && (t.progress ?? 0) < 1
+    );
+
+    return {
+      project: {
+        id: project.id,
+        name: project.name,
+        code: project.code,
+        status: project.status,
+        client: project.client_name,
+        city: project.city,
+        budget_total: project.budget_total,
+        start_date: project.start_date,
+        end_date: project.end_date,
+      },
+      recent_emails: unwrap(emailsRes, "emails"),
+      open_tasks: tasks,
+      overdue_tasks: overdueTasks,
+      active_submissions: unwrap(submissionsRes, "submissions"),
+      recent_meetings: unwrap(meetingsRes, "meetings"),
+      plans: unwrap(plansRes, "plans"),
+      // Reports are summarised: the agent needs signal, not 15 full forms.
+      site_reports_summary: {
+        total: reports.length,
+        drafts: reports.filter((r: any) => r.status === "draft").length,
+        last_report_date: reports[0]?.report_date || null,
+        recent_remarks: reports
+          .filter((r: any) => r.remarks)
+          .slice(0, 5)
+          .map((r: any) => ({ date: r.report_date, remark: String(r.remarks).slice(0, 200) })),
+      },
+      recent_visits: unwrap(visitsRes, "visits"),
+      planning: {
+        total_tasks: planningTasks.length,
+        late_tasks: latePlanningTasks.map((t: any) => ({
+          name: t.name,
+          cfc_code: t.cfc_code,
+          end_date: t.end_date,
+          progress: t.progress,
+          ai_risks: t.ai_risks || [],
+        })),
+        milestones: planningTasks
+          .filter((t: any) => t.is_milestone)
+          .map((t: any) => ({ name: t.name, date: t.start_date })),
+      },
+      open_reserves: unwrap(reservesRes, "reserves"),
+      scanned_at: new Date().toISOString(),
+    };
+  },
+
+  save_project_memory: async (input, ctx) => {
+    const projectId = input.project_id as string;
+
+    const access = await checkProjectAccess(ctx, projectId, "id, organization_id");
+    if (!access.allowed) return access.error;
+
+    const now = new Date().toISOString();
+
+    // `supplier_status` is a JSONB *object* in the schema but the tool asks
+    // the agent for an array — normalise so the shape in DB stays stable.
+    const supplierArray = parseJsonArray(input.supplier_status);
+    const supplierStatus: Record<string, unknown> = {};
+    for (const s of supplierArray) {
+      const key = s?.supplier_name || s?.name;
+      if (!key) continue;
+      supplierStatus[String(key)] = {
+        name: key,
+        last_contact: s.last_interaction ?? s.last_contact ?? null,
+        pending_items: Array.isArray(s.pending_items) ? s.pending_items.length : 0,
+        score: s.score ?? null,
+        status: s.status ?? null,
+        notes: s.notes ?? null,
+      };
+    }
+
+    const row = {
+      organization_id: ctx.organizationId,
+      project_id: projectId,
+      summary: typeof input.summary === "string" ? input.summary : null,
+      key_facts: parseJsonArray(input.key_facts).slice(0, 50),
+      active_risks: parseJsonArray(input.active_risks).slice(0, 10),
+      pending_decisions: parseJsonArray(input.pending_decisions).slice(0, 10),
+      open_items: parseJsonArray(input.open_items).slice(0, 30),
+      supplier_status: supplierStatus,
+      timeline_events: parseJsonArray(input.timeline_events).slice(0, 30),
+      last_emails_scan: now,
+      last_tasks_scan: now,
+      last_submissions_scan: now,
+      last_meetings_scan: now,
+      last_plans_scan: now,
+      last_reports_scan: now,
+      agent_session_id: ctx.sessionId,
+      generated_at: now,
+      // A snapshot older than 7 days is stale for meeting prep.
+      expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    };
+
+    // Unique index is on (project_id) — migration 075.
+    const { error } = await (ctx.admin as any)
+      .from("project_memory")
+      .upsert(row, { onConflict: "project_id" });
+
+    if (error) {
+      console.error("[tool:save_project_memory]", error.message);
+      return { error: true, message: `Save failed: ${error.message}` };
+    }
+
+    return {
+      success: true,
+      project_id: projectId,
+      key_facts: row.key_facts.length,
+      active_risks: row.active_risks.length,
+      open_items: row.open_items.length,
+      message: `Mémoire projet mise à jour pour ${projectId}`,
+    };
+  },
+
+  // ── Meeting Prep Tools (AGT.C1 — were missing entirely) ────
+
+  fetch_meetings_needing_prep: async (input, ctx) => {
+    const hoursAhead = Math.min(Math.max(Number(input.hours_ahead) || 3, 1), 48);
+    const now = new Date();
+    const horizon = new Date(now.getTime() + hoursAhead * 3600_000);
+
+    const { data: events, error } = await (ctx.admin as any)
+      .from("calendar_events")
+      .select("id, title, description, location, event_type, start_at, end_at, project_id, user_id, ai_prep_status")
+      .eq("organization_id", ctx.organizationId)
+      .gte("start_at", now.toISOString())
+      .lte("start_at", horizon.toISOString())
+      .neq("status", "cancelled")
+      // 'pending' is the only queued value — 'failed' is not in the CHECK
+      // constraint of migration 075 and would make this filter reject rows.
+      .eq("ai_prep_status", "pending")
+      .order("start_at", { ascending: true })
+      .limit(20);
+
+    if (error) {
+      console.error("[tool:fetch_meetings_needing_prep]", error.message);
+      return { error: true, message: error.message };
+    }
+
+    const rows = events || [];
+    if (rows.length === 0) {
+      return { meetings: [], count: 0, message: "Aucune réunion à préparer" };
+    }
+
+    // Enrich with project name + attendees so the agent can decide what to
+    // fetch next without a round-trip per meeting.
+    const projectIds = Array.from(
+      new Set(rows.map((e: any) => e.project_id).filter(Boolean))
+    ) as string[];
+    const projectMap: Record<string, any> = {};
+    if (projectIds.length > 0) {
+      const { data: projects } = await (ctx.admin as any)
+        .from("projects")
+        .select("id, name, code")
+        .eq("organization_id", ctx.organizationId)
+        .in("id", projectIds);
+      for (const p of projects || []) projectMap[p.id] = p;
+    }
+
+    const eventIds = rows.map((e: any) => e.id);
+    const invitationsByEvent: Record<string, any[]> = {};
+    const { data: invitations } = await (ctx.admin as any)
+      .from("calendar_invitations")
+      .select("event_id, attendee_email, attendee_name, response_status, is_organizer")
+      .in("event_id", eventIds);
+    for (const inv of invitations || []) {
+      (invitationsByEvent[inv.event_id] ||= []).push(inv);
+    }
+
+    return {
+      meetings: rows.map((e: any) => ({
+        event_id: e.id,
+        title: e.title,
+        description: e.description,
+        location: e.location,
+        event_type: e.event_type,
+        start_at: e.start_at,
+        end_at: e.end_at,
+        duration_min: Math.round(
+          (new Date(e.end_at).getTime() - new Date(e.start_at).getTime()) / 60000
+        ),
+        project_id: e.project_id,
+        project_name: e.project_id ? projectMap[e.project_id]?.name || null : null,
+        attendees: invitationsByEvent[e.id] || [],
+      })),
+      count: rows.length,
+    };
+  },
+
+  fetch_project_memory_for_prep: async (input, ctx) => {
+    const projectId = input.project_id as string;
+    if (!projectId) return { memory: null, message: "Aucun projet lié à cette réunion" };
+
+    const access = await checkProjectAccess(ctx, projectId, "id, name, organization_id");
+    if (!access.allowed) return access.error;
+
+    const { data: memory, error } = await (ctx.admin as any)
+      .from("project_memory")
+      .select("summary, key_facts, active_risks, pending_decisions, open_items, supplier_status, timeline_events, generated_at, expires_at")
+      .eq("project_id", projectId)
+      .eq("organization_id", ctx.organizationId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[tool:fetch_project_memory_for_prep]", error.message);
+      return { error: true, message: error.message };
+    }
+
+    if (!memory) {
+      return {
+        memory: null,
+        project_name: access.project.name,
+        message:
+          "Aucune mémoire projet — base-toi uniquement sur fetch_meeting_specific_data.",
+      };
+    }
+
+    const generatedAt = memory.generated_at ? new Date(memory.generated_at) : null;
+    const ageHours = generatedAt
+      ? Math.round((Date.now() - generatedAt.getTime()) / 3600_000)
+      : null;
+
+    return {
+      memory,
+      project_name: access.project.name,
+      age_hours: ageHours,
+      // The agent must not present a week-old snapshot as current state.
+      is_stale: ageHours !== null && ageHours > 168,
+    };
+  },
+
+  fetch_meeting_specific_data: async (input, ctx) => {
+    const eventId = input.event_id as string;
+
+    // IDOR: the event must belong to the caller's org.
+    const { data: event } = await (ctx.admin as any)
+      .from("calendar_events")
+      .select("id, organization_id, project_id, title, start_at, end_at, event_type, location")
+      .eq("id", eventId)
+      .eq("organization_id", ctx.organizationId)
+      .maybeSingle();
+
+    if (!event) {
+      return { error: true, message: "Calendar event not found or access denied" };
+    }
+
+    // The agent may pass a project_id; only the event's own link is trusted.
+    const projectId: string | null = event.project_id || null;
+
+    const { data: invitations } = await (ctx.admin as any)
+      .from("calendar_invitations")
+      .select("attendee_email, attendee_name, response_status, is_organizer")
+      .eq("event_id", eventId);
+
+    const attendeeEmails = (invitations || [])
+      .map((i: any) => (i.attendee_email || "").toLowerCase())
+      .filter(Boolean);
+
+    // Resolve attendees against org members and suppliers for real context.
+    const [orgMembersRes, suppliersRes] = await Promise.all([
+      attendeeEmails.length
+        ? (ctx.admin as any)
+            .from("users")
+            .select("email, first_name, last_name, role, job_title")
+            .eq("organization_id", ctx.organizationId)
+            .in("email", attendeeEmails)
+        : Promise.resolve({ data: [] }),
+      attendeeEmails.length
+        ? (ctx.admin as any)
+            .from("suppliers")
+            .select("email, company_name, contact_name, overall_score")
+            .eq("organization_id", ctx.organizationId)
+            .in("email", attendeeEmails)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const memberByEmail: Record<string, any> = {};
+    for (const m of orgMembersRes.data || []) {
+      memberByEmail[(m.email || "").toLowerCase()] = m;
+    }
+    const supplierByEmail: Record<string, any> = {};
+    for (const s of suppliersRes.data || []) {
+      supplierByEmail[(s.email || "").toLowerCase()] = s;
+    }
+
+    const attendees = (invitations || []).map((i: any) => {
+      const email = (i.attendee_email || "").toLowerCase();
+      const member = memberByEmail[email];
+      const supplier = supplierByEmail[email];
+      return {
+        name:
+          i.attendee_name ||
+          (member ? `${member.first_name || ""} ${member.last_name || ""}`.trim() : null) ||
+          supplier?.contact_name ||
+          email.split("@")[0],
+        email: i.attendee_email,
+        role: member?.job_title || member?.role || (supplier ? "fournisseur" : null),
+        company: supplier?.company_name || null,
+        supplier_score: supplier?.overall_score ?? null,
+        response_status: i.response_status,
+        is_organizer: i.is_organizer,
+      };
+    });
+
+    if (!projectId) {
+      return {
+        event: {
+          id: event.id,
+          title: event.title,
+          start_at: event.start_at,
+          end_at: event.end_at,
+          event_type: event.event_type,
+          location: event.location,
+        },
+        project: null,
+        unread_emails: [],
+        overdue_tasks: [],
+        open_reserves: [],
+        pending_submissions: [],
+        attendees,
+        message: "Réunion sans projet lié — contexte limité aux participants.",
+      };
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [emailsRes, tasksRes, reservesRes, submissionsRes, projectRes] =
+      await Promise.allSettled([
+        (ctx.admin as any)
+          .from("email_records")
+          .select("id, subject, sender_name, sender_email, received_at, classification, ai_summary, body_preview")
+          .eq("project_id", projectId)
+          .in("classification", ["action_required", "urgent"])
+          .eq("is_processed", false)
+          .gte("received_at", sevenDaysAgo)
+          .order("received_at", { ascending: false })
+          .limit(10),
+
+        (ctx.admin as any)
+          .from("tasks")
+          .select("id, title, status, priority, due_date, lot_code, assigned_to")
+          .eq("project_id", projectId)
+          .in("status", ["todo", "in_progress", "waiting"])
+          .lt("due_date", today)
+          .order("due_date", { ascending: true })
+          .limit(20),
+
+        (ctx.admin as any)
+          .from("reception_reserves")
+          .select("id, description, severity, status, location, deadline")
+          .eq("project_id", projectId)
+          .eq("organization_id", ctx.organizationId)
+          .in("status", ["open", "in_progress", "disputed"])
+          .limit(20),
+
+        (ctx.admin as any)
+          .from("submissions")
+          .select("id, title, deadline, status")
+          .eq("project_id", projectId)
+          .in("status", ["sent", "responses", "comparing"])
+          .order("deadline", { ascending: true })
+          .limit(10),
+
+        (ctx.admin as any)
+          .from("projects")
+          .select("id, name, code, client_name, city, status")
+          .eq("id", projectId)
+          .maybeSingle(),
+      ]);
+
+    const unwrap = (r: PromiseSettledResult<any>, label: string): any[] => {
+      if (r.status === "rejected") {
+        console.warn(`[tool:fetch_meeting_specific_data] ${label}:`, r.reason?.message);
+        return [];
+      }
+      if (r.value?.error) return [];
+      return r.value?.data || [];
+    };
+
+    const overdueTasks = unwrap(tasksRes, "tasks").map((t: any) => ({
+      ...t,
+      days_overdue: t.due_date
+        ? Math.max(0, Math.floor((Date.now() - new Date(t.due_date).getTime()) / 86400000))
+        : 0,
+    }));
+
+    // Offers received vs suppliers contacted, per submission.
+    const submissions = unwrap(submissionsRes, "submissions");
+    const submissionIds = submissions.map((s: any) => s.id);
+    const offerCounts: Record<string, { received: number; requested: number }> = {};
+    if (submissionIds.length > 0) {
+      try {
+        const { data: requests } = await (ctx.admin as any)
+          .from("submission_price_requests")
+          .select("submission_id, status")
+          .in("submission_id", submissionIds);
+        for (const r of requests || []) {
+          const entry = (offerCounts[r.submission_id] ||= { received: 0, requested: 0 });
+          entry.requested++;
+          if (r.status === "responded" || r.status === "received") entry.received++;
+        }
+      } catch {
+        /* non-fatal */
+      }
+    }
+
+    const projectData =
+      projectRes.status === "fulfilled" ? projectRes.value?.data || null : null;
+
+    return {
+      event: {
+        id: event.id,
+        title: event.title,
+        start_at: event.start_at,
+        end_at: event.end_at,
+        event_type: event.event_type,
+        location: event.location,
+      },
+      project: projectData,
+      unread_emails: unwrap(emailsRes, "emails"),
+      overdue_tasks: overdueTasks,
+      open_reserves: unwrap(reservesRes, "reserves"),
+      pending_submissions: submissions.map((s: any) => ({
+        ...s,
+        days_remaining: s.deadline
+          ? Math.ceil((new Date(s.deadline).getTime() - Date.now()) / 86400000)
+          : null,
+        offers_received: offerCounts[s.id]?.received ?? 0,
+        offers_expected: offerCounts[s.id]?.requested ?? 0,
+      })),
+      attendees,
+    };
+  },
+
+  save_meeting_prep: async (input, ctx) => {
+    const eventId = input.event_id as string;
+
+    // IDOR: only an event of the caller's org can be prepared.
+    const { data: event } = await (ctx.admin as any)
+      .from("calendar_events")
+      .select("id, organization_id, project_id, user_id, title")
+      .eq("id", eventId)
+      .eq("organization_id", ctx.organizationId)
+      .maybeSingle();
+
+    if (!event) {
+      return { error: true, message: "Calendar event not found or access denied" };
+    }
+
+    const prepPayload = {
+      project_summary:
+        typeof input.project_summary === "string" ? input.project_summary : null,
+      unread_emails: parseJsonArray(input.unread_emails).slice(0, 10),
+      overdue_tasks: parseJsonArray(input.overdue_tasks).slice(0, 20),
+      open_reserves: parseJsonArray(input.open_reserves).slice(0, 20),
+      pending_submissions: parseJsonArray(input.pending_submissions).slice(0, 10),
+      key_points: parseJsonArray(input.key_points).slice(0, 15),
+      suggested_agenda: parseJsonArray(input.suggested_agenda).slice(0, 8),
+      attendee_context: parseJsonArray(input.attendee_context).slice(0, 20),
+    };
+
+    if (prepPayload.key_points.length === 0 && prepPayload.suggested_agenda.length === 0) {
+      return {
+        error: true,
+        message:
+          "key_points et suggested_agenda sont vides — une préparation sans contenu n'est pas sauvegardée.",
+      };
+    }
+
+    // Unique index is (event_id, user_id) — migration 075. The prep belongs to
+    // the event owner, not to the (cron) user running the agent.
+    const ownerUserId = event.user_id || ctx.userId;
+
+    const { error: prepError } = await (ctx.admin as any)
+      .from("meeting_preparations")
+      .upsert(
+        {
+          organization_id: ctx.organizationId,
+          event_id: eventId,
+          project_id: event.project_id || null,
+          user_id: ownerUserId,
+          ...prepPayload,
+          status: "ready",
+          agent_session_id: ctx.sessionId,
+        },
+        { onConflict: "event_id,user_id" }
+      );
+
+    if (prepError) {
+      console.error("[tool:save_meeting_prep]", prepError.message);
+      return { error: true, message: `Save failed: ${prepError.message}` };
+    }
+
+    // Flip the event out of the queue and mirror the prep so the calendar
+    // panel can render it without a second query.
+    const { error: eventError } = await (ctx.admin as any)
+      .from("calendar_events")
+      .update({
+        ai_prep_status: "ready",
+        ai_prep_data: prepPayload,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", eventId)
+      .eq("organization_id", ctx.organizationId);
+
+    if (eventError) {
+      // The prep row exists; a stuck 'pending' would only cause a re-run.
+      console.warn("[tool:save_meeting_prep] Event flag update failed:", eventError.message);
+    }
+
+    return {
+      success: true,
+      event_id: eventId,
+      key_points: prepPayload.key_points.length,
+      agenda_items: prepPayload.suggested_agenda.length,
+      message: `Préparation enregistrée pour "${event.title}"`,
+    };
   },
 };

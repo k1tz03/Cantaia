@@ -251,7 +251,7 @@ export default function SuperAdminDashboardPage() {
                   {loading ? "—" : card.value}
                 </p>
                 {card.sub && (
-                  <p className="text-xs text-[#71717A]">{card.sub}</p>
+                  <p className="text-xs text-[#A1A1AA]">{card.sub}</p>
                 )}
               </div>
             </div>
@@ -302,7 +302,7 @@ export default function SuperAdminDashboardPage() {
       {/* Sentry Errors */}
       <div className="mb-8 rounded-lg border border-[#27272A] bg-[#18181B]">
         <div className="flex items-center gap-2 border-b border-[#27272A] px-5 py-3.5">
-          <ShieldAlert className="h-4 w-4 text-[#71717A]" />
+          <ShieldAlert className="h-4 w-4 text-[#A1A1AA]" />
           <h2 className="text-sm font-semibold text-[#FAFAFA]">Erreurs production (Sentry)</h2>
         </div>
 
@@ -312,7 +312,7 @@ export default function SuperAdminDashboardPage() {
           </div>
         ) : !sentry.configured ? (
           <div className="px-5 py-6 text-center">
-            <ShieldAlert className="mx-auto mb-2 h-8 w-8 text-[#71717A]" />
+            <ShieldAlert className="mx-auto mb-2 h-8 w-8 text-[#A1A1AA]" />
             <p className="text-sm text-[#A1A1AA]">
               Sentry non configuré — Ajoutez{" "}
               <code className="rounded bg-[#1C1C1F] px-1.5 py-0.5 text-xs font-mono">SENTRY_AUTH_TOKEN</code>{" "}
@@ -346,40 +346,42 @@ export default function SuperAdminDashboardPage() {
               </div>
             </div>
 
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-t border-[#27272A] bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
-                  <th className="px-5 py-2 font-medium">Erreur</th>
-                  <th className="px-3 py-2 font-medium">Module</th>
-                  <th className="px-3 py-2 font-medium text-right">Occ.</th>
-                  <th className="px-5 py-2 font-medium text-right">Dernière fois</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#27272A]">
-                {sentry.errors.slice(0, 5).map((issue) => (
-                  <tr
-                    key={issue.id}
-                    className="cursor-pointer hover:bg-[#27272A]"
-                    onClick={() => window.open(issue.permalink, "_blank")}
-                  >
-                    <td className="max-w-[300px] truncate px-5 py-2.5 font-medium text-[#FAFAFA]">
-                      {issue.title.length > 60 ? issue.title.slice(0, 60) + "..." : issue.title}
-                    </td>
-                    <td className="max-w-[180px] truncate px-3 py-2.5 text-[#A1A1AA]">
-                      {issue.culprit
-                        ? issue.culprit.length > 30
-                          ? issue.culprit.slice(0, 30) + "..."
-                          : issue.culprit
-                        : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-[#A1A1AA]">{issue.count}</td>
-                    <td className="px-5 py-2.5 text-right text-[#71717A]">
-                      {formatSentryTime(issue.lastSeen)}
-                    </td>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-t border-[#27272A] bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
+                    <th className="px-5 py-2 font-medium">Erreur</th>
+                    <th className="px-3 py-2 font-medium">Module</th>
+                    <th className="px-3 py-2 font-medium text-right">Occ.</th>
+                    <th className="px-5 py-2 font-medium text-right">Dernière fois</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#27272A]">
+                  {sentry.errors.slice(0, 5).map((issue) => (
+                    <tr
+                      key={issue.id}
+                      className="cursor-pointer hover:bg-[#27272A]"
+                      onClick={() => window.open(issue.permalink, "_blank")}
+                    >
+                      <td className="max-w-[300px] truncate px-5 py-2.5 font-medium text-[#FAFAFA]">
+                        {issue.title.length > 60 ? issue.title.slice(0, 60) + "..." : issue.title}
+                      </td>
+                      <td className="max-w-[180px] truncate px-3 py-2.5 text-[#A1A1AA]">
+                        {issue.culprit
+                          ? issue.culprit.length > 30
+                            ? issue.culprit.slice(0, 30) + "..."
+                            : issue.culprit
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-[#A1A1AA]">{issue.count}</td>
+                      <td className="px-5 py-2.5 text-right text-[#A1A1AA]">
+                        {formatSentryTime(issue.lastSeen)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             <div className="border-t border-[#27272A] px-5 py-3">
               <a
@@ -399,7 +401,7 @@ export default function SuperAdminDashboardPage() {
       {/* Recent Activity */}
       <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
         <div className="flex items-center gap-2 border-b border-[#27272A] px-5 py-3.5">
-          <Clock className="h-4 w-4 text-[#71717A]" />
+          <Clock className="h-4 w-4 text-[#A1A1AA]" />
           <h2 className="text-sm font-semibold text-[#FAFAFA]">{t("recentActivity")}</h2>
         </div>
 
@@ -409,8 +411,8 @@ export default function SuperAdminDashboardPage() {
           </div>
         ) : activities.length === 0 ? (
           <div className="py-12 text-center">
-            <Activity className="mx-auto h-8 w-8 text-[#71717A]" />
-            <p className="mt-2 text-sm text-[#71717A]">{t("noActivity")}</p>
+            <Activity className="mx-auto h-8 w-8 text-[#A1A1AA]" />
+            <p className="mt-2 text-sm text-[#A1A1AA]">{t("noActivity")}</p>
           </div>
         ) : (
           <div className="divide-y divide-[#27272A]">
@@ -437,7 +439,7 @@ export default function SuperAdminDashboardPage() {
                       <span className="text-[#A1A1AA]">{activity.description}</span>
                     </p>
                   </div>
-                  <span className="shrink-0 text-xs text-[#71717A]">
+                  <span className="shrink-0 text-xs text-[#A1A1AA]">
                     {formatRelativeTime(activity.time)}
                   </span>
                 </div>

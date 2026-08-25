@@ -39,10 +39,45 @@ function isMissingTable(error: any): boolean {
   return message.includes("relation") && message.includes("does not exist");
 }
 
+/**
+ * A fail-open means Cantaia just served an AI action WITHOUT charging for it.
+ * That is deliberate (never take the product down over the meter) but it is
+ * revenue walking out of the door, so it must be LOUD: console.error — not
+ * console.warn, which drowns in Next.js build noise — plus a Sentry event so
+ * it shows up on the dashboard instead of only in a log tail.
+ *
+ * Sentry is imported dynamically and best-effort: this module is also reached
+ * from contexts where Sentry may not be initialised (missing DSN, cookie
+ * consent refused), and the reporting must never itself break the request.
+ */
+function reportDegraded(where: string, reason: string, error: any): void {
+  const detail = error?.message || String(error ?? "unknown");
+  console.error(
+    `[credits] DEGRADED (${where}): ${reason} — action autorisée SANS débit (fail-open). Détail: ${detail}`
+  );
+
+  try {
+    void import("@sentry/nextjs")
+      .then((Sentry) => {
+        Sentry.captureMessage(`[credits] fail-open in ${where}: ${reason}`, {
+          level: "error",
+          tags: { subsystem: "credits", credits_degraded: "true", where },
+          extra: { detail },
+        });
+      })
+      .catch(() => {
+        /* Sentry unavailable — the console.error above is the fallback. */
+      });
+  } catch {
+    /* never let telemetry break a credit operation */
+  }
+}
+
 function warnMigrationMissing(where: string, error: any): void {
-  console.warn(
-    `[credits] ${where}: migration 090 non appliquée (credit_balances / consume_credits / grant_credits absents) — ` +
-      `le système de crédits est ignoré (fail-open). Détail: ${error?.message || error}`
+  reportDegraded(
+    where,
+    "migration 090 non appliquée (credit_balances / consume_credits / grant_credits absents)",
+    error
   );
 }
 
@@ -68,14 +103,27 @@ export interface CreditBalanceSnapshot {
    * a hard "0 credits" wall.
    */
   exists: boolean;
+  /**
+   * `true` when the balance could NOT be consulted (table missing, DB error)
+   * — as opposed to "consulted, and this org simply has no row yet".
+   *
+   * While degraded, every metered action runs WITHOUT being debited. The API
+   * surfaces this so the UI can say so instead of silently showing nothing.
+   */
+  degraded: boolean;
 }
 
+/** No row for this org — the credit system answered, it just has nothing. */
 const EMPTY_BALANCE: CreditBalanceSnapshot = {
   subscription_credits: 0,
   purchased_credits: 0,
   total: 0,
   exists: false,
+  degraded: false,
 };
+
+/** The credit system could not be reached at all. */
+const DEGRADED_BALANCE: CreditBalanceSnapshot = { ...EMPTY_BALANCE, degraded: true };
 
 /**
  * Read an organization's balance. Never throws: an unreachable/absent table
@@ -94,10 +142,11 @@ export async function getCreditBalance(organizationId: string): Promise<CreditBa
 
     if (error) {
       if (isMissingTable(error)) warnMigrationMissing("getCreditBalance", error);
-      else console.error("[credits] getCreditBalance failed:", error.message);
-      return EMPTY_BALANCE;
+      else reportDegraded("getCreditBalance", "balance read failed", error);
+      return DEGRADED_BALANCE;
     }
 
+    // Answered, no row: the org is simply not on the credit model yet.
     if (!data) return EMPTY_BALANCE;
 
     const subscription = Number(data.subscription_credits) || 0;
@@ -107,10 +156,11 @@ export async function getCreditBalance(organizationId: string): Promise<CreditBa
       purchased_credits: purchased,
       total: subscription + purchased,
       exists: true,
+      degraded: false,
     };
   } catch (err) {
-    console.error("[credits] getCreditBalance threw:", err);
-    return EMPTY_BALANCE;
+    reportDegraded("getCreditBalance", "threw while reading the balance", err);
+    return DEGRADED_BALANCE;
   }
 }
 
@@ -149,6 +199,11 @@ export async function consumeCredits(
   const required = creditCostFor(actionType);
 
   if (!organizationId) {
+    reportDegraded(
+      "consumeCredits",
+      `called without an organizationId for ${actionType} — the action is free`,
+      null
+    );
     return {
       allowed: true,
       required,
@@ -184,7 +239,7 @@ export async function consumeCredits(
       if (isMissingFunction(error) || isMissingTable(error)) {
         warnMigrationMissing("consumeCredits", error);
       } else {
-        console.error("[credits] consume_credits RPC failed:", error.message);
+        reportDegraded("consumeCredits", `consume_credits RPC failed (${actionType})`, error);
       }
       // Fail-open: never block a paying customer on an infrastructure error.
       return {
@@ -204,7 +259,11 @@ export async function consumeCredits(
     }>(data);
 
     if (!row) {
-      console.error("[credits] consume_credits returned no row");
+      reportDegraded(
+        "consumeCredits",
+        `consume_credits returned no row (${actionType})`,
+        null
+      );
       return {
         allowed: true,
         required,
@@ -227,7 +286,7 @@ export async function consumeCredits(
       degraded: false,
     };
   } catch (err) {
-    console.error("[credits] consumeCredits threw:", err);
+    reportDegraded("consumeCredits", `threw while debiting ${actionType}`, err);
     return {
       allowed: true,
       required,
@@ -290,7 +349,9 @@ export async function grantCredits(
       if (isMissingFunction(error) || isMissingTable(error)) {
         warnMigrationMissing("grantCredits", error);
       } else {
-        console.error("[credits] grant_credits RPC failed:", error.message);
+        // A lost grant is the mirror image of a lost debit: the customer PAID
+        // and did not get the credits. Just as loud.
+        reportDegraded("grantCredits", `grant_credits RPC failed (kind=${kind}, amount=${amount})`, error);
       }
       return failed;
     }
@@ -317,7 +378,7 @@ export async function grantCredits(
       degraded: false,
     };
   } catch (err) {
-    console.error("[credits] grantCredits threw:", err);
+    reportDegraded("grantCredits", `threw while granting (kind=${kind}, amount=${amount})`, err);
     return failed;
   }
 }
@@ -328,17 +389,27 @@ export async function grantCredits(
 
 /**
  * Standard 402 payload every metered route returns when the balance is too
- * low. The client PaywallDialog keys on `error === "insufficient_credits"`.
+ * low. The client PaywallDialog keys on `error === "insufficient_credits"` and
+ * renders its OWN localized copy — so the payload stays NEUTRAL (no FR-frozen
+ * `message`, which would leak French into DE/EN sessions).
+ *
+ * `remaining` is kept for the current client; `current` is the neutral alias
+ * named by the audit contract. `action_type` / `required_plan` are optional
+ * hints the dialog can use (cost lookup, upsell target).
  */
-export function insufficientCreditsResponse(required: number, remaining: number): NextResponse {
+export function insufficientCreditsResponse(
+  required: number,
+  remaining: number,
+  opts?: { actionType?: string | null; requiredPlan?: string | null }
+): NextResponse {
   return NextResponse.json(
     {
       error: "insufficient_credits",
       required,
       remaining,
-      message: `Crédits insuffisants : cette action coûte ${required} crédit${
-        required > 1 ? "s" : ""
-      }, il vous en reste ${remaining}.`,
+      current: remaining,
+      action_type: opts?.actionType ?? null,
+      required_plan: opts?.requiredPlan ?? null,
     },
     { status: 402 }
   );

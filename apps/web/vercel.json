@@ -5,14 +5,6 @@
       "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/cron/aggregate-benchmarks",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/extract-patterns",
-      "schedule": "0 3 * * 0"
-    },
-    {
       "path": "/api/cron/briefing",
       "schedule": "45 6 * * *"
     },
@@ -43,6 +35,30 @@
     {
       "path": "/api/cron/calibrate",
       "schedule": "0 5 * * 1"
+    },
+    {
+      "path": "/api/cron/task-reminders",
+      "schedule": "15 6 * * *"
+    },
+    {
+      "path": "/api/cron/credits-low-alert",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/calendar-sync",
+      "schedule": "15 5 * * *"
+    },
+    {
+      "path": "/api/cron/renew-webhooks",
+      "schedule": "0 */12 * * *"
+    },
+    {
+      "path": "/api/cron/project-memory",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/meeting-prep",
+      "schedule": "30 6 * * *"
     }
   ]
 }

@@ -6,6 +6,16 @@ import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 import { insufficientCreditsResponse } from "@/lib/credits";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  assignPersistentNumbers,
+  buildCarryOverSection,
+  buildPVPromptSupplement,
+  loadPreviousOpenPoints,
+  loadPVTemplate,
+  prependCarryOverSection,
+  type PVCarriedPoint,
+} from "@/app/api/pv/_shared/pv-circulation";
 
 const USE_MOCK_PV = process.env.USE_MOCK_PV === "true";
 
@@ -20,6 +30,13 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Throttle expensive PV generations per user (credits are the primary gate,
+    // this stops burst abuse before the model call).
+    const rl = await rateLimit(`ai:user:${user.id}`, { limit: 20, windowSec: 3600 });
+    if (!rl.allowed) {
+      return rateLimitResponse(rl);
     }
 
     const { data: body, error: parseError } = await parseBody(request);
@@ -76,6 +93,8 @@ export async function POST(request: NextRequest) {
     let location = body.location;
     let participants = body.participants;
     const language = body.language || "fr";
+    /** Project the meeting belongs to — needed for the n-1 carry-over lookup. */
+    let meetingProjectId: string | null = body.project_id ?? null;
 
     // Remembered so a failed generation can restore it instead of leaving the
     // meeting stuck in "generating_pv" forever.
@@ -93,46 +112,52 @@ export async function POST(request: NextRequest) {
       }
     };
 
+    // Always fetch the meeting + project and verify org ownership BEFORE any
+    // write — the org-check must be UNCONDITIONAL. Skipping it when `transcript`
+    // is supplied in the body would let a caller overwrite pv_content on any
+    // meeting id (IDOR): the DB update below is keyed solely on meeting_id.
+    const { data: meeting } = await admin
+      .from("meetings")
+      .select("*, projects!inner(id, name, code, address, city, organization_id)")
+      .eq("id", meeting_id)
+      .maybeSingle();
+
+    if (!meeting) {
+      return NextResponse.json(
+        { error: "Meeting not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify meeting belongs to user's organization
+    const meetingOrg = (meeting.projects as any)?.organization_id;
+    if (meetingOrg !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    previousStatus = (meeting as any).status ?? null;
+    const project = meeting.projects as any;
+    meetingProjectId = meetingProjectId ?? (meeting as any).project_id ?? project?.id ?? null;
+
+    // Prefer the caller-supplied transcript (fresh, un-persisted audio), else the
+    // stored transcription. The meeting has already been org-verified above.
     if (!transcript) {
-      // Fetch meeting + project from DB (with org check)
-      const { data: meeting } = await admin
-        .from("meetings")
-        .select("*, projects!inner(name, code, address, city, organization_id)")
-        .eq("id", meeting_id)
-        .maybeSingle();
-
-      if (!meeting) {
-        return NextResponse.json(
-          { error: "Meeting not found" },
-          { status: 404 }
-        );
-      }
-
-      // Verify meeting belongs to user's organization
-      const meetingOrg = (meeting.projects as any)?.organization_id;
-      if (meetingOrg !== userProfile.organization_id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-
       if (!meeting.transcription_raw) {
         return NextResponse.json(
           { error: "No transcription available for this meeting" },
           { status: 400 }
         );
       }
-
       transcript = meeting.transcription_raw;
-      previousStatus = (meeting as any).status ?? null;
-      const project = meeting.projects as any;
-      project_name = project?.name || "Projet";
-      project_code = project?.code || "";
-      meeting_number = meeting.meeting_number || 0;
-      meeting_date =
-        meeting.meeting_date ||
-        new Date().toLocaleDateString("fr-CH");
-      location = meeting.location || project?.address || "";
-      participants = JSON.stringify(meeting.participants || []);
     }
+
+    // Header metadata: caller overrides win, otherwise derive from the meeting.
+    project_name = project_name || project?.name || "Projet";
+    project_code = project_code || project?.code || "";
+    meeting_number = meeting_number ?? meeting.meeting_number ?? 0;
+    meeting_date = meeting_date || meeting.meeting_date || new Date().toLocaleDateString("fr-CH");
+    location = location || meeting.location || project?.address || "";
+    participants = participants || JSON.stringify(meeting.participants || []);
 
     if (process.env.NODE_ENV === "development") console.log(
       `[GeneratePV] Generating PV for meeting ${meeting_id}`,
@@ -211,17 +236,41 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // ---- Org outline + points carried over from the previous séance --------
+    // Both are appended to the shared prompt rather than merged into
+    // `buildPVGeneratePrompt`, so @cantaia/core/ai/prompts.ts stays untouched.
+    const { sections: templateSections, isCustom: hasCustomTemplate } = await loadPVTemplate(
+      admin,
+      userProfile.organization_id
+    );
+
+    let carriedPoints: PVCarriedPoint[] = [];
+    let previousMeetingNumber: number | null = null;
+    if (meetingProjectId) {
+      const carried = await loadPreviousOpenPoints(admin, meetingProjectId, meeting_id);
+      carriedPoints = carried.points;
+      previousMeetingNumber = carried.previousMeetingNumber;
+    }
+
     // Real Claude PV generation
-    const prompt = buildPVGeneratePrompt({
-      project_name: project_name || "Projet",
-      project_code: project_code || "",
-      meeting_number: meeting_number || 0,
-      meeting_date: meeting_date || "",
-      location: location || "",
-      participants: participants || "",
-      transcription: transcript,
-      language,
-    });
+    const prompt =
+      buildPVGeneratePrompt({
+        project_name: project_name || "Projet",
+        project_code: project_code || "",
+        meeting_number: meeting_number || 0,
+        meeting_date: meeting_date || "",
+        location: location || "",
+        participants: participants || "",
+        transcription: transcript,
+        language,
+      }) +
+      buildPVPromptSupplement({
+        // Only impose an outline the org actually chose — Cantaia's default is
+        // already baked into the base prompt.
+        template: hasCustomTemplate ? templateSections : null,
+        carriedPoints,
+        previousMeetingNumber,
+      });
 
     const Anthropic = (await import("@anthropic-ai/sdk")).default;
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 90_000 });
@@ -263,6 +312,20 @@ export async function POST(request: NextRequest) {
         { status: 502 }
       );
     }
+
+    // ---- Carry-over + persistent numbering ---------------------------------
+    // Claude is told not to reproduce the inherited points, so the section is
+    // added here rather than trusted to the model. `prependCarryOverSection`
+    // is a no-op when the PV already carries one (regeneration).
+    pvContent = prependCarryOverSection(
+      pvContent,
+      buildCarryOverSection(carriedPoints, meeting_number || 0)
+    );
+
+    // Numbers become {meeting_number}.{index} and are STORED: a point discussed
+    // as "4.3" in the room must still be "4.3" after a section above it is
+    // deleted, and must match the reference used in the next PV.
+    pvContent.sections = assignPersistentNumbers(pvContent.sections, meeting_number || 0);
 
     // Save PV to DB
     await admin

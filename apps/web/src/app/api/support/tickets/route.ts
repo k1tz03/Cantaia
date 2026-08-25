@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { alertSupportDesk, displayName } from "./support-notifications";
+import { validateSupportAttachments } from "./attachment-utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -134,7 +136,7 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("users")
-      .select("organization_id")
+      .select("organization_id, first_name, last_name, email")
       .eq("id", user.id)
       .single();
 
@@ -157,6 +159,15 @@ export async function POST(request: NextRequest) {
     }
     if (!message?.trim() || message.trim().length < 10) {
       return NextResponse.json({ error: "Message is required (min 10 chars)" }, { status: 400 });
+    }
+
+    // Validate attachments up front — paths must live under the caller's own
+    // org folder in the private `support` bucket (never a URL or foreign path).
+    const attCheck = validateSupportAttachments(attachments, {
+      organizationId: profile.organization_id,
+    });
+    if (!attCheck.ok) {
+      return NextResponse.json({ error: attCheck.error }, { status: 400 });
     }
 
     // Create ticket
@@ -187,7 +198,7 @@ export async function POST(request: NextRequest) {
         sender_id: user.id,
         sender_role: "user",
         content: message.trim(),
-        attachments: attachments || [],
+        attachments: attCheck.attachments,
       })
       .select()
       .single();
@@ -195,6 +206,24 @@ export async function POST(request: NextRequest) {
     if (msgError) {
       console.error("[Support] Create message error:", msgError);
     }
+
+    // Wake the support desk up — until now a new ticket produced no email at
+    // all and was only discovered by refreshing /super-admin/support. Run it
+    // after the response so the Resend round-trip never delays ticket creation.
+    after(async () => {
+      try {
+        await alertSupportDesk(admin, {
+          organizationId: profile.organization_id,
+          ticketId: ticket.id,
+          ticketSubject: ticket.subject,
+          message: message.trim(),
+          kind: "created",
+          authorName: displayName(profile),
+        });
+      } catch (err) {
+        console.error("[Support] New-ticket notification failed:", err);
+      }
+    });
 
     return NextResponse.json({ success: true, ticket, message: msg }, { status: 201 });
   } catch (error) {

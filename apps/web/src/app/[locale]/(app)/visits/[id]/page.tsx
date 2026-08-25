@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import {
   ArrowLeft,
   FileText,
@@ -21,6 +21,9 @@ import {
   Camera,
   Plus,
   RefreshCw,
+  FolderPlus,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { ClientVisit, VisitPhoto } from "@cantaia/database";
@@ -49,6 +52,7 @@ export default function VisitDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("report");
   const [exporting, setExporting] = useState(false);
+  const [showConvert, setShowConvert] = useState(false);
 
   useEffect(() => {
     loadVisit();
@@ -76,7 +80,7 @@ export default function VisitDetailPage() {
       await exportFile("/api/visits/export-report", {
         method: "POST",
         body: { visit_id: visitId },
-        fallbackFilename: `rapport-visite-${visitId}.docx`,
+        fallbackFilename: `rapport-visite-${visitId}.pdf`,
       });
       // Reload to show updated report_pdf_url
       loadVisit();
@@ -106,13 +110,21 @@ export default function VisitDetailPage() {
 
   if (!visit) {
     return (
-      <div className="p-6 text-center text-sm text-[#71717A]">
-        Visite introuvable
+      <div className="p-6 text-center text-sm text-[#A1A1AA]">
+        {t("visitNotFound")}
       </div>
     );
   }
 
   const report = visit.report || {};
+
+  // A prospect visit with no project is convertible. `suggest_create_project`
+  // is returned by POST /api/visits/generate-report but never stored, so the
+  // same condition is recomputed here — that way the nudge survives a reload
+  // instead of vanishing with the response that carried it.
+  const canConvert = Boolean(visit.is_prospect && !visit.project_id);
+  const suggestCreateProject = canConvert && (report.closing_probability || 0) > 0.5;
+
   const tabs: { id: Tab; label: string; icon: React.ComponentType<any>; badge?: number }[] = [
     { id: "report", label: t("tabReport"), icon: FileText },
     { id: "transcription", label: t("tabTranscription"), icon: Mic },
@@ -124,7 +136,7 @@ export default function VisitDetailPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]">
+      <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-[#A1A1AA] hover:text-[#FAFAFA]">
         <ArrowLeft className="h-4 w-4" />
         {t("title")}
       </Link>
@@ -133,9 +145,9 @@ export default function VisitDetailPage() {
         <div>
           <h1 className="text-xl font-bold text-[#FAFAFA]">
             {visit.client_name}
-            {visit.title && <span className="ml-2 text-[#71717A]">— {visit.title}</span>}
+            {visit.title && <span className="ml-2 text-[#A1A1AA]">— {visit.title}</span>}
           </h1>
-          <div className="mt-1.5 flex items-center gap-4 text-sm text-[#71717A]">
+          <div className="mt-1.5 flex items-center gap-4 text-sm text-[#A1A1AA]">
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
               {formatDate(visit.visit_date)}
@@ -156,6 +168,15 @@ export default function VisitDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {canConvert && (
+            <button
+              onClick={() => setShowConvert(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-[#F97316] px-3 py-2 text-xs font-medium text-[#0F0F11] hover:bg-[#EA580C]"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              {t("convertToProject")}
+            </button>
+          )}
           {visit.status === "report_ready" && (
             <button
               onClick={() => updateStatus("quoted")}
@@ -183,7 +204,7 @@ export default function VisitDetailPage() {
           <button
             onClick={handleExport}
             disabled={exporting || !report.summary}
-            className="flex items-center gap-1.5 rounded-lg border border-[#27272A] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-[#27272A] px-3 py-2 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
           >
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             {t("exportPdf")}
@@ -202,13 +223,13 @@ export default function VisitDetailPage() {
               className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? "border-blue-600 text-[#F97316]"
-                  : "border-transparent text-[#71717A] hover:text-[#FAFAFA]"
+                  : "border-transparent text-[#A1A1AA] hover:text-[#FAFAFA]"
               }`}
             >
               <Icon className="h-4 w-4" />
               {tab.label}
               {tab.badge ? (
-                <span className="ml-1 rounded-full bg-[#27272A] px-1.5 py-0.5 text-[10px] font-medium text-[#71717A]">
+                <span className="ml-1 rounded-full bg-[#27272A] px-1.5 py-0.5 text-[10px] font-medium text-[#A1A1AA]">
                   {tab.badge}
                 </span>
               ) : null}
@@ -216,6 +237,30 @@ export default function VisitDetailPage() {
           );
         })}
       </div>
+
+      {/* AI nudge: the client is likely to sign — turn the prospect into a project */}
+      {suggestCreateProject && (
+        <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-[#F97316]/30 bg-[#F97316]/10 px-4 py-3">
+          <div className="flex items-start gap-2 text-sm text-[#F97316]">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              {t("highSignatureProbability", {
+                percent: report.closing_probability
+                  ? ` (${Math.round(report.closing_probability * 100)}%)`
+                  : "",
+              })}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowConvert(true)}
+            className="flex shrink-0 items-center gap-1.5 rounded-md bg-[#F97316] px-3 py-1.5 text-xs font-medium text-[#0F0F11] hover:bg-[#EA580C]"
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+            {t("convertToProject")}
+          </button>
+        </div>
+      )}
 
       {/* Failure banners with retry */}
       <FailureBanner visit={visit} onRetried={loadVisit} />
@@ -226,12 +271,200 @@ export default function VisitDetailPage() {
       {activeTab === "photos" && <PhotosTab visit={visit} onPhotosChanged={loadVisit} />}
       {activeTab === "tasks" && <TasksTab visit={visit} />}
       {activeTab === "documents" && <DocumentsTab visit={visit} />}
+
+      {showConvert && (
+        <ConvertToProjectModal
+          visit={visit}
+          onClose={() => setShowConvert(false)}
+          onConverted={loadVisit}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ═══════ Prospect → project conversion ═══════ */
+/**
+ * Creates the project from the visit and hands the visit id to the API, which
+ * links the two rows and replays the report's task generation (a prospect visit
+ * produces no tasks — `tasks.project_id` is NOT NULL).
+ */
+function ConvertToProjectModal({
+  visit,
+  onClose,
+  onConverted,
+}: {
+  visit: ClientVisit;
+  onClose: () => void;
+  onConverted: () => void;
+}) {
+  const t = useTranslations("visits");
+  const router = useRouter();
+  const report: any = visit.report || {};
+
+  const [name, setName] = useState(
+    visit.title ? `${visit.client_name} — ${visit.title}` : visit.client_name,
+  );
+  const [clientName, setClientName] = useState(visit.client_company || visit.client_name);
+  const [address, setAddress] = useState(visit.client_address || "");
+  const [city, setCity] = useState(visit.client_city || "");
+  const [budget, setBudget] = useState(
+    report.budget?.client_mentioned && report.budget?.range_max
+      ? String(report.budget.range_max)
+      : "",
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleConvert() {
+    if (!name.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/projects/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          client_name: clientName.trim() || null,
+          address: address.trim() || null,
+          city: city.trim() || null,
+          budget_total: budget ? Number(budget) : null,
+          status: "active",
+          description: report.summary || null,
+          source_visit_id: visit.id,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || t("projectCreateFailed"));
+      }
+      if (data.conversion?.error) {
+        // The project exists but the visit could not be linked — say so rather
+        // than pretending the conversion worked.
+        throw new Error(
+          t("visitLinkFailed", { error: data.conversion.error }),
+        );
+      }
+
+      onConverted();
+      onClose();
+      router.push(`/projects/${data.project.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("unexpectedError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-lg rounded-lg border border-[#27272A] bg-[#18181B] shadow-xl">
+        <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-4">
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("convertVisitTitle")}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA]"
+            aria-label={t("close")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div>
+            <label className="text-xs font-medium text-[#A1A1AA]">{t("projectNameLabel")}</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-[#A1A1AA]">{t("clientLabel")}</label>
+            <input
+              type="text"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none"
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-medium text-[#A1A1AA]">{t("addressLabel")}</label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[#A1A1AA]">{t("cityLabel")}</label>
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-[#A1A1AA]">{t("estimatedBudgetLabel")}</label>
+            <input
+              type="number"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              placeholder={t("budgetPlaceholder")}
+              className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder:text-[#52525B] focus:border-[#F97316] focus:outline-none sm:w-64"
+            />
+          </div>
+
+          <p className="rounded-md bg-[#27272A]/60 px-3 py-2 text-xs text-[#A1A1AA]">
+            {t("convertNote")}
+          </p>
+
+          {error && (
+            <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-[#27272A] px-5 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A]"
+          >
+            {t("cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={handleConvert}
+            disabled={saving || !name.trim()}
+            className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-semibold text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {t("createProjectButton")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 /* ═══════ Failure banner + retry ═══════ */
 function FailureBanner({ visit, onRetried }: { visit: ClientVisit; onRetried: () => void }) {
+  const t = useTranslations("visits");
   const [retrying, setRetrying] = useState<"transcription" | "report" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -257,12 +490,12 @@ function FailureBanner({ visit, onRetried }: { visit: ClientVisit; onRetried: ()
       }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "L'opération a échoué. Réessayez plus tard.");
+        throw new Error(data.error || t("operationFailedRetryLater"));
       }
       notifyCreditsChanged();
       onRetried();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "L'opération a échoué.");
+      setError(err instanceof Error ? err.message : t("operationFailed"));
     } finally {
       setRetrying(null);
     }
@@ -274,7 +507,7 @@ function FailureBanner({ visit, onRetried }: { visit: ClientVisit; onRetried: ()
         <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
           <div className="flex items-start gap-2 text-sm text-red-400">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>La transcription de l&apos;enregistrement a échoué.</span>
+            <span>{t("transcriptionFailedBanner")}</span>
           </div>
           <button
             type="button"
@@ -287,7 +520,7 @@ function FailureBanner({ visit, onRetried }: { visit: ClientVisit; onRetried: ()
             ) : (
               <RefreshCw className="h-3 w-3" />
             )}
-            Réessayer
+            {t("retry")}
           </button>
         </div>
       )}
@@ -296,7 +529,7 @@ function FailureBanner({ visit, onRetried }: { visit: ClientVisit; onRetried: ()
         <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
           <div className="flex items-start gap-2 text-sm text-amber-400">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>La génération du rapport IA a échoué.</span>
+            <span>{t("reportGenerationFailedBanner")}</span>
           </div>
           <button
             type="button"
@@ -309,7 +542,7 @@ function FailureBanner({ visit, onRetried }: { visit: ClientVisit; onRetried: ()
             ) : (
               <RefreshCw className="h-3 w-3" />
             )}
-            Réessayer
+            {t("retry")}
           </button>
         </div>
       )}
@@ -330,7 +563,7 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
       <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-8 text-center">
         <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-red-500" />
         <p className="text-sm font-medium text-red-400">
-          Le rapport n&apos;a pas pu être généré. Utilisez le bouton « Réessayer » ci-dessus.
+          {t("reportGenerationFailedRetry")}
         </p>
       </div>
     );
@@ -377,7 +610,7 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
             {report.measurements.map((m: any, i: number) => (
               <li key={i} className="text-sm text-[#FAFAFA]">
                 <span className="font-medium">{m.zone}</span> : {m.dimensions}
-                {m.notes && <span className="text-[#71717A]"> — {m.notes}</span>}
+                {m.notes && <span className="text-[#A1A1AA]"> — {m.notes}</span>}
               </li>
             ))}
           </ul>
@@ -404,17 +637,17 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
           {report.budget.client_mentioned ? (
             <div>
               <p className="text-sm text-[#FAFAFA]">
-                <DollarSign className="mr-1 inline h-4 w-4 text-[#71717A]" />
+                <DollarSign className="mr-1 inline h-4 w-4 text-[#A1A1AA]" />
                 {report.budget.range_min?.toLocaleString("fr-CH")}
                 {report.budget.range_max ? ` — ${report.budget.range_max.toLocaleString("fr-CH")}` : ""}
                 {" "}{report.budget.currency || "CHF"}
               </p>
               {report.budget.notes && (
-                <p className="mt-1 text-xs text-[#71717A] italic">&ldquo;{report.budget.notes}&rdquo;</p>
+                <p className="mt-1 text-xs text-[#A1A1AA] italic">&ldquo;{report.budget.notes}&rdquo;</p>
               )}
             </div>
           ) : (
-            <p className="text-sm text-[#71717A]">{t("budgetNotMentioned")}</p>
+            <p className="text-sm text-[#A1A1AA]">{t("budgetNotMentioned")}</p>
           )}
         </Section>
       )}
@@ -424,10 +657,10 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
         <Section title={t("timeline")}>
           <div className="space-y-1 text-sm text-[#FAFAFA]">
             {report.timeline.desired_start && (
-              <p><Calendar className="mr-1 inline h-3.5 w-3.5 text-[#71717A]" /> {t("desiredStart")} : {report.timeline.desired_start}</p>
+              <p><Calendar className="mr-1 inline h-3.5 w-3.5 text-[#A1A1AA]" /> {t("desiredStart")} : {report.timeline.desired_start}</p>
             )}
             {report.timeline.desired_end && (
-              <p><Calendar className="mr-1 inline h-3.5 w-3.5 text-[#71717A]" /> {t("desiredEnd")} : {report.timeline.desired_end}</p>
+              <p><Calendar className="mr-1 inline h-3.5 w-3.5 text-[#A1A1AA]" /> {t("desiredEnd")} : {report.timeline.desired_end}</p>
             )}
             {report.timeline.constraints && (
               <p className="text-amber-600"><AlertTriangle className="mr-1 inline h-3.5 w-3.5" /> {report.timeline.constraints}</p>
@@ -489,7 +722,7 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
               </p>
             )}
             {report.closing_notes && (
-              <p className="text-xs text-[#71717A] italic">{report.closing_notes}</p>
+              <p className="text-xs text-[#A1A1AA] italic">{report.closing_notes}</p>
             )}
           </div>
         </Section>
@@ -510,13 +743,13 @@ function TranscriptionTab({ visit }: { visit: ClientVisit }) {
           <>
             <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-red-500" />
             <p className="text-sm text-red-400">
-              La transcription a échoué. Utilisez le bouton « Réessayer » ci-dessus.
+              {t("transcriptionFailedRetry")}
             </p>
           </>
         ) : (
           <>
-            <Mic className="mx-auto mb-3 h-8 w-8 text-[#71717A]" />
-            <p className="text-sm text-[#71717A]">{t("transcribing")}</p>
+            <Mic className="mx-auto mb-3 h-8 w-8 text-[#A1A1AA]" />
+            <p className="text-sm text-[#A1A1AA]">{t("transcribing")}</p>
           </>
         )}
       </div>
@@ -567,34 +800,34 @@ function TasksTab({ visit }: { visit: ClientVisit }) {
   }
 
   if (loading) {
-    return <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-[#71717A]" /></div>;
+    return <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-[#A1A1AA]" /></div>;
   }
 
   return (
     <div className="rounded-lg border border-[#27272A] bg-[#0F0F11]">
       {tasks.length === 0 ? (
-        <div className="py-12 text-center text-sm text-[#71717A]">
+        <div className="py-12 text-center text-sm text-[#A1A1AA]">
           {t("tabTasks")} —{" "}
           {visit.project_id
-            ? "Aucune tâche créée"
-            : "Aucune tâche : cette visite n'est liée à aucun projet"}
+            ? t("noTasksCreated")
+            : t("noTasksNoProject")}
         </div>
       ) : (
         <div className="divide-y divide-border">
           {tasks.map((task) => (
             <div key={task.id} className="flex items-center justify-between px-5 py-3">
               <div className="flex items-center gap-3">
-                <CheckSquare className={`h-4 w-4 ${task.status === "done" ? "text-green-500" : "text-[#71717A]"}`} />
+                <CheckSquare className={`h-4 w-4 ${task.status === "done" ? "text-green-500" : "text-[#A1A1AA]"}`} />
                 <span className="text-sm text-[#FAFAFA]">{task.title}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  task.priority === "high" ? "bg-red-500/10 text-red-700 dark:text-red-400" : "bg-[#27272A] text-[#71717A]"
+                  task.priority === "high" ? "bg-red-500/10 text-red-700 dark:text-red-400" : "bg-[#27272A] text-[#A1A1AA]"
                 }`}>
                   {task.priority}
                 </span>
                 {task.due_date && (
-                  <span className="text-xs text-[#71717A]">
+                  <span className="text-xs text-[#A1A1AA]">
                     {new Date(task.due_date).toLocaleDateString("fr-CH")}
                   </span>
                 )}
@@ -633,7 +866,7 @@ function DocumentsTab({ visit }: { visit: ClientVisit }) {
             <Mic className="h-4 w-4 text-blue-500" />
             <div>
               <p className="text-sm font-medium text-[#FAFAFA]">{t("audioFile")}</p>
-              <p className="text-xs text-[#71717A]">
+              <p className="text-xs text-[#A1A1AA]">
                 {visit.audio_file_name || "recording.webm"}
                 {visit.audio_file_size ? ` · ${(visit.audio_file_size / (1024 * 1024)).toFixed(1)} MB` : ""}
               </p>
@@ -654,11 +887,11 @@ function DocumentsTab({ visit }: { visit: ClientVisit }) {
             <FileText className="h-4 w-4 text-blue-500" />
             <div>
               <p className="text-sm font-medium text-[#FAFAFA]">{t("reportDocument")}</p>
-              <p className="text-xs text-[#71717A]">.docx</p>
+              <p className="text-xs text-[#A1A1AA]">.pdf</p>
             </div>
           </div>
           <button
-            onClick={() => downloadDocument(visit.report_pdf_url!, `rapport-visite-${visit.client_name}.docx`)}
+            onClick={() => downloadDocument(visit.report_pdf_url!, `rapport-visite-${visit.client_name}.pdf`)}
             className="flex items-center gap-1 text-xs text-[#F97316] hover:text-[#F97316]"
           >
             <Download className="h-3.5 w-3.5" />
@@ -667,7 +900,7 @@ function DocumentsTab({ visit }: { visit: ClientVisit }) {
         </div>
       )}
       {!visit.audio_url && !visit.report_pdf_url && (
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] py-12 text-center text-sm text-[#71717A]">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] py-12 text-center text-sm text-[#A1A1AA]">
           {t("tabDocuments")} — {t("noDocuments")}
         </div>
       )}
@@ -697,9 +930,11 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
 
       // Get org ID for upload (via API route to bypass RLS recursion on users table)
       const profileRes = await fetch("/api/user/profile");
-      const profileData = await profileRes.json();
-      if (profileData?.profile?.organization_id) {
-        setOrgId(profileData.profile.organization_id);
+      if (profileRes.ok) {
+        const profileData = await profileRes.json().catch(() => ({}));
+        if (profileData?.profile?.organization_id) {
+          setOrgId(profileData.profile.organization_id);
+        }
       }
     } catch {
       // ignore
@@ -733,7 +968,7 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
   }
 
   if (loading) {
-    return <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-[#71717A]" /></div>;
+    return <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-[#A1A1AA]" /></div>;
   }
 
   const notesPhotos = photos.filter((p) => p.photo_type === "handwritten_notes");
@@ -757,13 +992,12 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
       {showUpload && orgId && (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 p-4">
-            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-purple-700 dark:text-purple-400">
+            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-purple-400">
               <Camera className="h-4 w-4" />
               {t("photos.handwrittenNotes")}
             </h4>
             <PhotoCapture
               visitId={visit.id}
-              orgId={orgId}
               photoType="handwritten_notes"
               onPhotosUploaded={() => { loadPhotos(); onPhotosChanged(); }}
             />
@@ -775,7 +1009,6 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
             </h4>
             <PhotoCapture
               visitId={visit.id}
-              orgId={orgId}
               photoType="site"
               onPhotosUploaded={() => { loadPhotos(); onPhotosChanged(); }}
             />
@@ -818,8 +1051,8 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
       {/* Empty state */}
       {photos.length === 0 && !showUpload && (
         <div className="rounded-lg border border-dashed border-[#27272A] py-12 text-center">
-          <Camera className="mx-auto mb-3 h-8 w-8 text-[#71717A]" />
-          <p className="text-sm text-[#71717A]">{t("photos.noPhotos")}</p>
+          <Camera className="mx-auto mb-3 h-8 w-8 text-[#A1A1AA]" />
+          <p className="text-sm text-[#A1A1AA]">{t("photos.noPhotos")}</p>
           <button
             type="button"
             onClick={() => setShowUpload(true)}
@@ -857,8 +1090,8 @@ function PriorityGroup({ label, color, requests }: { label: string; color: strin
         {requests.map((r: any, i: number) => (
           <li key={i} className="text-sm text-[#FAFAFA]">
             <span className="font-medium capitalize">{r.category?.replace(/_/g, " ")}</span> — {r.description}
-            {r.cfc_code && <span className="ml-1 text-xs text-[#71717A]">CFC {r.cfc_code}</span>}
-            {r.details && <p className="mt-0.5 text-xs text-[#71717A]">{r.details}</p>}
+            {r.cfc_code && <span className="ml-1 text-xs text-[#A1A1AA]">CFC {r.cfc_code}</span>}
+            {r.details && <p className="mt-0.5 text-xs text-[#A1A1AA]">{r.details}</p>}
           </li>
         ))}
       </ul>

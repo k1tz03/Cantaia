@@ -3,6 +3,62 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
+ * D-FIX7 — the ONE population the decision view can actually render.
+ *
+ * The badge used to count every `is_processed = false` row while the buckets
+ * only rendered three classifications, so emails that no bucket could ever
+ * show (classification NULL, `waiting_response`, stray `archived`) inflated a
+ * counter the user was unable to bring down: a permanently lying badge.
+ *
+ * Terminal semantics now:
+ *  • action_required / urgent  → "urgent" or "cette semaine" bucket
+ *  • info_only / waiting_response → "infos" bucket
+ *  • archived + is_processed=false → inconsistent leftover, deliberately out
+ *    of every count (the row is terminal, it just predates the fix)
+ *  • classification NULL → NOT counted here; reported separately as
+ *    `pendingClassification` so the UI can say "en attente de classification"
+ *    and offer "Reclassifier" instead of showing an unreachable number.
+ */
+const BUCKET_CLASSIFICATIONS = [
+  "action_required",
+  "urgent",
+  "info_only",
+  "waiting_response",
+] as const;
+
+const INFO_CLASSIFICATIONS = ["info_only", "waiting_response"] as const;
+
+/** Counts the exact population the buckets render. */
+async function countBucketPopulation(admin: any, userId: string): Promise<number> {
+  const { count, error } = await admin
+    .from("email_records")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_processed", false)
+    .in("classification", BUCKET_CLASSIFICATIONS as unknown as string[]);
+  if (error) {
+    console.warn("[mail/decisions] bucket count failed:", error.message);
+    return 0;
+  }
+  return count || 0;
+}
+
+/** Emails synced but never classified (no AI key, quota hit, or a failed pass). */
+async function countPendingClassification(admin: any, userId: string): Promise<number> {
+  const { count, error } = await admin
+    .from("email_records")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_processed", false)
+    .is("classification", null);
+  if (error) {
+    console.warn("[mail/decisions] pending-classification count failed:", error.message);
+    return 0;
+  }
+  return count || 0;
+}
+
+/**
  * GET /api/mail/decisions
  * Returns email_records classified as decisions for the mail decision view.
  * ?counts_only=true — returns only the unprocessed count (lightweight, used by sidebar badge)
@@ -16,14 +72,13 @@ export async function GET(request: NextRequest) {
     const admin = createAdminClient();
     const countsOnly = request.nextUrl.searchParams.get("counts_only") === "true";
 
-    // Lightweight path: just return the total unprocessed count for sidebar badge
+    // Lightweight path: just return the unprocessed counts for the sidebar badge
     if (countsOnly) {
-      const { count } = await (admin as any)
-        .from("email_records")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("is_processed", false);
-      return NextResponse.json({ totalUnprocessed: count || 0 });
+      const [totalUnprocessed, pendingClassification] = await Promise.all([
+        countBucketPopulation(admin, user.id),
+        countPendingClassification(admin, user.id),
+      ]);
+      return NextResponse.json({ totalUnprocessed, pendingClassification });
     }
 
     const { data: profile } = await (admin as any)
@@ -50,13 +105,15 @@ export async function GET(request: NextRequest) {
       .order("received_at", { ascending: false })
       .limit(100);
 
-    // Fetch info emails (not read/processed)
+    // Fetch info emails (not read/processed).
+    // D-FIX7: `waiting_response` belongs to a bucket too — it used to be counted
+    // by the badge and rendered by nothing.
     const { data: infoEmails } = await (admin as any)
       .from("email_records")
       .select("id, subject, sender_email, sender_name, recipients, body_preview, body_html, body_text, received_at, classification, ai_summary, project_id, is_processed, outlook_message_id, price_extracted, email_category, suggested_project_data, classification_status")
       .eq("user_id", user.id)
       .eq("is_processed", false)
-      .eq("classification", "info_only")
+      .in("classification", INFO_CLASSIFICATIONS as unknown as string[])
       .order("received_at", { ascending: false })
       .limit(50);
 
@@ -82,33 +139,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get price comparison data for emails with price_extracted
-    const priceEmails = [...(actionEmails || []), ...(infoEmails || [])].filter(
-      (e: any) => e.price_extracted || e.email_category === "price_response"
-    );
-    let priceIndicators: Record<string, { extracted_price?: number; market_median?: number; diff_percent?: number }> = {};
-
-    if (priceEmails.length > 0) {
-      const { data: recentPrices } = await (admin as any)
-        .from("ingested_offer_lines")
-        .select("cfc_code, unit_price_ht")
-        .eq("organization_id", profile.organization_id)
-        .not("unit_price_ht", "is", null)
-        .limit(500);
-
-      if (recentPrices && recentPrices.length > 0) {
-        const pricesByCfc: Record<string, number[]> = {};
-        for (const line of recentPrices) {
-          if (line.cfc_code && line.unit_price_ht != null) {
-            if (!pricesByCfc[line.cfc_code]) pricesByCfc[line.cfc_code] = [];
-            pricesByCfc[line.cfc_code].push(Number(line.unit_price_ht));
-          }
-        }
-        for (const email of priceEmails) {
-          priceIndicators[email.id] = { extracted_price: undefined, market_median: undefined, diff_percent: undefined };
-        }
-      }
-    }
+    // price_indicator is intentionally left null: computing a market-vs-extracted
+    // delta requires each email's extracted CFC + unit price, which are not
+    // available on email_records here. The previous code fetched 500
+    // ingested_offer_lines, built a per-CFC median map, then threw it away by
+    // setting every indicator to `undefined` — pure DB cost for no output. The
+    // real comparison lives on the submissions/quotes side. Field kept (null) so
+    // the frontend contract is unchanged.
+    const priceIndicators: Record<string, { extracted_price?: number; market_median?: number; diff_percent?: number }> = {};
 
     // Classify into urgent / thisWeek / info
     const urgent: any[] = [];
@@ -148,11 +186,12 @@ export async function GET(request: NextRequest) {
       .eq("is_processed", true)
       .gte("updated_at", todayStart);
 
-    const { count: totalUnprocessedCount } = await (admin as any)
-      .from("email_records")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("is_processed", false);
+    // D-FIX7 — same population as the buckets, plus the orphan bucket exposed
+    // under its own name instead of being folded into a number nobody can act on.
+    const [totalUnprocessedCount, pendingClassificationCount] = await Promise.all([
+      countBucketPopulation(admin, user.id),
+      countPendingClassification(admin, user.id),
+    ]);
 
     // Average response time (processed emails from last 7 days)
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -264,8 +303,9 @@ export async function GET(request: NextRequest) {
       stats: {
         avgResponseTime: avgResponseTimeHours,
         processedToday: processedTodayCount || 0,
-        totalUnprocessed: totalUnprocessedCount || 0,
-        totalToday: (processedTodayCount || 0) + (totalUnprocessedCount || 0),
+        totalUnprocessed: totalUnprocessedCount,
+        pendingClassification: pendingClassificationCount,
+        totalToday: (processedTodayCount || 0) + totalUnprocessedCount,
         savingsGenerated,
         decisionsToday: processedTodayCount || 0,
         decisionsUrgent: urgent.length,
@@ -307,21 +347,29 @@ export async function PATCH(request: NextRequest) {
     if (action === "archive") {
       updates.classification = "archived";
     }
-    if (action === "task") {
-      updates.process_action = "task_created";
-    }
-    if (action === "replied") {
-      updates.process_action = "replied";
-    }
-    if (action === "delegated") {
-      updates.process_action = "delegated";
+    const PROCESS_ACTIONS: Record<string, string> = {
+      task: "task_created",
+      replied: "replied",
+      delegated: "delegated",
+      accept: "accepted",
+      refuse: "refused",
+    };
+    if (PROCESS_ACTIONS[action]) {
+      updates.process_action = PROCESS_ACTIONS[action];
     }
 
-    await (admin as any)
+    // The write result used to be discarded: a failed dismissal returned
+    // `success: true` while the card came back on the next fetch.
+    const { error: updateErr } = await (admin as any)
       .from("email_records")
       .update(updates)
       .eq("id", email_id)
       .eq("user_id", user.id);
+
+    if (updateErr) {
+      console.error("[mail/decisions] PATCH update failed:", updateErr.message);
+      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

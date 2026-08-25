@@ -7,6 +7,7 @@ import {
   createGraphCalendarEvent,
 } from "@cantaia/core/calendar";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { AI_MODELS } from "@cantaia/core/ai";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 import { insufficientCreditsResponse } from "@/lib/credits";
 
@@ -40,40 +41,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
     }
 
-    // Check AI usage limit (non-fatal — allow command even if check fails)
-    try {
-      const { data: orgData } = await admin
-        .from("organizations")
-        .select("subscription_plan")
-        .eq("id", profile.organization_id)
-        .single();
+    // Check AI usage limit. A failure here must NOT silently grant the
+    // command (that would let a DB/RPC outage bypass credit consumption);
+    // let it propagate to the outer catch → 500, like the other AI routes.
+    const { data: orgData } = await admin
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", profile.organization_id)
+      .single();
 
-      const usageCheck = await checkUsageLimit(
-        admin,
-        profile.organization_id,
-        orgData?.subscription_plan || "trial",
-        "calendar_ai_command"
-      );
-      if (!usageCheck.allowed) {
-        if (usageCheck.insufficient_credits) {
-          return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
-        }
-        return NextResponse.json(
-          {
-            error: "usage_limit_reached",
-            current: usageCheck.current,
-            limit: usageCheck.limit,
-            required_plan: usageCheck.requiredPlan,
-          },
-          { status: 429 }
-        );
+    const usageCheck = await checkUsageLimit(
+      admin,
+      profile.organization_id,
+      orgData?.subscription_plan || "trial",
+      "calendar_ai_command"
+    );
+    if (!usageCheck.allowed) {
+      if (usageCheck.insufficient_credits) {
+        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
       }
-    } catch (limitErr) {
-      console.warn("[calendar/ai-command] Usage limit check failed (non-fatal):", limitErr);
+      return NextResponse.json(
+        {
+          error: "usage_limit_reached",
+          current: usageCheck.current,
+          limit: usageCheck.limit,
+          required_plan: usageCheck.requiredPlan,
+        },
+        { status: 429 }
+      );
     }
 
     const body = await request.json();
-    const { command } = body;
+    const { command, context } = body;
 
     if (!command?.trim() || command.trim().length < 3) {
       return NextResponse.json(
@@ -82,8 +81,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Gather context for the AI: active projects and team members
-    const today = new Date().toISOString().split("T")[0];
+    // Reference date for relative expressions ("demain", "mardi"). Must be the
+    // LOCAL (Europe/Zurich) calendar date, never the UTC date — between 00:00
+    // and 02:00 Swiss time the UTC date is still the previous day (§8 bans the
+    // toISOString().split() pattern). The client may pin the reference to the
+    // date it currently has selected via context.date.
+    const zurichToday = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Zurich",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const contextDate =
+      typeof context?.date === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(context.date)
+        ? context.date
+        : null;
+    const today = contextDate || zurichToday;
 
     const [projectsResult, membersResult] = await Promise.all([
       admin
@@ -126,7 +140,9 @@ export async function POST(request: NextRequest) {
       organizationId: profile.organization_id,
       actionType: "calendar_ai_command" as any,
       apiProvider: "anthropic" as any,
-      model: "claude-haiku-4-5-20251001",
+      model: AI_MODELS.HAIKU,
+      inputTokens: result.usage?.input_tokens || 0,
+      outputTokens: result.usage?.output_tokens || 0,
       metadata: {
         command: command.trim().slice(0, 100),
         action: result.action,

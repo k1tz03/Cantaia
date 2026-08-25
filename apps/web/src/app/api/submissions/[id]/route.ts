@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { autoCalibrate } from "@cantaia/core/plans/estimation/auto-calibration";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
+import {
+  buildAwardEmail,
+  buildRejectionEmail,
+  normalizeSupplierLanguage,
+} from "@cantaia/core/submissions";
+import { buildPurchaseOrderPdf } from "@/lib/submissions/purchase-order";
 
 // GET — fetch submission detail with items, price requests, and quotes
 export async function GET(
@@ -184,7 +191,22 @@ export async function PATCH(
       return NextResponse.json({ success: true, analysis_status });
     }
 
-    // ── Award action ─────────────────────────────────────────
+    // ── Award action (per material_group / lot) ──────────────
+    //
+    // Contract:
+    //   budget_estimate.awarded_request_ids =
+    //     { [material_group]: { request_id, amount_ht, awarded_at } }
+    //   budget_estimate.awarded_request_id stays written (legacy readers) and
+    //   always points at the LAST awarded request.
+    //
+    // A lot already awarded → 409, unless body.re_award === true, in which case
+    // the previous award's booked cost is decremented first, then re-awarded.
+    //
+    // Options (all opt-in, all reported back in the response):
+    //   notify_awarded        → confirmation email + purchase order PDF attached
+    //   notify_rejected       → polite rejection to the other suppliers of the
+    //                           SAME lot who quoted (never the other lots)
+    //   update_purchase_costs → projects.purchase_costs += awarded total
     if (body.action === "award") {
       const { price_request_id } = body;
       if (!price_request_id) {
@@ -194,7 +216,7 @@ export async function PATCH(
       // Verify the price request belongs to this submission
       const { data: priceRequest } = await (admin as any)
         .from("submission_price_requests")
-        .select("id, submission_id, supplier_id, suppliers(company_name)")
+        .select("id, submission_id, supplier_id, material_group, status, suppliers(company_name)")
         .eq("id", price_request_id)
         .eq("submission_id", id)
         .maybeSingle();
@@ -203,33 +225,114 @@ export async function PATCH(
         return NextResponse.json({ error: "Price request not found for this submission" }, { status: 404 });
       }
 
-      // Store awarded_request_id in submissions.budget_estimate JSONB
+      // Only a request that actually got an answer can be awarded.
+      if (priceRequest.status !== "responded") {
+        return NextResponse.json(
+          {
+            error: "invalid_status",
+            message: "Seule une demande avec réponse peut être adjugée",
+            status: priceRequest.status,
+          },
+          { status: 400 }
+        );
+      }
+
+      const materialGroup: string = priceRequest.material_group || "";
+
       const { data: currentSub } = await (admin as any)
         .from("submissions")
         .select("budget_estimate, project_id")
         .eq("id", id)
         .maybeSingle();
 
-      const updatedBudgetEstimate = {
-        ...(currentSub?.budget_estimate || {}),
-        awarded_request_id: price_request_id,
-        awarded_at: new Date().toISOString(),
+      const budget: Record<string, any> = { ...(currentSub?.budget_estimate || {}) };
+      const awardedMap: Record<
+        string,
+        { request_id: string; amount_ht: number | null; awarded_at: string }
+      > = { ...(budget.awarded_request_ids || {}) };
+
+      const orgId = userProfile.organization_id;
+      const projectId = currentSub?.project_id;
+
+      const existingAward = awardedMap[materialGroup];
+      const isReAward = body.re_award === true;
+
+      if (existingAward && !isReAward) {
+        return NextResponse.json(
+          {
+            error: "already_awarded",
+            message: `Le lot « ${materialGroup || "Divers"} » est déjà adjugé`,
+            material_group: materialGroup,
+            awarded_request_id: existingAward.request_id,
+          },
+          { status: 409 }
+        );
+      }
+
+      // Re-award: unwind the previous award before booking the new one.
+      if (existingAward && isReAward) {
+        const prevAmount = Number(existingAward.amount_ht);
+        if (projectId && Number.isFinite(prevAmount) && prevAmount > 0) {
+          const unbook = await adjustPurchaseCost(admin, projectId, -prevAmount);
+          if (!unbook.updated) {
+            console.warn("[submissions/award] previous cost not unbooked:", unbook.error);
+          }
+        }
+        // Reopen the previously awarded request (best effort — column from 099).
+        if (existingAward.request_id && existingAward.request_id !== price_request_id) {
+          const { error: reopenError } = await (admin as any)
+            .from("submission_price_requests")
+            .update({ award_outcome: null, award_notified_at: null })
+            .eq("id", existingAward.request_id)
+            .eq("submission_id", id);
+          if (reopenError) {
+            console.warn("[submissions/award] previous award_outcome not cleared:", reopenError.message);
+          }
+        }
+      }
+
+      // The purchase order is built BEFORE the award is written: its total is
+      // what the award map records (and what unaward / re-award decrements).
+      const wantOrder = body.notify_awarded !== false;
+      let order = null;
+      try {
+        order = await buildPurchaseOrderPdf(admin, id, price_request_id, orgId);
+      } catch (err) {
+        console.error("[submissions/award] purchase order generation failed:", err);
+      }
+
+      const nowIso = new Date().toISOString();
+      awardedMap[materialGroup] = {
+        request_id: price_request_id,
+        amount_ht: order?.totalHt ?? null,
+        awarded_at: nowIso,
       };
 
-      await (admin as any)
+      const updatedBudgetEstimate = {
+        ...budget,
+        awarded_request_ids: awardedMap,
+        // Legacy readers: last awarded request.
+        awarded_request_id: price_request_id,
+        awarded_at: nowIso,
+      };
+
+      const { error: awardWriteError } = await (admin as any)
         .from("submissions")
         .update({
           budget_estimate: updatedBudgetEstimate,
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso,
         })
         .eq("id", id);
+
+      if (awardWriteError) {
+        console.error("[submissions/award] budget_estimate update failed:", awardWriteError.message);
+        return NextResponse.json({ error: awardWriteError.message }, { status: 500 });
+      }
 
       // Fire-and-forget auto-calibration (non-blocking).
       // `auto_calibration_started` tells the client whether it still needs to call
       // POST /api/plans/auto-calibrate itself — without it the UI would double-fire
       // and insert duplicate price_calibrations rows.
-      const orgId = userProfile.organization_id;
-      const projectId = currentSub?.project_id;
       let autoCalibrationStarted = false;
       if (projectId) {
         autoCalibrationStarted = true;
@@ -251,10 +354,148 @@ export async function PATCH(
         console.error("[submissions/award] budget-vs-actual calibration error:", err);
       });
 
+      // ── Supplier notifications ─────────────────────────────
+      // Best-effort: the award itself is already recorded, and a mail failure
+      // must not roll it back or 500 the request.
+      const notifications = await notifyAwardOutcome({
+        admin,
+        userId: user.id,
+        organizationId: orgId,
+        submissionId: id,
+        awardedRequestId: price_request_id,
+        materialGroup: priceRequest.material_group ?? null,
+        order,
+        notifyAwarded: !!body.notify_awarded,
+        notifyRejected: !!body.notify_rejected,
+      });
+
+      // ── Book the purchase cost on the project ──────────────
+      let purchaseCosts: { updated: boolean; total?: number; error?: string } = { updated: false };
+      if (body.update_purchase_costs && projectId && order) {
+        purchaseCosts = await addPurchaseCost(admin, projectId, order.totalHt);
+      } else if (body.update_purchase_costs && !order) {
+        purchaseCosts = { updated: false, error: "Bon de commande indisponible" };
+      }
+
       return NextResponse.json({
         success: true,
         awarded_request_id: price_request_id,
+        material_group: materialGroup,
+        awarded_request_ids: awardedMap,
+        re_award: !!(existingAward && isReAward),
         auto_calibration_started: autoCalibrationStarted,
+        order_reference: order?.reference ?? null,
+        order_total_ht: order?.totalHt ?? null,
+        notifications,
+        purchase_costs: purchaseCosts,
+        ...(wantOrder && !order
+          ? { warning: "Bon de commande non généré (aucun prix extrait pour ce fournisseur)" }
+          : {}),
+      });
+    }
+
+    // ── Unaward action ───────────────────────────────────────
+    //
+    // { action: "unaward", price_request_id } — removes the lot's entry from
+    // budget_estimate.awarded_request_ids, unbooks the recorded amount from
+    // projects.purchase_costs, and reopens the request (award_outcome = null).
+    // Sends NO email whatsoever.
+    if (body.action === "unaward") {
+      const { price_request_id } = body;
+      if (!price_request_id) {
+        return NextResponse.json({ error: "price_request_id is required" }, { status: 400 });
+      }
+
+      const { data: priceRequest } = await (admin as any)
+        .from("submission_price_requests")
+        .select("id, submission_id, material_group")
+        .eq("id", price_request_id)
+        .eq("submission_id", id)
+        .maybeSingle();
+
+      if (!priceRequest) {
+        return NextResponse.json({ error: "Price request not found for this submission" }, { status: 404 });
+      }
+
+      const { data: currentSub } = await (admin as any)
+        .from("submissions")
+        .select("budget_estimate, project_id")
+        .eq("id", id)
+        .maybeSingle();
+
+      const budget: Record<string, any> = { ...(currentSub?.budget_estimate || {}) };
+      const awardedMap: Record<
+        string,
+        { request_id: string; amount_ht: number | null; awarded_at: string }
+      > = { ...(budget.awarded_request_ids || {}) };
+
+      const entryKey = Object.keys(awardedMap).find(
+        (k) => awardedMap[k]?.request_id === price_request_id
+      );
+      const legacyMatches = budget.awarded_request_id === price_request_id;
+
+      if (!entryKey && !legacyMatches) {
+        return NextResponse.json(
+          { error: "not_awarded", message: "Cette demande n'est pas adjugée" },
+          { status: 400 }
+        );
+      }
+
+      let removedAmount: number | null = null;
+      if (entryKey) {
+        const prev = Number(awardedMap[entryKey]?.amount_ht);
+        removedAmount = Number.isFinite(prev) ? prev : null;
+        delete awardedMap[entryKey];
+      }
+
+      // Legacy pointer follows the last remaining award (or clears entirely).
+      const remaining = Object.values(awardedMap).filter(Boolean);
+      remaining.sort((a, b) =>
+        String(a?.awarded_at || "").localeCompare(String(b?.awarded_at || ""))
+      );
+      const last = remaining[remaining.length - 1] || null;
+
+      const updatedBudgetEstimate = {
+        ...budget,
+        awarded_request_ids: awardedMap,
+        awarded_request_id: last?.request_id ?? null,
+        awarded_at: last?.awarded_at ?? null,
+      };
+
+      const { error: writeError } = await (admin as any)
+        .from("submissions")
+        .update({
+          budget_estimate: updatedBudgetEstimate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (writeError) {
+        console.error("[submissions/unaward] budget_estimate update failed:", writeError.message);
+        return NextResponse.json({ error: writeError.message }, { status: 500 });
+      }
+
+      // Unbook the recorded cost (only what the award map actually recorded).
+      let purchaseCosts: { updated: boolean; total?: number; error?: string } = { updated: false };
+      if (currentSub?.project_id && removedAmount != null && removedAmount > 0) {
+        purchaseCosts = await adjustPurchaseCost(admin, currentSub.project_id, -removedAmount);
+      }
+
+      // Reopen the request — best effort (columns from migration 099).
+      const { error: reopenError } = await (admin as any)
+        .from("submission_price_requests")
+        .update({ award_outcome: null, award_notified_at: null })
+        .eq("id", price_request_id);
+      if (reopenError) {
+        console.warn("[submissions/unaward] award_outcome not cleared:", reopenError.message);
+      }
+
+      return NextResponse.json({
+        success: true,
+        unawarded_request_id: price_request_id,
+        material_group: priceRequest.material_group || "",
+        awarded_request_ids: awardedMap,
+        purchase_costs: purchaseCosts,
       });
     }
 
@@ -349,6 +590,250 @@ export async function DELETE(
 }
 
 // ============================================================================
+/* ═══════════════════════════════════════════════════════════════
+   Award side effects
+   ═══════════════════════════════════════════════════════════════ */
+
+interface AwardNotificationReport {
+  awarded: { attempted: boolean; sent: boolean; error?: string };
+  rejected: { attempted: number; sent: number; errors: string[] };
+}
+
+/** Sends one HTML mail from the user's own Microsoft mailbox. */
+async function sendSupplierMail(
+  accessToken: string,
+  from: string | undefined,
+  to: string,
+  subject: string,
+  html: string,
+  attachment?: { filename: string; contentBase64: string }
+): Promise<void> {
+  const message: Record<string, unknown> = {
+    subject,
+    body: { contentType: "HTML", content: html },
+    toRecipients: [{ emailAddress: { address: to } }],
+    ...(from ? { from: { emailAddress: { address: from } } } : {}),
+  };
+
+  if (attachment) {
+    message.attachments = [
+      {
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        name: attachment.filename,
+        contentType: "application/pdf",
+        contentBytes: attachment.contentBase64,
+      },
+    ];
+  }
+
+  const res = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ message, saveToSentItems: true }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Graph API error ${res.status}: ${await res.text()}`);
+  }
+}
+
+/**
+ * Confirmation to the retained supplier (with the order attached) and a
+ * rejection to everyone else who took the time to quote. Both are opt-in
+ * checkboxes on the award dialog, and both are best-effort.
+ */
+async function notifyAwardOutcome(opts: {
+  admin: any;
+  userId: string;
+  organizationId: string;
+  submissionId: string;
+  awardedRequestId: string;
+  /** Lot of the awarded request — rejections only ever go to the SAME lot. */
+  materialGroup: string | null;
+  order: Awaited<ReturnType<typeof buildPurchaseOrderPdf>>;
+  notifyAwarded: boolean;
+  notifyRejected: boolean;
+}): Promise<AwardNotificationReport> {
+  const report: AwardNotificationReport = {
+    awarded: { attempted: opts.notifyAwarded, sent: false },
+    rejected: { attempted: 0, sent: 0, errors: [] },
+  };
+
+  if (!opts.notifyAwarded && !opts.notifyRejected) return report;
+
+  const tokenResult = await getValidMicrosoftToken(opts.userId);
+  if ("error" in tokenResult) {
+    const message = "Microsoft non connecté — aucun email envoyé";
+    if (opts.notifyAwarded) report.awarded.error = message;
+    if (opts.notifyRejected) report.rejected.errors.push(message);
+    return report;
+  }
+
+  const { data: sender } = await opts.admin
+    .from("users")
+    .select("first_name, last_name, email, job_title, email_signature")
+    .eq("id", opts.userId)
+    .maybeSingle();
+
+  const { data: org } = await opts.admin
+    .from("organizations")
+    .select("name")
+    .eq("id", opts.organizationId)
+    .maybeSingle();
+
+  const signature = {
+    senderName: `${sender?.first_name || ""} ${sender?.last_name || ""}`.trim(),
+    senderTitle: sender?.job_title || null,
+    senderCompany: org?.name || "",
+    emailSignature: sender?.email_signature || null,
+  };
+
+  const stamp = async (requestId: string, outcome: "awarded" | "rejected") => {
+    const { error } = await opts.admin
+      .from("submission_price_requests")
+      .update({ award_notified_at: new Date().toISOString(), award_outcome: outcome })
+      .eq("id", requestId);
+    if (error) {
+      console.warn(
+        "[submissions/award] award_outcome not persisted (apply migration 099):",
+        error.message
+      );
+    }
+  };
+
+  // ── 1. The winner ──
+  if (opts.notifyAwarded) {
+    if (!opts.order?.supplierEmail) {
+      report.awarded.error = "Le fournisseur retenu n'a pas d'adresse email";
+    } else {
+      try {
+        const { subject, html } = buildAwardEmail({
+          contactName: opts.order.supplierContact,
+          projectName: opts.order.projectName,
+          materialGroup: opts.order.materialGroup,
+          orderReference: opts.order.reference,
+          totalHt: opts.order.totalHt,
+          items: opts.order.lines,
+          language: opts.order.language,
+          ...signature,
+        });
+        await sendSupplierMail(
+          tokenResult.accessToken,
+          sender?.email,
+          opts.order.supplierEmail,
+          subject,
+          html,
+          { filename: opts.order.filename, contentBase64: opts.order.buffer.toString("base64") }
+        );
+        report.awarded.sent = true;
+        await stamp(opts.awardedRequestId, "awarded");
+      } catch (err) {
+        report.awarded.error = err instanceof Error ? err.message : "Envoi impossible";
+        console.error("[submissions/award] award email failed:", err);
+      }
+    }
+  }
+
+  // ── 2. Everybody else who actually quoted ON THE SAME LOT ──
+  // Awarding one lot must never send rejections to suppliers still competing
+  // on the other lots of the same submission.
+  if (opts.notifyRejected) {
+    let othersQuery = opts.admin
+      .from("submission_price_requests")
+      .select("id, material_group, language, supplier_name_manual, supplier_email_manual, suppliers(company_name, contact_name, email)")
+      .eq("submission_id", opts.submissionId)
+      .eq("status", "responded")
+      .neq("id", opts.awardedRequestId);
+    othersQuery =
+      opts.materialGroup != null
+        ? othersQuery.eq("material_group", opts.materialGroup)
+        : othersQuery.is("material_group", null);
+    const { data: others } = await othersQuery;
+
+    for (const other of others || []) {
+      const email = other.suppliers?.email || other.supplier_email_manual;
+      if (!email) continue;
+      report.rejected.attempted += 1;
+      try {
+        const { subject, html } = buildRejectionEmail({
+          contactName: other.suppliers?.contact_name || null,
+          projectName: opts.order?.projectName || "Projet",
+          materialGroup: other.material_group || "",
+          language: normalizeSupplierLanguage(other.language),
+          ...signature,
+        });
+        await sendSupplierMail(tokenResult.accessToken, sender?.email, email, subject, html);
+        report.rejected.sent += 1;
+        await stamp(other.id, "rejected");
+      } catch (err) {
+        const name = other.suppliers?.company_name || other.supplier_name_manual || email;
+        report.rejected.errors.push(
+          `${name}: ${err instanceof Error ? err.message : "envoi impossible"}`
+        );
+        console.error("[submissions/award] rejection email failed:", err);
+      }
+    }
+  }
+
+  return report;
+}
+
+/**
+ * Applies a delta (positive on award, negative on unaward / re-award) to
+ * `projects.purchase_costs` (migration 062).
+ * Read-then-write rather than a raw SQL increment: PostgREST has no atomic
+ * `+=`, and an award is a rare, human-triggered action, so the race window is
+ * acceptable and a lost update would be visible in the Closure tab.
+ * The stored total is clamped at 0 — a decrement can never leave a negative cost.
+ */
+async function adjustPurchaseCost(
+  admin: any,
+  projectId: string,
+  delta: number
+): Promise<{ updated: boolean; total?: number; error?: string }> {
+  if (!Number.isFinite(delta) || delta === 0) {
+    return { updated: false, error: "Montant invalide" };
+  }
+
+  const { data: project, error: readError } = await admin
+    .from("projects")
+    .select("purchase_costs")
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (readError) {
+    console.error("[submissions/award] purchase_costs read failed:", readError.message);
+    return { updated: false, error: readError.message };
+  }
+
+  const current = Number(project?.purchase_costs ?? 0);
+  const total = Math.max(0, Math.round((current + delta) * 100) / 100);
+
+  const { error: writeError } = await admin
+    .from("projects")
+    .update({ purchase_costs: total })
+    .eq("id", projectId);
+
+  if (writeError) {
+    console.error("[submissions/award] purchase_costs update failed:", writeError.message);
+    return { updated: false, error: writeError.message };
+  }
+
+  return { updated: true, total };
+}
+
+/** Adds the awarded total to `projects.purchase_costs`. */
+async function addPurchaseCost(
+  admin: any,
+  projectId: string,
+  amount: number
+): Promise<{ updated: boolean; total?: number; error?: string }> {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { updated: false, error: "Montant invalide" };
+  }
+  return adjustPurchaseCost(admin, projectId, amount);
+}
+
 // Budget vs Actual calibration: compare budget_estimate items against awarded offer prices
 // ============================================================================
 

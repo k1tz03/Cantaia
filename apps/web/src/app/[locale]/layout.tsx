@@ -10,7 +10,7 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { Toaster } from "sonner";
+import { AppToaster } from "@/components/app/AppToaster";
 import CookieConsent from "@/components/CookieConsent";
 import "../globals.css";
 
@@ -160,12 +160,12 @@ export default async function LocaleLayout({
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
-          enableSystem={false}
+          enableSystem
           disableTransitionOnChange
         >
           <NextIntlClientProvider messages={messages}>
             {children}
-            <Toaster position="bottom-right" richColors closeButton theme="dark" />
+            <AppToaster />
             <CookieConsent />
           </NextIntlClientProvider>
         </ThemeProvider>

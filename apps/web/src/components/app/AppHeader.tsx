@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useActiveProjectSafe } from "@/lib/contexts/active-project-context";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { Search, User, Shield, LogOut } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -42,15 +42,45 @@ function getPageName(pathname: string): string {
   return names[page] || page;
 }
 
+/** Labels for the project-hub tabs, so the breadcrumb can name the section. */
+const SECTION_NAMES: Record<string, string> = {
+  overview: "Vue d'ensemble",
+  emails: "Emails",
+  tasks: "Tâches",
+  meetings: "Réunions",
+  visits: "Visites",
+  submissions: "Soumissions",
+  plans: "Plans",
+  planning: "Planning",
+  "site-reports": "Rapports chantier",
+  archiving: "Archivage",
+  closure: "Clôture",
+};
+
+function getSectionName(pathname: string, tab: string | null): string | null {
+  if (!tab || tab === "overview") return null;
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments[0]?.length === 2) segments.shift();
+  // Only the project hub uses `?tab=` for its breadcrumb section.
+  if (segments[0] !== "projects" || !segments[1]) return null;
+  return SECTION_NAMES[tab] ?? null;
+}
+
 export function AppHeader() {
   const { user, signOut } = useAuth();
   const { activeProject } = useActiveProjectSafe();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const pageName = getPageName(pathname);
   const [orgName, setOrgName] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [canAdmin, setCanAdmin] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
+
+  // The project hub keeps its section in `?tab=` — surface it so the
+  // breadcrumb doesn't freeze on "Projets" while you move between tabs.
+  const sectionName = getSectionName(pathname, searchParams.get("tab"));
 
   const initials =
     user?.user_metadata?.first_name && user?.user_metadata?.last_name
@@ -64,9 +94,18 @@ export function AppHeader() {
     (async () => {
       try {
         const { data: profile } = await (supabase.from("users") as any)
-          .select("organization_id")
+          .select("organization_id, role, is_superadmin")
           .eq("id", user.id)
           .maybeSingle();
+        // Mirror requireOrgAdmin: only admin/director (or a superadmin)
+        // may reach /admin, so don't advertise it to everyone else.
+        if (
+          ["director", "admin"].includes(profile?.role) ||
+          profile?.is_superadmin ||
+          user.user_metadata?.is_superadmin
+        ) {
+          setCanAdmin(true);
+        }
         if (profile?.organization_id) {
           const { data: org } = await (supabase.from("organizations") as any)
             .select("name")
@@ -118,7 +157,7 @@ export function AppHeader() {
       </Link>
 
       {/* Breadcrumb */}
-      <div className="text-[13px] text-[#71717A] ml-5 hidden md:flex items-center gap-1">
+      <div className="text-[13px] text-[#A1A1AA] ml-5 hidden md:flex items-center gap-1">
         {orgName && <span>{orgName}</span>}
         {orgName && <span className="mx-1">&rsaquo;</span>}
         {activeProject && (
@@ -132,7 +171,15 @@ export function AppHeader() {
             <span className="mx-1">&rsaquo;</span>
           </>
         )}
-        <span className="text-[#D4D4D8] font-medium">{pageName}</span>
+        {sectionName ? (
+          <>
+            <span>{pageName}</span>
+            <span className="mx-1">&rsaquo;</span>
+            <span className="text-[#D4D4D8] font-medium">{sectionName}</span>
+          </>
+        ) : (
+          <span className="text-[#D4D4D8] font-medium">{pageName}</span>
+        )}
       </div>
 
       {/* Right section */}
@@ -146,11 +193,11 @@ export function AppHeader() {
           data-tour="header-search"
           className="hidden md:flex items-center gap-2 bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-1.5 w-[200px] cursor-pointer hover:border-[#52525B] transition-colors"
         >
-          <Search className="h-3.5 w-3.5 text-[#71717A]" />
-          <span className="text-[12px] text-[#71717A] flex-1">
+          <Search className="h-3.5 w-3.5 text-[#A1A1AA]" />
+          <span className="text-[12px] text-[#A1A1AA] flex-1">
             Rechercher...
           </span>
-          <kbd className="text-[9px] text-[#52525B] bg-[#27272A] px-1.5 py-0.5 rounded">
+          <kbd className="text-[9px] text-[#A1A1AA] bg-[#27272A] px-1.5 py-0.5 rounded">
             ⌘K
           </kbd>
         </div>
@@ -180,14 +227,16 @@ export function AppHeader() {
                 <User className="h-3.5 w-3.5 text-[#A1A1AA]" />
                 Profil
               </Link>
-              <Link
-                href="/admin"
-                onClick={() => setAvatarOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-[13px] text-[#D4D4D8] hover:bg-[#27272A] transition-colors"
-              >
-                <Shield className="h-3.5 w-3.5 text-[#A1A1AA]" />
-                Administration
-              </Link>
+              {canAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setAvatarOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-[13px] text-[#D4D4D8] hover:bg-[#27272A] transition-colors"
+                >
+                  <Shield className="h-3.5 w-3.5 text-[#A1A1AA]" />
+                  Administration
+                </Link>
+              )}
               <hr className="my-1 border-[#27272A]" />
               <button
                 onClick={handleSignOut}

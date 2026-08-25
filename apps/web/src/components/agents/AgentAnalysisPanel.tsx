@@ -211,7 +211,7 @@ export function AgentAnalysisPanel({
         <div className="flex items-center gap-2 shrink-0">
           {isActive && (
             <>
-              <span className="text-xs font-mono text-[#71717A]">
+              <span className="text-xs font-mono text-[#A1A1AA]">
                 {formatDuration(elapsedMs)}
               </span>
               <button
@@ -219,14 +219,14 @@ export function AgentAnalysisPanel({
                   e.stopPropagation();
                   onCancel();
                 }}
-                className="text-xs px-2 py-1 rounded border border-[#27272A] text-[#71717A] hover:text-red-400 hover:border-red-500/30"
+                className="text-xs px-2 py-1 rounded border border-[#27272A] text-[#A1A1AA] hover:text-red-400 hover:border-red-500/30"
               >
                 {t("cancel")}
               </button>
             </>
           )}
           <ChevronDown
-            className={`h-4 w-4 text-[#71717A] transition-transform ${expanded ? "rotate-180" : ""}`}
+            className={`h-4 w-4 text-[#A1A1AA] transition-transform ${expanded ? "rotate-180" : ""}`}
           />
         </div>
       </button>
@@ -245,7 +245,7 @@ export function AgentAnalysisPanel({
 
       {/* Metrics footer on completion */}
       {isCompleted && result?.metrics && expanded && (
-        <div className="border-t border-[#27272A]/50 px-4 py-2.5 flex items-center gap-4 text-xs text-[#71717A]">
+        <div className="border-t border-[#27272A]/50 px-4 py-2.5 flex items-center gap-4 text-xs text-[#A1A1AA]">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {formatDuration(result.metrics.duration_ms ?? 0)}
@@ -272,7 +272,7 @@ function AgentEventRow({ event }: { event: AgentEvent }) {
         <Icon className="h-3.5 w-3.5 text-[#F97316] shrink-0" />
         <span className="text-xs text-[#A1A1AA]">{toolInfo.label}</span>
         {event.tool_name === "save_analysis_result" && (
-          <span className="text-[10px] bg-[#27272A] text-[#71717A] px-1.5 py-0.5 rounded-full ml-auto">
+          <span className="text-[10px] bg-[#27272A] text-[#A1A1AA] px-1.5 py-0.5 rounded-full ml-auto">
             JSON
           </span>
         )}
@@ -293,7 +293,7 @@ function AgentEventRow({ event }: { event: AgentEvent }) {
         ) : (
           <CheckCircle2 className="h-3.5 w-3.5 text-green-400 shrink-0" />
         )}
-        <span className="text-xs text-[#71717A]">
+        <span className="text-xs text-[#A1A1AA]">
           {toolInfo.label} — {isError ? t("statusError") : t("statusOk")}
         </span>
       </div>

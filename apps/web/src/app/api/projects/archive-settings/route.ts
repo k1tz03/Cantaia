@@ -54,27 +54,36 @@ export async function POST(request: NextRequest) {
     archive_attachments_mode,
   });
 
-  // 3. Verify user has access to this project
+  // 3. Verify user has access to this project — organization scope.
+  //
+  // This used to require a project_members row, which is only written by
+  // /api/projects/create for the creator: every colleague of the org got a 403
+  // on the archiving tab of a project they legitimately work on.
   const admin = createAdminClient();
 
-  const { data: membership, error: memberErr } = await admin
-    .from("project_members")
-    .select("role")
-    .eq("project_id", project_id)
-    .eq("user_id", user.id)
+  const { data: userProfile } = await (admin as any)
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
     .maybeSingle();
 
-  if (memberErr || !membership) {
-    console.log(
-      "[archive-settings] ERROR: User is not a member of project:",
-      memberErr?.message
-    );
+  if (!userProfile?.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
+  }
+
+  const { data: projectRow } = await (admin as any)
+    .from("projects")
+    .select("id, organization_id")
+    .eq("id", project_id)
+    .maybeSingle();
+
+  if (!projectRow || projectRow.organization_id !== userProfile.organization_id) {
+    console.log("[archive-settings] ERROR: Project not in the user's organization");
     return NextResponse.json(
       { error: "You do not have access to this project" },
       { status: 403 }
     );
   }
-  console.log("[archive-settings] User role:", membership.role);
 
   // 4. Update project archive settings
   const updateData: Record<string, unknown> = {};

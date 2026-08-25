@@ -1,10 +1,18 @@
 /**
- * Toolbar — floating toolbar pinned bottom-center of the canvas. Groups:
- *   1. Measure modes (distance / surface)
- *   2. Section cut toggle
- *   3. Layers popover trigger (Dev B wires popover; UIX ships button only)
- *   4. Level nav (up / down)
- *   5. Export menu (PNG watermarked / glTF / PDF snapshot)
+ * Toolbar — barre flottante ancrée en bas du canvas. Groupes :
+ *   1. Mesure de distance
+ *   2. Coupe de section
+ *   3. Navigation entre niveaux
+ *   4. Export (PNG filigrané / glTF / PDF)
+ *
+ * ── Deux boutons retirés ──────────────────────────────────────────────────
+ *   - « Mesurer une surface » : aucun calcul d'aire n'existait derrière. Un
+ *     bouton qui ne fait rien est pire qu'un bouton absent — il fait douter
+ *     de tout le reste de l'outil. Il reviendra avec le calcul.
+ *   - « Calques » : son `onClick` portait un TODO vide. Les calques sont
+ *     pilotés par le panneau de gauche, qui est toujours visible.
+ *
+ * Les trois exports fonctionnent réellement (cf. `scene-export.ts`).
  */
 
 "use client";
@@ -12,9 +20,7 @@
 import { useTranslations } from "next-intl";
 import {
   Ruler,
-  Square,
   Scissors,
-  Layers,
   ChevronUp,
   ChevronDown,
   Download,
@@ -30,7 +36,6 @@ interface ToolbarProps {
   onMeasureModeChange: (mode: MeasureMode) => void;
   sectionCutActive: boolean;
   onSectionCutToggle: () => void;
-  onLayersClick: () => void;
   onLevelUp: () => void;
   onLevelDown: () => void;
   canLevelUp: boolean;
@@ -43,7 +48,6 @@ export function Toolbar({
   onMeasureModeChange,
   sectionCutActive,
   onSectionCutToggle,
-  onLayersClick,
   onLevelUp,
   onLevelDown,
   canLevelUp,
@@ -64,33 +68,19 @@ export function Toolbar({
       aria-label={t("toolbar.aria")}
       className="pointer-events-auto absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-lg border border-[#27272A] bg-[#18181B]/95 backdrop-blur-xl px-2 py-1.5 shadow-lg shadow-black/40"
     >
-      {/* Measure group */}
-      <div className="flex items-center" role="group" aria-label={t("toolbar.measureGroup")}>
-        <button
-          type="button"
-          onClick={() =>
-            onMeasureModeChange(measureMode === "distance" ? "none" : "distance")
-          }
-          aria-pressed={measureMode === "distance"}
-          aria-label={t("toolbar.measureDistance")}
-          title={t("toolbar.measureDistance")}
-          className={`${iconBtn} ${measureMode === "distance" ? activeBtn : ""}`}
-        >
-          <Ruler className="w-4 h-4" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            onMeasureModeChange(measureMode === "surface" ? "none" : "surface")
-          }
-          aria-pressed={measureMode === "surface"}
-          aria-label={t("toolbar.measureSurface")}
-          title={t("toolbar.measureSurface")}
-          className={`${iconBtn} ${measureMode === "surface" ? activeBtn : ""}`}
-        >
-          <Square className="w-4 h-4" aria-hidden="true" />
-        </button>
-      </div>
+      {/* Mesure de distance */}
+      <button
+        type="button"
+        onClick={() =>
+          onMeasureModeChange(measureMode === "distance" ? "none" : "distance")
+        }
+        aria-pressed={measureMode === "distance"}
+        aria-label={t("toolbar.measureDistance")}
+        title={t("toolbar.measureDistance")}
+        className={`${iconBtn} ${measureMode === "distance" ? activeBtn : ""}`}
+      >
+        <Ruler className="w-4 h-4" aria-hidden="true" />
+      </button>
 
       <span className="w-px h-6 bg-[#27272A] mx-1" aria-hidden="true" />
 
@@ -104,17 +94,6 @@ export function Toolbar({
         className={`${iconBtn} ${sectionCutActive ? activeBtn : ""}`}
       >
         <Scissors className="w-4 h-4" aria-hidden="true" />
-      </button>
-
-      {/* Layers */}
-      <button
-        type="button"
-        onClick={onLayersClick}
-        aria-label={t("toolbar.layers")}
-        title={t("toolbar.layers")}
-        className={iconBtn}
-      >
-        <Layers className="w-4 h-4" aria-hidden="true" />
       </button>
 
       <span className="w-px h-6 bg-[#27272A] mx-1" aria-hidden="true" />
@@ -175,7 +154,7 @@ export function Toolbar({
             >
               <FileImage className="w-4 h-4 text-[#A1A1AA]" aria-hidden="true" />
               <span className="flex-1 text-left">{t("toolbar.exportPng")}</span>
-              <span className="text-[10px] font-mono text-[#71717A]">
+              <span className="text-[10px] font-mono text-[#A1A1AA]">
                 {t("toolbar.watermarkedTag")}
               </span>
             </button>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCron } from "@/lib/cron-auth";
+import { notifyUser } from "@cantaia/core/notifications";
 
 export const maxDuration = 120;
 
@@ -9,12 +10,40 @@ export async function GET(request: NextRequest) {
   return POST(request);
 }
 
+// ── What this cron used to do, and why it no longer does it ──────────────────
+// It re-aggregated every portal project's hours and wrote them into
+// `projects.intelligence_metadata.site_reports_sync`. Nothing in the product
+// ever read that JSONB: /api/projects/[id]/financials and /api/direction/stats
+// both recompute from `site_report_entries` on every request. Worse, the write
+// REPLACED the whole `intelligence_metadata` object (clobbering any other
+// producer) and it skipped closed projects — precisely the ones whose margin
+// matters. It was a nightly write-only job.
+//
+// Rather than cache numbers that are already cheap to compute, the slot now
+// does something the product actually lacked: it chases the reports that never
+// got submitted. A draft is invisible to the whole financial chain (only
+// `submitted`/`locked` count — see @cantaia/core/financials), so a foreman who
+// saved and walked away silently removes a day of labour from the margin.
+//
+// Anti-spam without a new column: a draft is alerted once, on the single daily
+// run where its `updated_at` sits in the 48h–72h window. No `last_alerted_at`
+// state, no repeated nagging, no migration outside the 093 contract.
+
+const STALE_AFTER_HOURS = 48;
+const ALERT_WINDOW_HOURS = 72;
+
+interface StaleDraft {
+  id: string;
+  project_id: string;
+  report_date: string | null;
+  submitted_by_name: string | null;
+  updated_at: string | null;
+}
+
 /**
  * POST /api/cron/sync-financials
- * Syncs site report data into project financial metadata for all active portal-enabled projects.
- * Aggregates labor hours, machine hours, delivery notes, and worker counts.
- * Protected by CRON_SECRET.
- * Scheduled: daily at 4:00 AM.
+ * Alerts project owners about site reports left in `draft` for more than 48h.
+ * Protected by CRON_SECRET. Scheduled: daily at 4:00 AM.
  */
 export async function POST(request: NextRequest) {
   if (!isAuthorizedCron(request)) {
@@ -22,103 +51,120 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const results: Array<{ project_id: string; project_name: string; updated: boolean; error?: string }> = [];
 
   try {
-    // Get all active projects with portal enabled
-    const { data: projects } = await (admin as any)
-      .from("projects")
-      .select("id, name, organization_id")
-      .eq("portal_enabled", true)
-      .in("status", ["active", "planning"]);
+    const now = Date.now();
+    const staleBefore = new Date(now - STALE_AFTER_HOURS * 3600_000).toISOString();
+    const windowStart = new Date(now - ALERT_WINDOW_HOURS * 3600_000).toISOString();
 
-    if (!projects || projects.length === 0) {
-      return NextResponse.json({ message: "No portal-enabled projects found", count: 0 });
+    const { data: drafts, error: draftsError } = await (admin as any)
+      .from("site_reports")
+      .select("id, project_id, report_date, submitted_by_name, updated_at")
+      .eq("status", "draft")
+      .lt("updated_at", staleBefore)
+      .gte("updated_at", windowStart)
+      .order("updated_at", { ascending: true })
+      .limit(500);
+
+    if (draftsError) {
+      console.error("[cron/sync-financials] Drafts query failed:", draftsError.message);
+      return NextResponse.json({ error: draftsError.message }, { status: 500 });
     }
 
-    console.log(`[cron/sync-financials] Processing ${projects.length} portal-enabled projects`);
+    const staleDrafts = (drafts || []) as StaleDraft[];
+    if (staleDrafts.length === 0) {
+      return NextResponse.json({ message: "No stale drafts", drafts: 0, notified: 0 });
+    }
 
-    for (const project of projects) {
-      try {
-        // Get all site reports for this project
-        const { data: reports } = await (admin as any)
-          .from("site_reports")
-          .select("id")
-          .eq("project_id", project.id);
+    // Group drafts per project
+    const byProject = new Map<string, StaleDraft[]>();
+    for (const draft of staleDrafts) {
+      if (!draft.project_id) continue;
+      const list = byProject.get(draft.project_id) || [];
+      list.push(draft);
+      byProject.set(draft.project_id, list);
+    }
 
-        const reportIds = (reports || []).map((r: any) => r.id);
+    const projectIds = Array.from(byProject.keys());
+    const { data: projects, error: projectsError } = await (admin as any)
+      .from("projects")
+      .select("id, name, organization_id, created_by")
+      .in("id", projectIds);
 
-        let totalLaborHours = 0;
-        let totalMachineHours = 0;
-        let totalDeliveryNotes = 0;
-        let uniqueWorkers = 0;
+    if (projectsError) {
+      console.error("[cron/sync-financials] Projects query failed:", projectsError.message);
+      return NextResponse.json({ error: projectsError.message }, { status: 500 });
+    }
 
-        if (reportIds.length > 0) {
-          // Get all entries for these reports
-          const { data: entries } = await (admin as any)
-            .from("site_report_entries")
-            .select("entry_type, duration_hours, crew_member_id")
-            .in("report_id", reportIds);
+    // Fallback recipient per org: first admin/director (a project without
+    // `created_by` must not swallow the alert).
+    const orgIds = Array.from(
+      new Set<string>((projects || []).map((p: any) => p.organization_id).filter(Boolean)),
+    );
+    const orgFallback = new Map<string, string>();
+    if (orgIds.length > 0) {
+      const { data: admins, error: adminsError } = await (admin as any)
+        .from("users")
+        .select("id, organization_id, role")
+        .in("organization_id", orgIds)
+        .in("role", ["admin", "director"]);
 
-          if (entries && entries.length > 0) {
-            const workerIds = new Set<string>();
-
-            for (const entry of entries) {
-              if (entry.entry_type === "labor") {
-                totalLaborHours += parseFloat(entry.duration_hours || "0");
-                if (entry.crew_member_id) {
-                  workerIds.add(entry.crew_member_id);
-                }
-              } else if (entry.entry_type === "machine") {
-                totalMachineHours += parseFloat(entry.duration_hours || "0");
-              } else if (entry.entry_type === "delivery_note") {
-                totalDeliveryNotes += 1;
-              }
-            }
-
-            uniqueWorkers = workerIds.size;
-          }
+      if (adminsError) {
+        console.warn("[cron/sync-financials] Org admins lookup failed:", adminsError.message);
+      }
+      for (const row of admins || []) {
+        if (row.organization_id && !orgFallback.has(row.organization_id)) {
+          orgFallback.set(row.organization_id, row.id);
         }
-
-        // Store aggregated data in intelligence_metadata JSONB field
-        const metadata = {
-          site_reports_sync: {
-            total_labor_hours: Math.round(totalLaborHours * 100) / 100,
-            total_machine_hours: Math.round(totalMachineHours * 100) / 100,
-            total_delivery_notes: totalDeliveryNotes,
-            unique_workers: uniqueWorkers,
-            total_reports: reportIds.length,
-            synced_at: new Date().toISOString(),
-          },
-        };
-
-        const { error: updateErr } = await (admin as any)
-          .from("projects")
-          .update({ intelligence_metadata: metadata })
-          .eq("id", project.id);
-
-        if (updateErr) {
-          console.warn(`[cron/sync-financials] Failed to update project ${project.id}:`, updateErr.message);
-          results.push({ project_id: project.id, project_name: project.name, updated: false, error: updateErr.message });
-        } else {
-          results.push({ project_id: project.id, project_name: project.name, updated: true });
-        }
-      } catch (err: any) {
-        console.error(`[cron/sync-financials] Error processing project ${project.id}:`, err);
-        results.push({ project_id: project.id, project_name: project.name, updated: false, error: err.message });
       }
     }
 
-    const updated = results.filter((r) => r.updated).length;
-    const failed = results.filter((r) => !r.updated).length;
+    const results: Array<{ project_id: string; drafts: number; notified: boolean }> = [];
 
-    console.log(`[cron/sync-financials] Done: ${updated} updated, ${failed} failed out of ${projects.length} projects`);
+    for (const project of projects || []) {
+      const list = byProject.get(project.id) || [];
+      if (list.length === 0) continue;
+
+      const recipientId = project.created_by || orgFallback.get(project.organization_id) || null;
+      if (!recipientId) {
+        console.warn(`[cron/sync-financials] No recipient for project ${project.id}`);
+        results.push({ project_id: project.id, drafts: list.length, notified: false });
+        continue;
+      }
+
+      const dates = list
+        .map((d) => d.report_date)
+        .filter(Boolean)
+        .slice(0, 5)
+        .join(", ");
+
+      const sent = await notifyUser(admin as any, {
+        userId: recipientId,
+        event: "report_submitted",
+        subject: `Rapports de chantier en attente — ${project.name}`,
+        title: "Rapports de chantier non soumis",
+        body:
+          `${list.length} rapport(s) du chantier « ${project.name} » sont en brouillon ` +
+          `depuis plus de ${STALE_AFTER_HOURS} h${dates ? ` (${dates})` : ""}. ` +
+          `Tant qu'ils ne sont pas soumis, leurs heures ne comptent ni dans la marge, ` +
+          `ni dans les exports paie.`,
+        ctaLabel: "Voir les rapports",
+        ctaPath: `/projects/${project.id}?tab=site-reports`,
+      });
+
+      results.push({ project_id: project.id, drafts: list.length, notified: sent });
+    }
+
+    const notified = results.filter((r) => r.notified).length;
+    console.log(
+      `[cron/sync-financials] ${staleDrafts.length} stale drafts across ${results.length} projects, ${notified} owners notified`,
+    );
 
     return NextResponse.json({
-      message: `Synced ${updated} projects`,
-      total: projects.length,
-      updated,
-      failed,
+      message: `${notified} owner(s) notified`,
+      drafts: staleDrafts.length,
+      projects: results.length,
+      notified,
       results,
     });
   } catch (err: any) {

@@ -149,7 +149,7 @@ export default function GanttToolbar({
           "flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all border border-transparent",
           canUndo
             ? "text-[#FAFAFA] hover:bg-[#0F0F11] hover:shadow-sm hover:border-[#27272A]"
-            : "text-[#71717A] cursor-not-allowed",
+            : "text-[#A1A1AA] cursor-not-allowed",
         ].join(" ")}
         title="Ctrl+Z"
       >
@@ -165,7 +165,7 @@ export default function GanttToolbar({
           "flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all border border-transparent",
           canRedo
             ? "text-[#FAFAFA] hover:bg-[#0F0F11] hover:shadow-sm hover:border-[#27272A]"
-            : "text-[#71717A] cursor-not-allowed",
+            : "text-[#A1A1AA] cursor-not-allowed",
         ].join(" ")}
         title="Ctrl+Y"
       >
@@ -177,13 +177,13 @@ export default function GanttToolbar({
       <div className="flex-1" />
 
       {/* Duration info */}
-      <div className="flex items-center gap-1.5 text-xs text-[#71717A]">
+      <div className="flex items-center gap-1.5 text-xs text-[#A1A1AA]">
         <Clock className="h-3.5 w-3.5" />
         <span>
           {t("header.totalDuration")}: {totalDuration}{t("taskList.daysShort")}
           {endDate && (
             <>
-              <span className="mx-1 text-[#71717A]">&middot;</span>
+              <span className="mx-1 text-[#A1A1AA]">&middot;</span>
               {t("header.end")}: {formatSwissDate(endDate)}
             </>
           )}

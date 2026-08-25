@@ -118,7 +118,7 @@ export default function SuperAdminSupportPage() {
               padding: "12px 16px",
             }}
           >
-            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, marginBottom: 4 }}>
+            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", color: "#71717A", fontWeight: 600, marginBottom: 4 }}>
               {kpi.label}
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "#FAFAFA" }}>{kpi.value}</div>
@@ -173,72 +173,74 @@ export default function SuperAdminSupportPage() {
           <div style={{ fontSize: 14, color: "#71717A" }}>Aucun ticket</div>
         </div>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-          <thead>
-            <tr>
-              {["Sujet", "Utilisateur", "Org", "Cat\u00E9gorie", "Priorit\u00E9", "Statut", "Date", ""].map((h, i) => (
-                <th
-                  key={i}
-                  style={{
-                    fontSize: 10,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    color: "#52525B",
-                    fontWeight: 600,
-                    padding: "8px 14px",
-                    textAlign: "left",
-                    borderBottom: "1px solid #27272A",
-                  }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {tickets.map((ticket) => (
-              <tr
-                key={ticket.id}
-                onClick={() => router.push(`/super-admin/support/${ticket.id}`)}
-                style={{ cursor: "pointer", transition: "background 0.1s" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#18181B"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              >
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#D4D4D8", verticalAlign: "middle" }}>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "#FAFAFA" }}>{ticket.subject}</span>
-                  <span style={{ fontSize: 10, color: "#71717A", marginLeft: 6 }}>({ticket.message_count})</span>
-                  {hasUnread(ticket) && (
-                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3B82F6", display: "inline-block", marginLeft: 6 }} />
-                  )}
-                </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
-                  <div style={{ fontSize: 12, color: "#FAFAFA" }}>{ticket.user_name || "\u2014"}</div>
-                  <div style={{ fontSize: 10, color: "#71717A" }}>{ticket.user_email}</div>
-                </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#71717A", verticalAlign: "middle" }}>
-                  {ticket.org_name || "\u2014"}
-                </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
-                  <TicketCategoryBadge category={ticket.category} />
-                </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", display: "inline-block", background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium }} />
-                </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
-                  <TicketStatusBadge status={ticket.status} />
-                </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#71717A", verticalAlign: "middle" }}>
-                  {formatDate(ticket.created_at)}
-                </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
-                  {hasUnread(ticket) && (
-                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3B82F6", display: "inline-block" }} />
-                  )}
-                </td>
+        <div className="w-full overflow-x-auto">
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+            <thead>
+              <tr>
+                {["Sujet", "Utilisateur", "Org", "Cat\u00E9gorie", "Priorit\u00E9", "Statut", "Date", ""].map((h, i) => (
+                  <th
+                    key={i}
+                    style={{
+                      fontSize: 10,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      color: "#71717A",
+                      fontWeight: 600,
+                      padding: "8px 14px",
+                      textAlign: "left",
+                      borderBottom: "1px solid #27272A",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {tickets.map((ticket) => (
+                <tr
+                  key={ticket.id}
+                  onClick={() => router.push(`/super-admin/support/${ticket.id}`)}
+                  style={{ cursor: "pointer", transition: "background 0.1s" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#18181B"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#D4D4D8", verticalAlign: "middle" }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: "#FAFAFA" }}>{ticket.subject}</span>
+                    <span style={{ fontSize: 10, color: "#71717A", marginLeft: 6 }}>({ticket.message_count})</span>
+                    {hasUnread(ticket) && (
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3B82F6", display: "inline-block", marginLeft: 6 }} />
+                    )}
+                  </td>
+                  <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                    <div style={{ fontSize: 12, color: "#FAFAFA" }}>{ticket.user_name || "\u2014"}</div>
+                    <div style={{ fontSize: 10, color: "#71717A" }}>{ticket.user_email}</div>
+                  </td>
+                  <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#71717A", verticalAlign: "middle" }}>
+                    {ticket.org_name || "\u2014"}
+                  </td>
+                  <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                    <TicketCategoryBadge category={ticket.category} />
+                  </td>
+                  <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", display: "inline-block", background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium }} />
+                  </td>
+                  <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                    <TicketStatusBadge status={ticket.status} />
+                  </td>
+                  <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#71717A", verticalAlign: "middle" }}>
+                    {formatDate(ticket.created_at)}
+                  </td>
+                  <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                    {hasUnread(ticket) && (
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3B82F6", display: "inline-block" }} />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

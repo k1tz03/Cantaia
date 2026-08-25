@@ -10,6 +10,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import GanttConfigModal from "@/components/planning/GanttConfigModal";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 interface ProjectPlanningTabProps {
   projectId: string;
@@ -27,12 +29,22 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchPlanningStatus = useCallback(async () => {
     try {
       const res = await fetch(`/api/planning/by-project?project_id=${projectId}`);
-      const json = await res.json();
-      if (json.planning) {
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        // Silently pretending "no planning" hid real 403/500 responses.
+        setHasPlanning(false);
+        setLoadError(json?.error || t("errors.loadFailed"));
+        return;
+      }
+
+      setLoadError(null);
+      if (json?.planning) {
         setHasPlanning(true);
         setPlanningTitle(json.planning.title || "");
         setEndDate(json.planning.calculated_end_date || "");
@@ -40,12 +52,13 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
       } else {
         setHasPlanning(false);
       }
-    } catch {
+    } catch (err: any) {
       setHasPlanning(false);
+      setLoadError(err?.message || t("errors.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, t]);
 
   const fetchSubmissions = useCallback(async () => {
     try {
@@ -70,7 +83,7 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
 
   const handleGenerate = async (config: any) => {
     if (!selectedSubmissionId) {
-      setGenerateError("Aucune soumission analysée trouvée. Analysez d'abord une soumission.");
+      setGenerateError(t("errors.noAnalyzedSubmission"));
       return;
     }
     setGenerating(true);
@@ -91,17 +104,26 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
           },
         }),
       });
-      const json = await res.json();
-      if (!res.ok) {
-        setGenerateError(json.error || "Échec de la génération du planning");
+
+      // 402 = out of credits: the paywall modal replaces the error banner.
+      if (await handleInsufficientCredits(res)) {
+        setGenerateError(null);
         return;
       }
+
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setGenerateError(json?.error || t("errors.generateFailed"));
+        return;
+      }
+
       setShowConfig(false);
       setGenerateError(null);
+      notifyCreditsChanged();
       await fetchPlanningStatus();
     } catch (err: any) {
       console.error("[planning] Generate error:", err);
-      setGenerateError(err.message || "Erreur inattendue lors de la génération");
+      setGenerateError(err.message || t("errors.generateUnexpected"));
     } finally {
       setGenerating(false);
     }
@@ -121,9 +143,14 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-base font-medium text-[#FAFAFA]">{planningTitle}</h3>
-            <p className="text-sm text-[#71717A]">
-              {phasesCount} phases
-              {endDate && <> — Fin estimee: {new Date(endDate).toLocaleDateString("fr-CH")}</>}
+            <p className="text-sm text-[#A1A1AA]">
+              {t("tab.phaseCount", { count: phasesCount })}
+              {endDate && (
+                <>
+                  {" — "}
+                  {t("header.end")}: {new Date(endDate).toLocaleDateString("fr-CH")}
+                </>
+              )}
             </p>
           </div>
           <Link
@@ -131,7 +158,7 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand border border-brand/20 rounded-lg hover:bg-brand/5"
           >
             <CalendarRange className="h-4 w-4" />
-            Ouvrir le planning
+            {t("tab.open")}
             <ExternalLink className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -142,9 +169,16 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
   // No planning — show empty state
   return (
     <div className="text-center py-16">
-      <CalendarRange className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
+      {loadError && (
+        <div className="mx-auto mb-6 max-w-md flex items-start gap-2 px-3 py-2 rounded-lg border border-red-500/20 bg-red-500/10 text-left text-sm text-red-400">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{loadError}</span>
+        </div>
+      )}
+
+      <CalendarRange className="h-12 w-12 text-[#A1A1AA] mx-auto mb-3" />
       <h3 className="text-base font-medium text-[#FAFAFA] mb-1">{t("noPlanning")}</h3>
-      <p className="text-sm text-[#71717A] mb-6">{t("noPlanningDesc")}</p>
+      <p className="text-sm text-[#A1A1AA] mb-6">{t("noPlanningDesc")}</p>
 
       {submissions.length > 0 ? (
         <div className="space-y-3 max-w-xs mx-auto">
@@ -170,8 +204,8 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
           </button>
         </div>
       ) : (
-        <p className="text-sm text-[#71717A]">
-          Aucune soumission analysee pour ce projet.
+        <p className="text-sm text-[#A1A1AA]">
+          {t("errors.noAnalyzedSubmission")}
         </p>
       )}
 

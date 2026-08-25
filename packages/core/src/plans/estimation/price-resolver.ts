@@ -34,6 +34,28 @@ function round2(v: number): number {
   return Math.round(v * 100) / 100;
 }
 
+// Normalise une région vers la clé attendue par REGIONAL_COEFFICIENTS :
+// minuscule + suppression des accents. Sans ça, "Genève" (défaut accentué côté
+// agents/pipeline) → "genève" ne matchait jamais la clé "geneve" et le
+// coefficient régional retombait silencieusement à 1.0.
+function normalizeRegion(region: string): string {
+  return (region || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+// Facteur d'inflation composé depuis une date d'offre jusqu'à aujourd'hui.
+// Utilisé pour aligner des prix datés sur le présent (tiers 1/2/3/5).
+function inflationFactorSince(dateStr: string | null | undefined, rate: number): number {
+  if (!dateStr) return 1;
+  const t = new Date(dateStr).getTime();
+  if (Number.isNaN(t)) return 1;
+  const ageYears = Math.max(0, (Date.now() - t) / (1000 * 60 * 60 * 24 * 365));
+  return Math.pow(1 + rate, ageYears);
+}
+
 // Plafond de prix unitaire par type d'unité (CHF) — filtre les forfaits contaminants
 function getMaxUnitPrice(unite: string): number {
   switch (unite?.toLowerCase()) {
@@ -151,10 +173,12 @@ function scorePriceCandidate(
     score += 10;
   }
 
-  // Region match (5)
-  if (candidate.region && query.region && candidate.region === query.region) {
-    score += 5;
-  }
+  // AUDIT 08/2026 — le critère « region match (+5) » est RETIRÉ du barème :
+  // aucune source de candidats (offer_line_items, ingested_offer_lines) ne
+  // renseigne `region`, donc ces 5 points étaient inatteignables. Combiné à
+  // l'ancien seuil de 35, un candidat trouvé par description (mots-clés 20 +
+  // unité 10 = 30 max) ne passait JAMAIS → tout retombait sur les percentiles
+  // bruts. Réintroduire le critère le jour où la donnée existe.
 
   // Temporal decay + inflation
   let adjustedPrice = candidate.prix_unitaire;
@@ -240,17 +264,25 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
     // If project_id is provided, scope tier 1 to offers from same project's submissions only
     let projectSubmissionIds: string[] | null = null;
     if (project_id) {
-      const { data: projectSubs } = await supabase
+      const { data: projectSubs, error: subsError } = await supabase
         .from('submissions')
         .select('id')
         .eq('project_id', project_id);
+      // supabase-js ne throw pas : sans ce log, un échec de la requête de scope
+      // fait retomber le tier 1 en no-op silencieux (aucune trace).
+      if (subsError) {
+        console.warn('[price-resolver] Tier 1 project submissions scope error:', subsError.message);
+      }
       if (projectSubs && projectSubs.length > 0) {
         projectSubmissionIds = projectSubs.map((s: any) => s.id);
         // Get offer IDs from those submissions
-        const { data: projectOffers } = await supabase
+        const { data: projectOffers, error: offersError } = await supabase
           .from('supplier_offers')
           .select('id')
           .in('submission_id', projectSubmissionIds);
+        if (offersError) {
+          console.warn('[price-resolver] Tier 1 project offers scope error:', offersError.message);
+        }
         if (projectOffers && projectOffers.length > 0) {
           const offerIds = projectOffers.map((o: any) => o.id);
           // Only query offer_line_items from this project's offers
@@ -263,7 +295,7 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
             const cfcPrefix = sanitizeForFilter(cfc_code.split('.')[0]);
             let q = supabase
               .from('offer_line_items')
-              .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at, offer_id')
+              .select('id, unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at, offer_id')
               .eq('organization_id', org_id)
               .or(`cfc_subcode.eq.${safeCfc},cfc_subcode.like.${cfcPrefix}%`)
               .gt('unit_price', 0)
@@ -282,7 +314,7 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
               if (kw.length >= 4) {
                 let q = supabase
                   .from('offer_line_items')
-                  .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at, offer_id')
+                  .select('id, unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at, offer_id')
                   .eq('organization_id', org_id)
                   .or(`normalized_description.ilike.%${kw}%,supplier_description.ilike.%${kw}%`)
                   .gt('unit_price', 0)
@@ -309,7 +341,7 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
       const cfcPrefix = sanitizeForFilter(cfc_code.split('.')[0]);
       const { data } = await supabase
         .from('offer_line_items')
-        .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at')
+        .select('id, unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at')
         .eq('organization_id', org_id)
         .or(`cfc_subcode.eq.${safeCfc},cfc_subcode.like.${cfcPrefix}%`)
         .gt('unit_price', 0)
@@ -328,7 +360,7 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
       if (mainKeyword.length >= 4) {
         const { data } = await supabase
           .from('offer_line_items')
-          .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at')
+          .select('id, unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at')
           .eq('organization_id', org_id)
           .or(`normalized_description.ilike.%${mainKeyword}%,supplier_description.ilike.%${mainKeyword}%`)
           .gt('unit_price', 0)
@@ -347,7 +379,7 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
         if (secondKeyword.length >= 4) {
           const { data } = await supabase
             .from('offer_line_items')
-            .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at')
+            .select('id, unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at')
             .eq('organization_id', org_id)
             .or(`normalized_description.ilike.%${secondKeyword}%,supplier_description.ilike.%${secondKeyword}%`)
             .gt('unit_price', 0)
@@ -364,16 +396,21 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
     } // end if (!project_id)
 
     if (rawCandidates.length >= 2) {
-      // Deduplicate by (unit_price, created_at)
+      // Deduplicate — la clé inclut `id` pour ne pas fusionner deux lignes
+      // distinctes au prix et à l'horodatage identiques (dédup lossy). L'`id`
+      // n'écrase l'ancien comportement que quand il existe (fallback prix/date).
       const seen = new Set<string>();
       const unique = rawCandidates.filter((d: any) => {
-        const key = `${d.unit_price}::${d.created_at}`;
+        const key = d.id != null ? `id::${d.id}` : `${d.unit_price}::${d.created_at}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
 
-      // Score each candidate
+      // Score each candidate.
+      // AUDIT 08/2026 — seuil 35 → 25 : sans le critère region (retiré, jamais
+      // renseigné), un match par description (mots-clés 20 + unité 10 = 30)
+      // doit pouvoir passer, mais pas un match faible (10-20).
       const scored = unique
         .map((d: any) => {
           const candidate: PriceCandidate = {
@@ -385,7 +422,7 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
           };
           return scorePriceCandidate(candidate, { cfc_code, description, unite, region }, inflation_rate);
         })
-        .filter((s) => s.score >= 35 && s.adjusted_price > 0 && s.adjusted_price <= maxPrice)
+        .filter((s) => s.score >= 25 && s.adjusted_price > 0 && s.adjusted_price <= maxPrice)
         .sort((a, b) => b.score - a.score)
         .slice(0, 30);
 
@@ -415,7 +452,7 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
           source: 'historique_interne',
           detail_source: `${prices.length} offres internes, dernière : ${rawCandidates[0].created_at?.slice(0, 10)}`,
           date_reference: rawCandidates[0].created_at?.slice(0, 10) ?? quarter,
-          ajustements: ['Confiance réduite (score scoring < 35)'],
+          ajustements: ['Confiance réduite (score scoring < 25)'],
         };
       }
     }
@@ -444,14 +481,17 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
         .single();
 
       if (mvExact && mvExact.prix_median <= maxPrice) {
+        // Ajustement d'inflation depuis la dernière offre (comme tiers 1/3/5) —
+        // `derniere_offre` peut être ancienne, sinon le tier 2 sous-estimait.
+        const infl = inflationFactorSince(mvExact.derniere_offre, inflation_rate);
         return {
-          min: mvExact.prix_p25,
-          median: mvExact.prix_median,
-          max: mvExact.prix_p75,
+          min: round2(mvExact.prix_p25 * infl),
+          median: round2(mvExact.prix_median * infl),
+          max: round2(mvExact.prix_p75 * infl),
           source: 'donnees_communautaires',
           detail_source: `${mvExact.nb_datapoints} offres agrégées (données communautaires, hors organisation), ${mvExact.nb_fournisseurs} fournisseurs, dernière: ${mvExact.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
           date_reference: mvExact.derniere_offre?.slice(0, 10) ?? quarter,
-          ajustements: [],
+          ajustements: infl > 1 ? [`Ajustement inflation ×${infl.toFixed(3)}`] : [],
         };
       }
 
@@ -473,14 +513,17 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
           .single();
 
         if (mvPrefix && mvPrefix.prix_median <= maxPrice) {
+          const infl = inflationFactorSince(mvPrefix.derniere_offre, inflation_rate);
+          const ajustements = [`Match partiel CFC: ${cfc_code} → ${mvPrefix.cfc_code}`];
+          if (infl > 1) ajustements.push(`Ajustement inflation ×${infl.toFixed(3)}`);
           return {
-            min: mvPrefix.prix_p25,
-            median: mvPrefix.prix_median,
-            max: mvPrefix.prix_p75,
+            min: round2(mvPrefix.prix_p25 * infl),
+            median: round2(mvPrefix.prix_median * infl),
+            max: round2(mvPrefix.prix_p75 * infl),
             source: 'donnees_communautaires',
             detail_source: `${mvPrefix.nb_datapoints} offres agrégées (données communautaires, match partiel ${mvPrefix.cfc_code}), ${mvPrefix.nb_fournisseurs} fournisseurs, dernière: ${mvPrefix.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
             date_reference: mvPrefix.derniere_offre?.slice(0, 10) ?? quarter,
-            ajustements: [`Match partiel CFC: ${cfc_code} → ${mvPrefix.cfc_code}`],
+            ajustements,
           };
         }
       }
@@ -574,38 +617,18 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
 
   // ══════════════════════════════════════════════════════
   // 4. Benchmark Cantaia (Couche 2, données agrégées cross-tenant)
+  //
+  // AUDIT 08/2026 — tier COURT-CIRCUITÉ : C2 est gelé jusqu'à ≥15 orgs
+  // opt-in (voir /api/benchmarks/* et le cron aggregate-benchmarks).
+  // `market_benchmarks` ne contient aucune ligne avec ≥3 contributeurs, ce
+  // tier ne renvoyait donc jamais rien : on économise la requête et on passe
+  // directement au référentiel CRB. Réactiver ce bloc avec C2.
   // ══════════════════════════════════════════════════════
-  if (hasCfcCode) {
-    try {
-      const { data: benchmark } = await supabase
-        .from('market_benchmarks')
-        .select('*')
-        .eq('cfc_code', cfc_code)
-        .eq('region', region)
-        .eq('quarter', quarter)
-        .gte('contributor_count', 3)
-        .single();
-
-      if (benchmark) {
-        return {
-          min: benchmark.price_p25,
-          median: benchmark.price_median,
-          max: benchmark.price_p75,
-          source: 'benchmark_cantaia',
-          detail_source: `Benchmark Cantaia, ${region}, ${quarter}, ${benchmark.contributor_count} contributeurs`,
-          date_reference: quarter,
-          ajustements: [],
-        };
-      }
-    } catch {
-      // Pas de benchmark — continuer
-    }
-  }
 
   // ══════════════════════════════════════════════════════
   // 5. Référentiel CFC (données statiques CRB 2025)
   // ══════════════════════════════════════════════════════
-  const coeff = REGIONAL_COEFFICIENTS[region.toLowerCase()] ?? 1.0;
+  const coeff = REGIONAL_COEFFICIENTS[normalizeRegion(region)] ?? 1.0;
 
   // 5a. Match exact par code CFC
   let ref = hasCfcCode

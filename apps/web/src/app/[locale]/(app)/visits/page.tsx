@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import {
   UserCheck,
   Plus,
@@ -48,31 +48,47 @@ function formatCHF(amount: number): string {
 
 export default function VisitsPage() {
   const t = useTranslations("visits");
+  // Fallback for keys pending merge (i18n-pending/PVV.json): renders the French
+  // copy until the key lands in messages/*.json, then the real translation.
+  const tsafe = (key: string, fb: string) =>
+    typeof (t as any).has === "function" && (t as any).has(key) ? t(key) : fb;
+  const router = useRouter();
   const [visits, setVisits] = useState<VisitSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [filter, setFilter] = useState<VisitFilter>("all");
 
   useEffect(() => {
     loadVisits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadVisits() {
+    setLoadError(false);
     try {
       // Use API route (admin client) to bypass RLS recursion on users table
       const profileRes = await fetch("/api/user/profile");
-      const profileData = await profileRes.json();
+      if (profileRes.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      if (!profileRes.ok) { setLoadError(true); setLoading(false); return; }
+      const profileData = await profileRes.json().catch(() => ({}));
       const userOrgId = profileData?.profile?.organization_id;
       if (!userOrgId) { setLoading(false); return; }
 
       const supabase = createClient();
-      const { data } = await (supabase.from("client_visits") as any)
+      const { data, error } = await (supabase.from("client_visits") as any)
         .select("id, client_name, title, client_address, client_city, visit_date, duration_minutes, status, report, is_prospect, photos_count")
         .eq("organization_id", userOrgId)
         .order("visit_date", { ascending: false });
 
+      // A failed query must not render the empty state ("Aucune visite").
+      if (error) { setLoadError(true); return; }
       setVisits(data || []);
     } catch (err) {
       console.error("Failed to load visits:", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -110,9 +126,9 @@ export default function VisitsPage() {
       case "won":
         return { color: "bg-green-500/10 text-green-400", icon: CheckCircle, label: t("statusWon") };
       case "lost":
-        return { color: "bg-[#27272A] text-[#71717A]", icon: XCircle, label: t("statusLost") };
+        return { color: "bg-[#27272A] text-[#A1A1AA]", icon: XCircle, label: t("statusLost") };
       default:
-        return { color: "bg-[#27272A] text-[#71717A]", icon: Archive, label: status };
+        return { color: "bg-[#27272A] text-[#A1A1AA]", icon: Archive, label: status };
     }
   }
 
@@ -155,25 +171,25 @@ export default function VisitsPage() {
       {/* Stats bar */}
       {totalVisits > 0 && (
         <div className="mb-6 flex items-center gap-6 rounded-lg border border-[#27272A] bg-[#0F0F11] px-5 py-3">
-          <div className="flex items-center gap-1.5 text-sm text-[#71717A]">
-            <FileText className="h-4 w-4 text-[#71717A]" />
+          <div className="flex items-center gap-1.5 text-sm text-[#A1A1AA]">
+            <FileText className="h-4 w-4 text-[#A1A1AA]" />
             <span className="font-semibold text-[#FAFAFA]">{totalVisits}</span> {t("statsVisits")}
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-[#71717A]">
-            <Target className="h-4 w-4 text-[#71717A]" />
+          <div className="flex items-center gap-1.5 text-sm text-[#A1A1AA]">
+            <Target className="h-4 w-4 text-[#A1A1AA]" />
             <span className="font-semibold text-[#FAFAFA]">{quotedCount}</span> {t("statsQuotesSent")}
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-[#71717A]">
+          <div className="flex items-center gap-1.5 text-sm text-[#A1A1AA]">
             <CheckCircle className="h-4 w-4 text-green-500" />
             <span className="font-semibold text-[#FAFAFA]">{wonCount}</span> {t("statsSigned")}
           </div>
           {totalRevenue > 0 && (
-            <div className="flex items-center gap-1.5 text-sm text-[#71717A]">
-              <DollarSign className="h-4 w-4 text-[#71717A]" />
+            <div className="flex items-center gap-1.5 text-sm text-[#A1A1AA]">
+              <DollarSign className="h-4 w-4 text-[#A1A1AA]" />
               <span className="font-semibold text-[#FAFAFA]">{formatCHF(totalRevenue)} CHF</span>
             </div>
           )}
-          <div className="ml-auto text-sm text-[#71717A]">
+          <div className="ml-auto text-sm text-[#A1A1AA]">
             {t("statsConversionRate")} : <span className="font-semibold text-[#FAFAFA]">{conversionRate}%</span>
           </div>
         </div>
@@ -187,8 +203,8 @@ export default function VisitsPage() {
             onClick={() => setFilter(f.id)}
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
               filter === f.id
-                ? "bg-[#F97316] text-white"
-                : "bg-[#27272A] text-[#71717A] hover:bg-[#1C1C1F]"
+                ? "bg-[#F97316] text-[#0F0F11]"
+                : "bg-[#27272A] text-[#A1A1AA] hover:bg-[#1C1C1F]"
             }`}
           >
             {f.label}
@@ -196,12 +212,26 @@ export default function VisitsPage() {
         ))}
       </div>
 
+      {/* Load error — distinct from the empty state, with a retry */}
+      {loadError && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <span>{tsafe("loadError", "Impossible de charger les visites. Réessayez.")}</span>
+          <button
+            type="button"
+            onClick={() => { setLoading(true); loadVisits(); }}
+            className="rounded-md border border-red-500/30 px-3 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10"
+          >
+            {tsafe("retry", "Réessayer")}
+          </button>
+        </div>
+      )}
+
       {/* Visit list */}
-      {filteredVisits.length === 0 ? (
+      {loadError ? null : filteredVisits.length === 0 ? (
         <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] py-16 text-center">
-          <UserCheck className="mx-auto mb-3 h-10 w-10 text-[#71717A]" />
-          <p className="text-sm font-medium text-[#71717A]">{t("noVisits")}</p>
-          <p className="mt-1 text-xs text-[#71717A]">{t("noVisitsDesc")}</p>
+          <UserCheck className="mx-auto mb-3 h-10 w-10 text-[#A1A1AA]" />
+          <p className="text-sm font-medium text-[#A1A1AA]">{t("noVisits")}</p>
+          <p className="mt-1 text-xs text-[#A1A1AA]">{t("noVisitsDesc")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -217,17 +247,17 @@ export default function VisitsPage() {
               <Link
                 key={visit.id}
                 href={`/visits/${visit.id}`}
-                className="block rounded-lg border border-[#27272A] bg-[#0F0F11] p-4 transition-colors hover:border-[#F97316]/20 hover:bg-[#F97316]/10/30"
+                className="block rounded-lg border border-[#27272A] bg-[#0F0F11] p-4 transition-colors hover:border-[#F97316]/20 hover:bg-[#F97316]/10"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <Mic className="h-4 w-4 text-[#71717A]" />
+                      <Mic className="h-4 w-4 text-[#A1A1AA]" />
                       <span className="text-sm font-semibold text-[#FAFAFA]">
                         {visit.client_name}
                       </span>
                       {visit.title && (
-                        <span className="text-sm text-[#71717A]">— {visit.title}</span>
+                        <span className="text-sm text-[#A1A1AA]">— {visit.title}</span>
                       )}
                       {(visit.photos_count || 0) > 0 && (
                         <span className="flex items-center gap-0.5 rounded-full bg-[#F97316]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#F97316]">
@@ -236,7 +266,7 @@ export default function VisitsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="mt-1.5 flex items-center gap-4 text-xs text-[#71717A]">
+                    <div className="mt-1.5 flex items-center gap-4 text-xs text-[#A1A1AA]">
                       {(visit.client_address || visit.client_city) && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
@@ -252,7 +282,7 @@ export default function VisitsPage() {
                       )}
                     </div>
                     {(budgetMin || requestsCount > 0 || probability) && (
-                      <div className="mt-2 flex items-center gap-4 text-xs text-[#71717A]">
+                      <div className="mt-2 flex items-center gap-4 text-xs text-[#A1A1AA]">
                         {budgetMin && (
                           <span className="flex items-center gap-1">
                             <DollarSign className="h-3 w-3" />

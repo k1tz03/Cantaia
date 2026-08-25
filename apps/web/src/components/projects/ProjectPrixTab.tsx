@@ -182,11 +182,11 @@ export function ProjectPrixTab({
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("prixTitle")}</h3>
-            <p className="mt-1 text-xs text-[#71717A]">{t("prixDescription")}</p>
+            <p className="mt-1 text-xs text-[#A1A1AA]">{t("prixDescription")}</p>
           </div>
           <Link
             href="/cantaia-prix"
-            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
           >
             <TrendingUp className="h-3.5 w-3.5" />
             {t("viewCantaiaPrix")}
@@ -196,9 +196,9 @@ export function ProjectPrixTab({
         {sections.length === 0 || benchmark.length === 0 ? (
           <div className="flex h-48 items-center justify-center rounded-md border border-dashed border-[#27272A] bg-[#27272A]">
             <div className="text-center">
-              <DollarSign className="mx-auto h-10 w-10 text-[#71717A]" />
-              <p className="mt-3 text-sm font-medium text-[#71717A]">{t("noPricesYet")}</p>
-              <p className="mt-1 text-xs text-[#71717A]">{t("pricesWillAppear")}</p>
+              <DollarSign className="mx-auto h-10 w-10 text-[#A1A1AA]" />
+              <p className="mt-3 text-sm font-medium text-[#A1A1AA]">{t("noPricesYet")}</p>
+              <p className="mt-1 text-xs text-[#A1A1AA]">{t("pricesWillAppear")}</p>
             </div>
           </div>
         ) : (
@@ -215,7 +215,7 @@ export function ProjectPrixTab({
                     className="flex w-full items-center gap-3 bg-[#27272A] border-l-4 border-blue-500 px-4 py-3 text-left hover:bg-[#27272A] transition-colors"
                   >
                     <ChevronRight className={cn(
-                      "h-4 w-4 text-[#71717A] transition-transform shrink-0",
+                      "h-4 w-4 text-[#A1A1AA] transition-transform shrink-0",
                       !isCollapsed && "rotate-90"
                     )} />
                     {section.cfc && (
@@ -224,7 +224,7 @@ export function ProjectPrixTab({
                       </span>
                     )}
                     <span className="text-sm font-medium text-[#FAFAFA]">{section.label}</span>
-                    <span className="ml-auto text-xs text-[#71717A] shrink-0">
+                    <span className="ml-auto text-xs text-[#A1A1AA] shrink-0">
                       {totalArticles} article{totalArticles > 1 ? "s" : ""}
                     </span>
                   </button>
@@ -240,7 +240,7 @@ export function ProjectPrixTab({
                             {/* Article header */}
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="text-sm font-medium text-[#FAFAFA]">{article.displayDescription}</span>
-                              <span className="text-xs text-[#71717A] shrink-0 ml-3">
+                              <span className="text-xs text-[#A1A1AA] shrink-0 ml-3">
                                 {article.unite} — {article.suppliers.length} fournisseur{article.suppliers.length > 1 ? "s" : ""}
                               </span>
                             </div>
@@ -251,7 +251,7 @@ export function ProjectPrixTab({
                                 const overPct = minPrice > 0 ? Math.round(((sup.price - minPrice) / minPrice) * 100) : 0;
                                 return (
                                   <div key={sIdx} className="flex items-center gap-3 py-0.5 text-xs">
-                                    <span className="w-36 truncate text-[#71717A]">{sup.name}</span>
+                                    <span className="w-36 truncate text-[#A1A1AA]">{sup.name}</span>
                                     <span className="font-mono font-medium text-[#FAFAFA]">
                                       {sup.price.toFixed(2)} CHF/{article.unite}
                                     </span>

@@ -78,7 +78,7 @@ function SourceBadge({ source, detailSource }: { source?: PriceSource; detailSou
     ratio_estimation: { label: "Ratio", bg: "bg-orange-100", text: "text-orange-800 dark:text-orange-300" },
     estimation_ia: { label: "Estimation IA", bg: "bg-red-100", text: "text-red-800 dark:text-red-300" },
     consensus_multi_ia: { label: "Consensus IA", bg: "bg-orange-100", text: "text-orange-800 dark:text-orange-300" },
-    prix_non_disponible: { label: "Non dispo.", bg: "bg-[#27272A]", text: "text-[#71717A]" },
+    prix_non_disponible: { label: "Non dispo.", bg: "bg-[#27272A]", text: "text-[#A1A1AA]" },
   };
   const c = (source && config[source]) || config.prix_non_disponible;
   return (
@@ -147,21 +147,21 @@ function ModelTooltip({ consensusPoste, children }: { consensusPoste: ConsensusP
       {children}
       {visible && (
         <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 min-w-[160px] rounded-md border border-[#27272A] bg-[#0F0F11] shadow-lg py-2 px-2.5 text-[10px] text-[#FAFAFA] whitespace-nowrap">
-          <span className="block text-[9px] font-semibold text-[#71717A] mb-1.5 uppercase tracking-wider">Consensus modèles</span>
+          <span className="block text-[9px] font-semibold text-[#A1A1AA] mb-1.5 uppercase tracking-wider">Consensus modèles</span>
           {consensusPoste.valeurs_par_modele.map((v) => (
             <span key={v.provider} className="flex justify-between gap-3 mb-0.5">
               <span className="font-medium capitalize">{v.provider}</span>
               <span className="font-mono">{v.quantite} {consensusPoste.unite}</span>
-              <span className={v.ecart_vs_median_pct > 15 ? "text-red-500" : "text-[#71717A]"}>
+              <span className={v.ecart_vs_median_pct > 15 ? "text-red-500" : "text-[#A1A1AA]"}>
                 {v.ecart_vs_median_pct > 0 ? "+" : ""}{v.ecart_vs_median_pct.toFixed(0)}%
               </span>
             </span>
           ))}
-          <span className="block border-t border-[#27272A] mt-1.5 pt-1.5 font-semibold text-[#71717A]">
+          <span className="block border-t border-[#27272A] mt-1.5 pt-1.5 font-semibold text-[#A1A1AA]">
             Consensus : {consensusPoste.quantite_consensuelle} {consensusPoste.unite}
           </span>
           {consensusPoste.methode_consensus && (
-            <span className="block text-[9px] text-[#71717A] mt-0.5">{CONSENSUS_CONFIG[consensusPoste.methode_consensus]?.label ?? consensusPoste.methode_consensus}</span>
+            <span className="block text-[9px] text-[#A1A1AA] mt-0.5">{CONSENSUS_CONFIG[consensusPoste.methode_consensus]?.label ?? consensusPoste.methode_consensus}</span>
           )}
         </span>
       )}
@@ -189,7 +189,7 @@ function SourceDistributionBar({ repartition }: { repartition: Record<string, nu
           <div key={s.key} className={`${s.color}`} style={{ width: `${repartition[s.key]}%` }} title={`${s.label}: ${repartition[s.key]}%`} />
         ))}
       </div>
-      <div className="flex flex-wrap gap-3 mt-2 text-xs text-[#71717A]">
+      <div className="flex flex-wrap gap-3 mt-2 text-xs text-[#A1A1AA]">
         {segments.map((s) => (
           <span key={s.key} className="flex items-center gap-1">
             <span className={`w-2 h-2 rounded-full ${s.color}`} />
@@ -255,7 +255,7 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
         {onRelaunch && (
           <button
             onClick={onRelaunch}
-            className="mt-4 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C]"
+            className="mt-4 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C]"
           >
             Relancer l&apos;estimation
           </button>
@@ -297,8 +297,8 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
       {/* ─── Badge bureau (si détecté) ─── */}
       {bureauName && (
         <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-[#71717A]" />
-          <span className="text-sm text-[#71717A]">
+          <Building2 className="h-4 w-4 text-[#A1A1AA]" />
+          <span className="text-sm text-[#A1A1AA]">
             Bureau : <span className="font-medium text-[#FAFAFA]">{bureauName}</span>
           </span>
           {bureauPlansCount && bureauPlansCount > 1 && (
@@ -355,12 +355,12 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono text-[#8A9CA8]">{cfc.cfc_code}</span>
                 <span className="font-medium text-[#0A1F30]">{cfc.cfc_libelle}</span>
-                <span className="text-xs text-[#71717A]">({(cfc.postes ?? []).length} postes)</span>
+                <span className="text-xs text-[#A1A1AA]">({(cfc.postes ?? []).length} postes)</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-sm text-[#71717A]">{formatCHF(cfc.sous_total_cfc?.min)} — </span>
+                <span className="text-sm text-[#A1A1AA]">{formatCHF(cfc.sous_total_cfc?.min)} — </span>
                 <span className="font-semibold text-[#0A1F30]">{formatCHF(cfc.sous_total_cfc?.median)}</span>
-                <span className="text-sm text-[#71717A]"> — {formatCHF(cfc.sous_total_cfc?.max)}</span>
+                <span className="text-sm text-[#A1A1AA]"> — {formatCHF(cfc.sous_total_cfc?.max)}</span>
                 <svg className={`w-4 h-4 transition-transform ${expandedCfc.has(cfc.cfc_code) ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -369,73 +369,75 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
 
             {expandedCfc.has(cfc.cfc_code) && (
               <div className="px-4 pb-3">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-xs text-[#8A9CA8] border-b border-[#27272A]">
-                      <th className="text-left py-2 pr-2">Source</th>
-                      <th className="text-left py-2 pr-2">Description</th>
-                      <th className="text-right py-2 pr-2">Qté</th>
-                      <th className="text-left py-2 pr-2">Unité</th>
-                      <th className="text-center py-2 pr-2">Consensus</th>
-                      <th className="text-right py-2 pr-2">PU médian</th>
-                      <th className="text-right py-2 pr-2">Total min</th>
-                      <th className="text-right py-2 pr-2 font-semibold">Total médian</th>
-                      <th className="text-right py-2 pr-2">Total max</th>
-                      <th className="text-center py-2">Conf.</th>
-                      <th className="text-center py-2">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(cfc.postes ?? []).map((poste: PosteChiffre, idx: number) => {
-                      const isRisky = poste.confiance_prix === 'estimation' || poste.confiance_prix === 'low';
-                      // Cherche le poste consensus correspondant par cfc_code (match best-effort)
-                      const consensusPoste = consensusByCode.get(poste.cfc_code);
-                      return (
-                        <tr key={idx} className={`border-b border-[#27272A] ${isRisky ? "bg-orange-500/10" : ""}`}>
-                          <td className="py-2 pr-2"><SourceBadge source={poste.prix_unitaire?.source} detailSource={poste.prix_unitaire?.detail_source} /></td>
-                          <td className="py-2 pr-2 max-w-[200px] truncate" title={poste.description}>{poste.description}</td>
-                          <td className="py-2 pr-2 text-right font-mono">
-                            <ModelTooltip consensusPoste={consensusPoste}>
-                              <span className={consensusPoste?.methode_consensus === 'divergence' ? "text-red-600 font-semibold" : ""}>
-                                {poste.quantite}
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-[#8A9CA8] border-b border-[#27272A]">
+                        <th className="text-left py-2 pr-2">Source</th>
+                        <th className="text-left py-2 pr-2">Description</th>
+                        <th className="text-right py-2 pr-2">Qté</th>
+                        <th className="text-left py-2 pr-2">Unité</th>
+                        <th className="text-center py-2 pr-2">Consensus</th>
+                        <th className="text-right py-2 pr-2">PU médian</th>
+                        <th className="text-right py-2 pr-2">Total min</th>
+                        <th className="text-right py-2 pr-2 font-semibold">Total médian</th>
+                        <th className="text-right py-2 pr-2">Total max</th>
+                        <th className="text-center py-2">Conf.</th>
+                        <th className="text-center py-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(cfc.postes ?? []).map((poste: PosteChiffre, idx: number) => {
+                        const isRisky = poste.confiance_prix === 'estimation' || poste.confiance_prix === 'low';
+                        // Cherche le poste consensus correspondant par cfc_code (match best-effort)
+                        const consensusPoste = consensusByCode.get(poste.cfc_code);
+                        return (
+                          <tr key={idx} className={`border-b border-[#27272A] ${isRisky ? "bg-orange-500/10" : ""}`}>
+                            <td className="py-2 pr-2"><SourceBadge source={poste.prix_unitaire?.source} detailSource={poste.prix_unitaire?.detail_source} /></td>
+                            <td className="py-2 pr-2 max-w-[200px] truncate" title={poste.description}>{poste.description}</td>
+                            <td className="py-2 pr-2 text-right font-mono">
+                              <ModelTooltip consensusPoste={consensusPoste}>
+                                <span className={consensusPoste?.methode_consensus === 'divergence' ? "text-red-600 font-semibold" : ""}>
+                                  {poste.quantite}
+                                </span>
+                              </ModelTooltip>
+                            </td>
+                            <td className="py-2 pr-2 text-[#A1A1AA]">{poste.unite}</td>
+                            <td className="py-2 pr-2 text-center">
+                              {consensusPoste?.methode_consensus
+                                ? <ConsensusBadge methode={consensusPoste.methode_consensus} />
+                                : <span className="text-[10px] text-[#A1A1AA]">—</span>
+                              }
+                            </td>
+                            <td className="py-2 pr-2 text-right font-mono">{formatCHF(poste.prix_unitaire?.median)}</td>
+                            <td className="py-2 pr-2 text-right text-[#A1A1AA] font-mono">{formatCHF(poste.total?.min)}</td>
+                            <td className="py-2 pr-2 text-right font-semibold font-mono">{formatCHF(poste.total?.median)}</td>
+                            <td className="py-2 pr-2 text-right text-[#A1A1AA] font-mono">{formatCHF(poste.total?.max)}</td>
+                            <td className="py-2 text-center">
+                              <span className="text-xs text-[#A1A1AA]">
+                                {(poste.confiance_quantite?.[0] ?? "?").toUpperCase()}/{(poste.confiance_prix?.[0] ?? "?").toUpperCase()}
                               </span>
-                            </ModelTooltip>
-                          </td>
-                          <td className="py-2 pr-2 text-[#71717A]">{poste.unite}</td>
-                          <td className="py-2 pr-2 text-center">
-                            {consensusPoste?.methode_consensus
-                              ? <ConsensusBadge methode={consensusPoste.methode_consensus} />
-                              : <span className="text-[10px] text-[#71717A]">—</span>
-                            }
-                          </td>
-                          <td className="py-2 pr-2 text-right font-mono">{formatCHF(poste.prix_unitaire?.median)}</td>
-                          <td className="py-2 pr-2 text-right text-[#71717A] font-mono">{formatCHF(poste.total?.min)}</td>
-                          <td className="py-2 pr-2 text-right font-semibold font-mono">{formatCHF(poste.total?.median)}</td>
-                          <td className="py-2 pr-2 text-right text-[#71717A] font-mono">{formatCHF(poste.total?.max)}</td>
-                          <td className="py-2 text-center">
-                            <span className="text-xs text-[#71717A]">
-                              {(poste.confiance_quantite?.[0] ?? "?").toUpperCase()}/{(poste.confiance_prix?.[0] ?? "?").toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="py-2 text-center">
-                            <div className="flex gap-1 justify-center">
-                              {onCorrectQuantity && (
-                                <button onClick={() => onCorrectQuantity(poste)} className="text-xs text-[#C4A661] hover:underline" title="Corriger la quantité">
-                                  Qté
-                                </button>
-                              )}
-                              {onCalibratePrice && (
-                                <button onClick={() => onCalibratePrice(poste)} className="text-xs text-blue-500 hover:underline" title="Renseigner un prix réel">
-                                  Prix
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                            <td className="py-2 text-center">
+                              <div className="flex gap-1 justify-center">
+                                {onCorrectQuantity && (
+                                  <button onClick={() => onCorrectQuantity(poste)} className="text-xs text-[#C4A661] hover:underline" title="Corriger la quantité">
+                                    Qté
+                                  </button>
+                                )}
+                                {onCalibratePrice && (
+                                  <button onClick={() => onCalibratePrice(poste)} className="text-xs text-blue-500 hover:underline" title="Renseigner un prix réel">
+                                    Prix
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -585,10 +587,10 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
             Relancer l'estimation
           </button>
         )}
-        <button disabled className="px-4 py-2 bg-[#27272A] text-[#71717A] rounded-lg text-sm cursor-not-allowed" title="Bientôt disponible">
+        <button disabled className="px-4 py-2 bg-[#27272A] text-[#A1A1AA] rounded-lg text-sm cursor-not-allowed" title="Bientôt disponible">
           Exporter PDF
         </button>
-        <button disabled className="px-4 py-2 bg-[#27272A] text-[#71717A] rounded-lg text-sm cursor-not-allowed" title="Bientôt disponible">
+        <button disabled className="px-4 py-2 bg-[#27272A] text-[#A1A1AA] rounded-lg text-sm cursor-not-allowed" title="Bientôt disponible">
           Exporter DOCX
         </button>
       </div>

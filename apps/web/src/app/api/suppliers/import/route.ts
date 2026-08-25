@@ -14,7 +14,12 @@ interface ImportRow {
   specialties?: string[];
   cfc_codes?: string[];
   geo_zone?: string;
+  supplier_type?: string;
 }
+
+const MAX_IMPORT_ROWS = 500;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SUPPLIER_TYPES = ["fournisseur", "prestataire"];
 
 /**
  * POST /api/suppliers/import
@@ -54,6 +59,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (rows.length > MAX_IMPORT_ROWS) {
+    return NextResponse.json(
+      { error: `Trop de lignes (${rows.length}). Maximum ${MAX_IMPORT_ROWS} par import.` },
+      { status: 400 }
+    );
+  }
+
   // Fetch existing supplier names for this org to detect duplicates
   const { data: existingSuppliers } = await (adminClient as any)
     .from("suppliers")
@@ -69,6 +81,9 @@ export async function POST(request: NextRequest) {
   let imported = 0;
   let skipped = 0;
   const errors: string[] = [];
+
+  // ── Pass 1: validate + dedup, building the rows to insert ──
+  const toInsert: { rowNum: number; name: string; data: Record<string, any> }[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -87,11 +102,12 @@ export async function POST(request: NextRequest) {
 
     const normalizedName = row.company_name.toLowerCase().trim();
 
-    // Skip duplicates (same company_name already exists in org)
+    // Skip duplicates (same company_name already exists in org, or earlier in file)
     if (existingNames.has(normalizedName)) {
       skipped++;
       continue;
     }
+    existingNames.add(normalizedName);
 
     // Build insert data
     const insertData: Record<string, any> = {
@@ -101,7 +117,15 @@ export async function POST(request: NextRequest) {
     };
 
     if (row.contact_name) insertData.contact_name = row.contact_name;
-    if (row.email) insertData.email = row.email;
+    if (row.email) {
+      // Drop clearly invalid addresses rather than importing junk (a bad address
+      // would later send a price request to nowhere over the user's signature).
+      if (EMAIL_RE.test(row.email.trim())) {
+        insertData.email = row.email.trim();
+      } else {
+        errors.push(`Row ${rowNum} (${row.company_name}): email ignoré (format invalide)`);
+      }
+    }
     if (row.phone) insertData.phone = row.phone;
     if (row.address) insertData.address = row.address;
     if (row.city) insertData.city = row.city;
@@ -110,19 +134,39 @@ export async function POST(request: NextRequest) {
     if (row.specialties) insertData.specialties = row.specialties;
     if (row.cfc_codes) insertData.cfc_codes = row.cfc_codes;
     if (row.geo_zone) insertData.geo_zone = row.geo_zone;
+    if (row.supplier_type && SUPPLIER_TYPES.includes(row.supplier_type)) {
+      insertData.supplier_type = row.supplier_type;
+    }
 
+    toInsert.push({ rowNum, name: row.company_name.trim(), data: insertData });
+  }
+
+  // ── Pass 2: batch insert in chunks (avoids N+1). On a chunk error, fall back to
+  //    per-row inserts so a single bad row does not sink the whole chunk. ──
+  const CHUNK = 100;
+  for (let i = 0; i < toInsert.length; i += CHUNK) {
+    const chunk = toInsert.slice(i, i + CHUNK);
     const { error } = await (adminClient as any)
       .from("suppliers")
-      .insert(insertData);
+      .insert(chunk.map((c) => c.data));
 
-    if (error) {
-      console.error(`[suppliers/import] Row ${rowNum} insert error:`, error);
-      errors.push(`Row ${rowNum} (${row.company_name}): ${error.message}`);
-      skipped++;
-    } else {
-      imported++;
-      // Add to existing set so subsequent rows in this batch are also deduped
-      existingNames.add(normalizedName);
+    if (!error) {
+      imported += chunk.length;
+      continue;
+    }
+
+    // Retry row by row to attribute the failure precisely.
+    for (const c of chunk) {
+      const { error: rowErr } = await (adminClient as any)
+        .from("suppliers")
+        .insert(c.data);
+      if (rowErr) {
+        console.error(`[suppliers/import] Row ${c.rowNum} insert error:`, rowErr.message);
+        errors.push(`Row ${c.rowNum} (${c.name}): ${rowErr.message}`);
+        skipped++;
+      } else {
+        imported++;
+      }
     }
   }
 

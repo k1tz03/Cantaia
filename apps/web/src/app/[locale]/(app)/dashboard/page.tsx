@@ -3,7 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
+import { toLocalDateString } from "@/components/calendar/datetime-utils";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useEmailContextSafe } from "@/lib/contexts/email-context";
@@ -11,6 +13,7 @@ import {
   Mail,
   FolderKanban,
   CheckSquare,
+  ListTodo,
   FileSpreadsheet,
   MessageSquare,
   Calendar,
@@ -26,6 +29,11 @@ import {
 } from "lucide-react";
 import { DashboardOrgView } from "@/components/app/DashboardOrgView";
 import { AgentActivityCards } from "@/components/app/AgentActivityCards";
+import { OnboardingChecklist } from "@/components/app/OnboardingChecklist";
+import { FollowupSection } from "@/components/briefing/FollowupSection";
+// Shared task-state predicates — the single definition also used by the API
+// counters, so the dashboard tiles can never disagree with /tasks.
+import { isTaskOpen, isTaskOverdue } from "@cantaia/core/projects/counters";
 
 const ParticleCanvas = dynamic(() => import("@/components/auth/ParticleCanvas"), { ssr: false });
 
@@ -57,8 +65,16 @@ interface ProjectItem {
   start_date: string | null;
   end_date: string | null;
 }
+interface SubmissionItem {
+  id: string;
+  title: string;
+  status: string;
+  deadline: string | null;
+  project_id: string | null;
+}
 interface BriefingData {
-  mode?: "ai" | "fallback";
+  // "data" = assembled from DB rows with no model involved.
+  mode?: "ai" | "data" | "fallback";
   greeting?: string;
   priority_alerts?: string[];
   projects?: Array<{
@@ -70,6 +86,14 @@ interface BriefingData {
   }>;
   meetings_today?: Array<{ time: string; project: string; title: string }>;
   submission_deadlines?: Array<{ title: string; deadline: string; days_remaining: number; project: string; note: string }>;
+  stats?: {
+    total_projects: number;
+    emails_unread: number;
+    emails_action_required: number;
+    tasks_overdue: number;
+    tasks_due_today: number;
+    meetings_today: number;
+  };
   global_summary?: string;
   // Legacy fallback fields
   content?: {
@@ -96,10 +120,9 @@ function formatDateLocale(): string {
   });
 }
 
-function isOverdue(due: string | null): boolean {
-  if (!due) return false;
-  return new Date(due) < new Date(new Date().toDateString());
-}
+// NOTE: the local `isOverdue(due)` helper was removed — it compared a raw
+// date string against `new Date()` and disagreed with the server counters.
+// Use `isTaskOverdue` from @cantaia/core/projects/counters instead.
 
 function daysUntil(dateStr: string): number {
   const diff = new Date(dateStr).getTime() - new Date().getTime();
@@ -113,6 +136,36 @@ function getProjectHealth(overdue: number, total: number): "good" | "warn" | "cr
 }
 
 const PROJECT_COLORS = ["#3B82F6", "#F97316", "#10B981", "#8B5CF6", "#EF4444", "#EC4899", "#14B8A6"];
+
+/** A briefing statistic that navigates to the module which can act on it. */
+function BriefingStat({
+  href,
+  value,
+  label,
+  tone,
+}: {
+  href: string;
+  value: number;
+  label: string;
+  tone: "red" | "amber" | "blue" | "green" | "muted";
+}) {
+  const tones: Record<string, string> = {
+    red: "bg-[#EF4444]/10 text-[#F87171] hover:bg-[#EF4444]/20",
+    amber: "bg-[#F59E0B]/10 text-[#FBBF24] hover:bg-[#F59E0B]/20",
+    blue: "bg-[#3B82F6]/10 text-[#60A5FA] hover:bg-[#3B82F6]/20",
+    green: "bg-[#10B981]/10 text-[#34D399] hover:bg-[#10B981]/20",
+    muted: "bg-[#27272A] text-[#A1A1AA] hover:bg-[#3F3F46]",
+  };
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors ${tones[tone]}`}
+    >
+      <span className="font-bold">{value}</span>
+      <span className="opacity-80">{label}</span>
+    </Link>
+  );
+}
 
 /* ---- skeleton ---- */
 function KpiSkeleton() {
@@ -166,6 +219,7 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [meetings, setMeetings] = useState<MeetingItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
   const [briefing, setBriefing] = useState<BriefingData | null>(null);
   const [briefingGenerating, setBriefingGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -205,19 +259,24 @@ export default function DashboardPage() {
       fetch("/api/tasks").then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); }).catch(() => ({ tasks: [] })),
       fetch("/api/pv").then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); }).catch(() => ({ meetings: [] })),
       fetch("/api/projects/list").then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); }).catch(() => ({ projects: [] })),
-    ]).then(([tasksRes, pvsRes, projectsRes]) => {
+      // Real submissions — the "Soumissions actives" tile used to display the
+      // count of PVs from the last 7 days, which is a different entity entirely.
+      fetch("/api/submissions").then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); }).catch(() => ({ submissions: [] })),
+    ]).then(([tasksRes, pvsRes, projectsRes, submissionsRes]) => {
       setTasks(tasksRes.tasks || []);
       setMeetings(pvsRes.meetings || []);
       setProjects(projectsRes.projects || []);
+      setSubmissions(submissionsRes.submissions || []);
     }).finally(() => setLoading(false));
   }, []);
 
   /* ---- Derived data ---- */
   const stats = useMemo(() => {
-    const activeTasks = tasks.filter(
-      (tk) => tk.status === "todo" || tk.status === "in_progress" || tk.status === "waiting"
-    );
-    const overdueTasks = activeTasks.filter((tk) => isOverdue(tk.due_date));
+    // isTaskOpen / isTaskOverdue come from @cantaia/core/projects/counters so
+    // these tiles match the server-side counters exactly (including the
+    // date-only comparison that avoids the UTC off-by-one-day drift).
+    const activeTasks = tasks.filter(isTaskOpen);
+    const overdueTasks = activeTasks.filter((tk) => isTaskOverdue(tk));
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
     const pvThisWeek = meetings.filter((m) => new Date(m.meeting_date) >= weekAgo).length;
@@ -225,12 +284,20 @@ export default function DashboardPage() {
       (p) => p.status === "active" || p.status === "planning"
     );
 
+    // A submission is "active" while it is out with suppliers or being
+    // compared — draft is not yet live, awarded/completed are done.
+    const ACTIVE_SUBMISSION_STATUSES = ["sent", "responses", "comparing"];
+    const activeSubmissions = submissions.filter((s) =>
+      ACTIVE_SUBMISSION_STATUSES.includes(s.status)
+    );
+    const awaitingResponses = submissions.filter((s) => s.status === "sent");
+
     // Priority tasks (urgent/high, overdue first)
     const priorityTasks = activeTasks
-      .filter((tk) => tk.priority === "urgent" || tk.priority === "high" || isOverdue(tk.due_date))
+      .filter((tk) => tk.priority === "urgent" || tk.priority === "high" || isTaskOverdue(tk))
       .sort((a, b) => {
-        const aOverdue = isOverdue(a.due_date) ? 0 : 1;
-        const bOverdue = isOverdue(b.due_date) ? 0 : 1;
+        const aOverdue = isTaskOverdue(a) ? 0 : 1;
+        const bOverdue = isTaskOverdue(b) ? 0 : 1;
         if (aOverdue !== bOverdue) return aOverdue - bOverdue;
         const prio = { urgent: 0, high: 1, medium: 2, low: 3 };
         return (prio[a.priority as keyof typeof prio] ?? 2) - (prio[b.priority as keyof typeof prio] ?? 2);
@@ -250,17 +317,20 @@ export default function DashboardPage() {
       overdueTasks: overdueTasks.length,
       overdueList: overdueTasks.slice(0, 4),
       pvThisWeek,
+      activeSubmissions: activeSubmissions.length,
+      awaitingResponses: awaitingResponses.length,
       activeProjects: activeProjects.length,
       projectsList: activeProjects.slice(0, 4),
       priorityTasks,
       deadlines,
     };
-  }, [tasks, meetings, projects]);
+  }, [tasks, meetings, projects, submissions]);
 
-  // Actions count for banner
+  // Actions count for banner — real signals only: overdue tasks + unread
+  // emails. (Unread emails are actionable, but they are NOT "urgent" — the old
+  // Math.min(unreadCount,5) fabricated an urgent count that doesn't exist.)
   const actionsCount = useMemo(() => {
-    const urgentEmails = unreadCount > 0 ? Math.min(unreadCount, 5) : 0;
-    return stats.overdueTasks + urgentEmails;
+    return stats.overdueTasks + unreadCount;
   }, [stats.overdueTasks, unreadCount]);
 
   /* ---- Project task counts ---- */
@@ -268,9 +338,9 @@ export default function DashboardPage() {
     const map: Record<string, { total: number; overdue: number }> = {};
     tasks.forEach((tk) => {
       if (!map[tk.project_id]) map[tk.project_id] = { total: 0, overdue: 0 };
-      if (tk.status !== "done" && tk.status !== "cancelled") {
+      if (isTaskOpen(tk)) {
         map[tk.project_id].total++;
-        if (isOverdue(tk.due_date)) map[tk.project_id].overdue++;
+        if (isTaskOverdue(tk)) map[tk.project_id].overdue++;
       }
     });
     return map;
@@ -320,7 +390,7 @@ export default function DashboardPage() {
       const items: string[] = [];
       const overdue = tasks.filter((t) => t.due_date && new Date(t.due_date) < new Date() && t.status !== "done" && t.status !== "cancelled");
       if (overdue.length > 0) items.push(`${overdue.length} tâche(s) en retard`);
-      const dueToday = tasks.filter((t) => t.due_date && t.due_date.startsWith(new Date().toISOString().split("T")[0]) && t.status !== "done");
+      const dueToday = tasks.filter((t) => t.due_date && t.due_date.startsWith(toLocalDateString(new Date())) && t.status !== "done");
       if (dueToday.length > 0) items.push(`${dueToday.length} tâche(s) à finir aujourd'hui`);
       const activeProjects = projects.filter((p) => p.status === "active");
       if (activeProjects.length > 0) items.push(`${activeProjects.length} projet(s) actif(s)`);
@@ -332,12 +402,74 @@ export default function DashboardPage() {
     return [];
   }, [briefing, briefingGenerating, loading, tasks, projects]);
 
+  /* ---- Briefing stats (server-side truth, else derived locally) ---- */
+  const briefingStats = useMemo(() => {
+    if (briefing?.stats) return briefing.stats;
+    if (loading) return null;
+    // No stored briefing yet — show the same figures the tiles already prove,
+    // rather than an empty block.
+    return {
+      total_projects: stats.activeProjects,
+      emails_unread: unreadCount,
+      emails_action_required: unreadCount,
+      tasks_overdue: stats.overdueTasks,
+      tasks_due_today: tasks.filter(
+        (tk) => isTaskOpen(tk) && tk.due_date?.startsWith(toLocalDateString(new Date()))
+      ).length,
+      meetings_today: 0,
+    };
+  }, [briefing, loading, stats.activeProjects, stats.overdueTasks, unreadCount, tasks]);
+
+  /* ---- Resolve briefing deadline titles to real submission pages ---- */
+  const submissionIdByTitle = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of submissions) {
+      if (s.title) map.set(s.title.toLowerCase().trim(), s.id);
+    }
+    return map;
+  }, [submissions]);
+
+  /* ---- Young org? (drives the onboarding checklist) ---- */
+  // "Young" = fewer than 2 projects, or no email connected yet. Both are
+  // signals the workspace is not set up, which is exactly what the checklist
+  // walks the user through.
+  const showOnboarding = useMemo(() => {
+    if (loading) return false;
+    return projects.length < 2 || !emailCtx?.emails?.length;
+  }, [loading, projects.length, emailCtx?.emails?.length]);
+
+  /* ---- Regenerate briefing ---- */
+  const regenerateBriefing = async () => {
+    if (briefingGenerating) return;
+    setBriefingGenerating(true);
+    try {
+      const res = await fetch("/api/briefing/generate", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.briefing) setBriefing(data.briefing);
+      }
+    } catch {
+      // Keep whatever briefing is already on screen.
+    } finally {
+      setBriefingGenerating(false);
+    }
+  };
+
   /* ---- Sync action ---- */
   const handleSync = async () => {
     setSyncing(true);
     try {
-      await fetch("/api/outlook/sync", { method: "POST" });
-    } catch { /* ignore */ }
+      const res = await fetch("/api/outlook/sync", { method: "POST" });
+      // Surface the outcome instead of silently stopping the spinner — the
+      // 6/h rate limit returns 429, which the user otherwise never sees.
+      if (res.status === 429) {
+        toast.error(t("syncRateLimited"));
+      } else if (!res.ok) {
+        toast.error(t("syncFailed"));
+      }
+    } catch {
+      toast.error(t("syncFailed"));
+    }
     setSyncing(false);
   };
 
@@ -369,7 +501,7 @@ export default function DashboardPage() {
               {t(getGreetingKey(), { name: "" })}
               <span className="text-gradient-orange">{firstName}</span>
             </h1>
-            <p className="mt-1 flex items-center gap-2 text-[13px] text-[#71717A]">
+            <p className="mt-1 flex items-center gap-2 text-[13px] text-[#A1A1AA]">
               <Calendar className="h-3.5 w-3.5" />
               {formatDateLocale()}
             </p>
@@ -408,7 +540,7 @@ export default function DashboardPage() {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "personal"
                   ? "bg-[#18181B] shadow-sm text-[#FAFAFA]"
-                  : "text-[#71717A] hover:text-[#FAFAFA]"
+                  : "text-[#A1A1AA] hover:text-[#FAFAFA]"
               }`}
             >
               {t("personalView")}
@@ -418,7 +550,7 @@ export default function DashboardPage() {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "org"
                   ? "bg-[#18181B] shadow-sm text-[#FAFAFA]"
-                  : "text-[#71717A] hover:text-[#FAFAFA]"
+                  : "text-[#A1A1AA] hover:text-[#FAFAFA]"
               }`}
             >
               {t("orgView")}
@@ -455,12 +587,7 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{unreadCount}</div>
-                <div className="text-[12px] text-[#71717A] mt-1">{t("unreadEmails")}</div>
-                {unreadCount > 0 && (
-                  <div className="text-[11px] font-medium text-[#FB923C] mt-1">
-                    {Math.min(unreadCount, 2)} {t("urgentEmails").toLowerCase()}
-                  </div>
-                )}
+                <div className="text-[12px] text-[#A1A1AA] mt-1">{t("unreadEmails")}</div>
               </Link>
 
               {/* Tasks */}
@@ -480,7 +607,7 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.pendingTasks}</div>
-                <div className="text-[12px] text-[#71717A] mt-1">{t("pendingTasks")}</div>
+                <div className="text-[12px] text-[#A1A1AA] mt-1">{t("pendingTasks")}</div>
                 {stats.overdueTasks > 0 && (
                   <div className="text-[11px] font-medium text-[#F87171] mt-1">
                     {stats.overdueTasks} {t("overdueLabel")}
@@ -498,14 +625,14 @@ export default function DashboardPage() {
                   <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#3B82F6]/10">
                     <FileSpreadsheet className="h-4 w-4 text-[#3B82F6]" />
                   </div>
-                  {stats.pvThisWeek > 0 && (
+                  {stats.awaitingResponses > 0 && (
                     <span className="text-[11px] font-semibold text-[#FBBF24]">
-                      {stats.pvThisWeek} {t("waitingResponses")}
+                      {stats.awaitingResponses} {t("waitingResponses")}
                     </span>
                   )}
                 </div>
-                <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.pvThisWeek}</div>
-                <div className="text-[12px] text-[#71717A] mt-1">{t("activeSubmissions")}</div>
+                <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.activeSubmissions}</div>
+                <div className="text-[12px] text-[#A1A1AA] mt-1">{t("activeSubmissions")}</div>
               </Link>
 
               {/* Projects */}
@@ -518,10 +645,9 @@ export default function DashboardPage() {
                   <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#10B981]/10">
                     <FolderKanban className="h-4 w-4 text-[#10B981]" />
                   </div>
-                  <span className="text-[11px] font-semibold text-[#34D399]">{t("stable")}</span>
                 </div>
                 <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.activeProjects}</div>
-                <div className="text-[12px] text-[#71717A] mt-1">{t("activeProjects")}</div>
+                <div className="text-[12px] text-[#A1A1AA] mt-1">{t("activeProjects")}</div>
               </Link>
             </>
           )}
@@ -538,16 +664,16 @@ export default function DashboardPage() {
                 {t("actionsToday", { count: actionsCount })}
               </div>
               <div className="text-[12px] text-[#D4D4D8] mt-0.5">
-                {t("actionsBannerDesc", {
+                {t("actionsBannerDescV2", {
                   overdue: stats.overdueTasks,
-                  urgent: Math.min(unreadCount, 5),
+                  unread: unreadCount,
                 })}
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
               <Link
                 href="/tasks"
-                className="rounded-lg bg-[#F97316] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#EA580C]"
+                className="rounded-lg bg-[#F97316] px-4 py-2 text-xs font-semibold text-[#0F0F11] transition-colors hover:bg-[#EA580C]"
               >
                 {t("treatNow")}
               </Link>
@@ -592,8 +718,8 @@ export default function DashboardPage() {
                 <><ProjectCardSkeleton /><ProjectCardSkeleton /><ProjectCardSkeleton /></>
               ) : stats.projectsList.length === 0 ? (
                 <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] flex flex-col items-center justify-center py-10">
-                  <FolderKanban className="h-8 w-8 text-[#71717A] mb-2" />
-                  <p className="text-sm text-[#71717A]">{t("noProjects")}</p>
+                  <FolderKanban className="h-8 w-8 text-[#A1A1AA] mb-2" />
+                  <p className="text-sm text-[#A1A1AA]">{t("noProjects")}</p>
                   <Link
                     href="/projects/new"
                     className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#F97316] hover:underline"
@@ -641,17 +767,19 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Meta */}
-                      <div className="text-[11px] text-[#71717A] mt-0.5">
+                      <div className="text-[11px] text-[#A1A1AA] mt-0.5">
                         {project.code}
                         {project.client_name && ` · ${project.client_name}`}
                         {project.city && ` · ${project.city}`}
                       </div>
 
                       {/* Stats row */}
-                      <div className="flex gap-4 mt-2 text-[11px] text-[#71717A]">
+                      <div className="flex gap-4 mt-2 text-[11px] text-[#A1A1AA]">
                         <span>
-                          <Mail className="inline h-3 w-3 mr-1 -mt-px" />
-                          <span className="font-semibold text-[#D4D4D8]">{tc.total}</span> {t("emailsLabel")}
+                          {/* This is the open-TASK count (from projectTaskCounts),
+                              so it is labelled and iconed as tasks — not emails. */}
+                          <ListTodo className="inline h-3 w-3 mr-1 -mt-px" />
+                          <span className="font-semibold text-[#D4D4D8]">{tc.total}</span> {t("openTasksLabel")}
                         </span>
                         <span>
                           <CheckSquare className="inline h-3 w-3 mr-1 -mt-px" />
@@ -690,7 +818,7 @@ export default function DashboardPage() {
             {/* Activity feed */}
             <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-4">
               {!loading && recentDone.length === 0 ? (
-                <p className="text-center text-xs text-[#71717A] py-4">{t("noRecentActivity")}</p>
+                <p className="text-center text-xs text-[#A1A1AA] py-4">{t("noRecentActivity")}</p>
               ) : (
                 <div className="space-y-0">
                   {recentDone.map((task, i) => (
@@ -706,7 +834,7 @@ export default function DashboardPage() {
                           <span className="font-semibold text-[#FAFAFA]">{t("pendingTasks").split(" ")[0]}</span>{" "}
                           {task.title}
                         </p>
-                        <p className="text-[10px] text-[#52525B] mt-0.5">
+                        <p className="text-[10px] text-[#A1A1AA] mt-0.5">
                           {new Date(task.created_at).toLocaleDateString("fr-CH", {
                             day: "numeric",
                             month: "short",
@@ -719,41 +847,216 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* AI Briefing */}
-            <div className="rounded-[10px] border border-[#F97316]/15 bg-gradient-to-br from-[#1C1209] to-[#18130A] p-4">
-              <div className="flex items-center gap-2 mb-2 font-display text-[13px] font-bold text-[#FB923C]">
-                <Sparkles className="h-4 w-4" />
-                {t("aiBriefingTitle")}
+            {/* ===== BRIEFING (full, clickable) ===== */}
+            {/* The dashboard is now the briefing's home — /briefing redirects
+                here. Every stat and alert is a real link into the module that
+                can actually resolve it, so the briefing is a control panel
+                rather than a wall of read-only text. */}
+            <div
+              id="briefing"
+              className="scroll-mt-20 rounded-[10px] border border-[#F97316]/15 bg-gradient-to-br from-[#1C1209] to-[#18130A] p-4"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2 font-display text-[13px] font-bold text-[#FB923C]">
+                  <Sparkles className="h-4 w-4" />
+                  {t("aiBriefingTitle")}
+                  {briefing?.mode && (
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                        briefing.mode === "ai"
+                          ? "bg-[#F97316]/15 text-[#FB923C]"
+                          : "bg-[#3B82F6]/15 text-[#60A5FA]"
+                      }`}
+                      title={
+                        briefing.mode === "ai"
+                          ? "Rédigé par l'IA à partir de vos données"
+                          : "Assemblé directement depuis vos données, sans IA"
+                      }
+                    >
+                      {briefing.mode === "ai" ? "IA" : "Données"}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={regenerateBriefing}
+                  disabled={briefingGenerating}
+                  title="Régénérer le briefing"
+                  className="rounded-md p-1 text-[#A1A1AA] transition-colors hover:bg-[#F97316]/10 hover:text-[#FB923C] disabled:opacity-40"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${briefingGenerating ? "animate-spin" : ""}`} />
+                </button>
               </div>
+
               {briefingGenerating ? (
                 <div className="flex items-center gap-2 text-[12px] text-[#F97316] animate-pulse">
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   <span>Génération du briefing en cours...</span>
                 </div>
-              ) : briefingHighlights.length > 0 ? (
-                <div className="space-y-1.5">
-                  {briefing?.greeting && (
-                    <p className="text-[11px] text-[#A1A1AA] mb-1 italic">{briefing.greeting}</p>
-                  )}
-                  {briefingHighlights.map((item, i) => (
-                    <div key={i} className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
-                      <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
               ) : (
-                <div className="text-[12px] text-[#71717A] italic leading-snug">
-                  {t("briefingEmpty")}
-                </div>
+                <>
+                  {briefing?.greeting && (
+                    <p className="text-[11px] text-[#A1A1AA] mb-2 italic">{briefing.greeting}</p>
+                  )}
+
+                  {/* Clickable stat chips */}
+                  {briefingStats && (
+                    <div className="mb-3 flex flex-wrap gap-1.5">
+                      <BriefingStat
+                        href="/mail"
+                        value={briefingStats.emails_unread}
+                        label={t("unreadEmails")}
+                        tone={briefingStats.emails_unread > 0 ? "blue" : "muted"}
+                      />
+                      <BriefingStat
+                        href="/tasks?overdue=1"
+                        value={briefingStats.tasks_overdue}
+                        label={t("overdueLabel")}
+                        tone={briefingStats.tasks_overdue > 0 ? "red" : "muted"}
+                      />
+                      <BriefingStat
+                        href="/tasks"
+                        value={briefingStats.tasks_due_today}
+                        label="aujourd'hui"
+                        tone={briefingStats.tasks_due_today > 0 ? "amber" : "muted"}
+                      />
+                      <BriefingStat
+                        href="/calendar"
+                        value={briefingStats.meetings_today}
+                        label="au calendrier"
+                        tone={briefingStats.meetings_today > 0 ? "green" : "muted"}
+                      />
+                    </div>
+                  )}
+
+                  {/* Priority alerts */}
+                  {briefingHighlights.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {briefingHighlights.map((item, i) => (
+                        <div key={i} className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
+                          <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[12px] text-[#A1A1AA] italic leading-snug">
+                      {t("briefingEmpty")}
+                    </div>
+                  )}
+
+                  {/* Submission deadlines — resolved to real submission pages */}
+                  {briefing?.submission_deadlines && briefing.submission_deadlines.length > 0 && (
+                    <div className="mt-3 border-t border-[#F97316]/10 pt-2">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
+                        Deadlines soumissions
+                      </p>
+                      <div className="space-y-1">
+                        {briefing.submission_deadlines.slice(0, 4).map((d, i) => {
+                          const id = submissionIdByTitle.get(d.title.toLowerCase().trim());
+                          const inner = (
+                            <>
+                              <span className="truncate">{d.title}</span>
+                              <span
+                                className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                                  d.days_remaining <= 3
+                                    ? "bg-[#EF4444]/15 text-[#F87171]"
+                                    : d.days_remaining <= 7
+                                      ? "bg-[#F59E0B]/15 text-[#FBBF24]"
+                                      : "bg-[#27272A] text-[#A1A1AA]"
+                                }`}
+                              >
+                                {d.days_remaining}j
+                              </span>
+                            </>
+                          );
+                          return id ? (
+                            <Link
+                              key={i}
+                              href={`/submissions/${id}`}
+                              className="flex items-center gap-2 rounded px-1 py-0.5 text-[11px] text-[#D4D4D8] transition-colors hover:bg-[#F97316]/10 hover:text-[#FAFAFA]"
+                            >
+                              {inner}
+                            </Link>
+                          ) : (
+                            <div
+                              key={i}
+                              className="flex items-center gap-2 px-1 py-0.5 text-[11px] text-[#D4D4D8]"
+                            >
+                              {inner}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Per-project lines — each links to its project */}
+                  {briefing?.projects && briefing.projects.length > 0 && (
+                    <div className="mt-3 border-t border-[#F97316]/10 pt-2">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
+                        {t("myProjects")}
+                      </p>
+                      <div className="space-y-1">
+                        {briefing.projects.slice(0, 5).map((p) => (
+                          <Link
+                            key={p.project_id}
+                            href={`/projects/${p.project_id}`}
+                            className="flex items-start gap-2 rounded px-1 py-0.5 text-[11px] text-[#D4D4D8] transition-colors hover:bg-[#F97316]/10 hover:text-[#FAFAFA]"
+                          >
+                            <span className="shrink-0">{p.status_emoji || "📋"}</span>
+                            <span className="min-w-0">
+                              <span className="font-medium">{p.name}</span>
+                              {p.summary && (
+                                <span className="text-[#A1A1AA]"> — {p.summary}</span>
+                              )}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Today's calendar */}
+                  {briefing?.meetings_today && briefing.meetings_today.length > 0 && (
+                    <div className="mt-3 border-t border-[#F97316]/10 pt-2">
+                      <Link
+                        href="/calendar"
+                        className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] hover:text-[#FB923C]"
+                      >
+                        <CalendarDays className="h-3 w-3" />
+                        Aujourd&apos;hui
+                      </Link>
+                      <div className="space-y-1">
+                        {briefing.meetings_today.slice(0, 4).map((m, i) => (
+                          <Link
+                            key={i}
+                            href="/calendar"
+                            className="flex items-center gap-2 rounded px-1 py-0.5 text-[11px] text-[#D4D4D8] transition-colors hover:bg-[#F97316]/10 hover:text-[#FAFAFA]"
+                          >
+                            <span className="shrink-0 font-semibold text-[#FB923C]">{m.time}</span>
+                            <span className="truncate">{m.title}</span>
+                            {m.project && m.project !== "—" && (
+                              <span className="ml-auto shrink-0 text-[10px] text-[#A1A1AA]">
+                                {m.project}
+                              </span>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {briefing?.global_summary && (
+                    <p className="mt-3 border-t border-[#F97316]/10 pt-2 text-[11px] leading-snug text-[#A1A1AA]">
+                      {briefing.global_summary}
+                    </p>
+                  )}
+                </>
               )}
-              <Link
-                href="/briefing"
-                className="block mt-2 text-[11px] font-semibold text-[#F97316] hover:underline"
-              >
-                {t("aiBriefingCta")} <ChevronRight className="inline h-3 w-3" />
-              </Link>
             </div>
+
+            {/* Pending follow-ups — approve straight from the briefing */}
+            <FollowupSection />
           </div>
         </div>
 
@@ -767,7 +1070,7 @@ export default function DashboardPage() {
               {t("deadlinesSoon")}
             </h3>
             {!loading && stats.deadlines.length === 0 ? (
-              <p className="text-xs text-[#71717A] py-3 text-center">{t("noDeadlines")}</p>
+              <p className="text-xs text-[#A1A1AA] py-3 text-center">{t("noDeadlines")}</p>
             ) : (
               <div className="space-y-0">
                 {stats.deadlines.map((task, i) => {
@@ -807,7 +1110,7 @@ export default function DashboardPage() {
               {t("priorityTasks")}
             </h3>
             {!loading && stats.priorityTasks.length === 0 ? (
-              <p className="text-xs text-[#71717A] py-3 text-center">{t("noPriorityTasks")}</p>
+              <p className="text-xs text-[#A1A1AA] py-3 text-center">{t("noPriorityTasks")}</p>
             ) : (
               <div className="space-y-0">
                 {stats.priorityTasks.map((task, i) => {
@@ -837,7 +1140,7 @@ export default function DashboardPage() {
                       />
                       <span className="text-[11px] text-[#D4D4D8] flex-1 truncate">{task.title}</span>
                       {projShort && (
-                        <span className="text-[10px] text-[#71717A] shrink-0">{projShort}</span>
+                        <span className="text-[10px] text-[#A1A1AA] shrink-0">{projShort}</span>
                       )}
                     </div>
                   );
@@ -873,6 +1176,11 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      {/* Getting-started checklist — the component existed but was never
+          mounted anywhere. Shown only while the org still looks new, so
+          established users are not nagged. It self-dismisses via localStorage. */}
+      {showOnboarding && <OnboardingChecklist />}
     </div>
   );
 }

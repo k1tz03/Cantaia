@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
-import { insufficientCreditsResponse } from "@/lib/credits";
+import { insufficientCreditsResponse, grantCredits } from "@/lib/credits";
 
 export const maxDuration = 120;
 
@@ -24,24 +24,6 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (!userRow?.organization_id) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
-    }
-
-    // Check AI usage limit
-    const { data: orgData } = await admin
-      .from("organizations")
-      .select("subscription_plan")
-      .eq("id", userRow.organization_id)
-      .single();
-
-    const usageCheck = await checkUsageLimit(admin, userRow.organization_id, orgData?.subscription_plan || "trial", "handwritten_notes");
-    if (!usageCheck.allowed) {
-      if (usageCheck.insufficient_credits) {
-        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
-      }
-      return NextResponse.json(
-        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
-        { status: 429 }
-      );
     }
 
     const { data: body, error: parseError } = await parseBody(request);
@@ -72,6 +54,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Photo is not of type handwritten_notes" }, { status: 400 });
     }
 
+    // Check AI usage limit AFTER the request + photo are fully validated:
+    // checkUsageLimit DEBITS in credits mode, so an invalid body or a wrong
+    // photo must not cost the user 5 credits.
+    const { data: orgData } = await admin
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", userRow.organization_id)
+      .single();
+
+    const usageCheck = await checkUsageLimit(admin, userRow.organization_id, orgData?.subscription_plan || "trial", "handwritten_notes");
+    if (!usageCheck.allowed) {
+      if (usageCheck.insufficient_credits) {
+        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+      }
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
+    }
+    const refundCredits =
+      usageCheck.remaining_credits !== null ? usageCheck.required_credits ?? 0 : 0;
+
     const { runHandwrittenNotesAnalysis } = await import("@cantaia/core/visits");
 
     const result = await runHandwrittenNotesAnalysis({
@@ -81,6 +85,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.ok) {
+      // Analysis failed — refund the debit so the retry does not double-charge.
+      if (refundCredits > 0) {
+        await grantCredits(userRow.organization_id, refundCredits, "refund", `handwritten_notes:${photo_id}`, user.id);
+      }
       const status = result.error === "AI service not configured" ? 503 : 500;
       return NextResponse.json({ error: result.error || "Analysis failed" }, { status });
     }

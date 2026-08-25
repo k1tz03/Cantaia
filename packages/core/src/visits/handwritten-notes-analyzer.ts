@@ -4,6 +4,7 @@
  */
 
 import type { HandwrittenNotesAnalysis } from "@cantaia/database";
+import { MODEL_FOR_TASK, parseAIJson } from "../ai/ai-utils";
 
 export interface AnalyzeNotesInput {
   imageBase64: string;
@@ -80,7 +81,7 @@ export async function analyzeHandwrittenNotes(
     : "";
 
   const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
+    model: MODEL_FOR_TASK.handwritten_notes,
     max_tokens: 4096,
     system: HANDWRITTEN_NOTES_PROMPT,
     messages: [
@@ -101,10 +102,6 @@ export async function analyzeHandwrittenNotes(
           },
         ],
       },
-      {
-        role: "assistant",
-        content: "{",
-      },
     ],
   });
 
@@ -112,14 +109,12 @@ export async function analyzeHandwrittenNotes(
   const tokens_used = response.usage.input_tokens + response.usage.output_tokens;
 
   const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-  const fullJson = "{" + text;
 
   let analysis: HandwrittenNotesAnalysis;
-  try {
-    const jsonMatch = fullJson.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in response");
-    analysis = JSON.parse(jsonMatch[0]);
-  } catch {
+  const parsed = parseAIJson<HandwrittenNotesAnalysis>(text);
+  if (parsed) {
+    analysis = parsed;
+  } else {
     // Fallback: construct a minimal result
     analysis = {
       transcribed_text: text.length > 50 ? text : "Analyse échouée — réessayez",

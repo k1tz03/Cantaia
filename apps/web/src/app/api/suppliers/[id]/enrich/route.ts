@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 /**
  * POST /api/suppliers/[id]/enrich
@@ -32,7 +34,8 @@ export async function POST(
     .maybeSingle();
 
   if (!userOrg?.organization_id) {
-    return NextResponse.json({ error: "No organization" }, { status: 400 });
+    // Anti-IDOR contract: unresolvable org attachment → 403 (like the rest of the module).
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   // Fetch supplier
@@ -45,6 +48,39 @@ export async function POST(
 
   if (fetchErr || !supplier) {
     return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
+  }
+
+  // ── Metering ────────────────────────────────────────────
+  // The route already TRACKED its cost but never DEBITED it: enrichment ran
+  // free of charge for the org. Gate it like every other AI action.
+  const { data: enrichOrg } = await (adminClient as any)
+    .from("organizations")
+    .select("subscription_plan")
+    .eq("id", userOrg.organization_id)
+    .maybeSingle();
+
+  const usageCheck = await checkUsageLimit(
+    adminClient,
+    userOrg.organization_id,
+    enrichOrg?.subscription_plan || "trial",
+    "supplier_enrichment"
+  );
+  if (!usageCheck.allowed) {
+    if (usageCheck.insufficient_credits) {
+      return insufficientCreditsResponse(
+        usageCheck.required_credits ?? 1,
+        usageCheck.remaining_credits ?? 0
+      );
+    }
+    return NextResponse.json(
+      {
+        error: "usage_limit_reached",
+        current: usageCheck.current,
+        limit: usageCheck.limit,
+        required_plan: usageCheck.requiredPlan,
+      },
+      { status: 429 }
+    );
   }
 
   try {
@@ -68,7 +104,7 @@ export async function POST(
           inputTokens: usage.input_tokens,
           outputTokens: usage.output_tokens,
           metadata: { supplier_id: id },
-        });
+        }).catch(() => {});
       }
     );
 
@@ -103,17 +139,20 @@ export async function POST(
     const foundCount = fieldsEnriched.length + (result.additional_contacts?.length > 0 ? 1 : 0);
     const enrichmentConfidence = Math.min(1.0, foundCount / maxPossibleFields);
 
-    // Fetch existing metadata to merge
+    // Fetch existing metadata to merge (column added in migration 110)
     let existingMetadata: Record<string, any> = {};
-    try {
-      const { data: currentSupplier } = await (adminClient as any)
+    {
+      const { data: currentSupplier, error: metaErr } = await (adminClient as any)
         .from("suppliers")
         .select("metadata")
         .eq("id", id)
+        .eq("organization_id", userOrg.organization_id)
         .maybeSingle();
-      existingMetadata = currentSupplier?.metadata || {};
-    } catch {
-      // metadata column may not exist yet
+      if (metaErr) {
+        console.warn("[suppliers/enrich] metadata read failed:", metaErr.message);
+      } else {
+        existingMetadata = currentSupplier?.metadata || {};
+      }
     }
 
     updates.metadata = {
@@ -131,10 +170,18 @@ export async function POST(
     };
 
     if (Object.keys(updates).length > 0) {
-      await (adminClient as any)
+      const { error: updateErr } = await (adminClient as any)
         .from("suppliers")
         .update(updates)
-        .eq("id", id);
+        .eq("id", id)
+        .eq("organization_id", userOrg.organization_id);
+      if (updateErr) {
+        console.error("[suppliers/enrich] Update failed:", updateErr.message);
+        return NextResponse.json(
+          { error: "Enrichissement calculé mais non enregistré" },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({

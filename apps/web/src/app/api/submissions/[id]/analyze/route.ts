@@ -3,6 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 import { insufficientCreditsResponse } from "@/lib/credits";
+import { trackApiUsage } from "@cantaia/core/tracking";
+// The submission vocabulary and the planning vocabulary MUST be the same table.
+// They drifted apart once (8 codes out of 33 matched) and it silently broke every
+// productivity lookup and every CFC dependency rule downstream.
+import { buildCfcPromptTable, listMaterialGroups } from "@cantaia/core/planning";
+
+const CFC_TABLE = buildCfcPromptTable();
+const MATERIAL_GROUPS = listMaterialGroups().join(", ");
 
 // ── Architecture: client-driven chunked analysis ─────────────
 //
@@ -104,54 +112,31 @@ Termes courants DE→FR:
 - Schreinerarbeiten → Menuiserie
 - Metallbau/Stahlbau → Construction métallique
 
-# CODES CFC SUISSES — TABLE DE RÉFÉRENCE
-| CFC   | Description                                      |
-|-------|--------------------------------------------------|
-| 113   | Installations de chantier                        |
-| 117   | Terrassement, excavation, déblais                |
-| 151   | Canalisations, drainage                          |
-| 211   | Béton armé (fourniture + coulage uniquement)     |
-| 211.1 | Coffrage (séparé du béton !)                     |
-| 211.2 | Ferraillage, armature (séparé du béton !)        |
-| 213   | Éléments préfabriqués en béton                   |
-| 214   | Maçonnerie, briques, blocs                       |
-| 215   | Imperméabilisation, étanchéité souterraine       |
-| 221   | Fenêtres et portes extérieures                   |
-| 222   | Portes intérieures                               |
-| 224   | Ferblanterie, zinguerie                          |
-| 225   | Couverture, toiture                              |
-| 227   | Façades, revêtements extérieurs                  |
-| 228   | Stores, protections solaires                     |
-| 231   | Électricité courant fort                         |
-| 232   | Installations électriques (courant faible, comm) |
-| 234   | Ascenseurs, monte-charges                        |
-| 241   | Chauffage, production de chaleur                 |
-| 242   | Installations de chauffage (distribution)        |
-| 244   | Ventilation, climatisation                       |
-| 245   | Installations frigorifiques                      |
-| 251   | Sanitaire, plomberie, conduites d'eau            |
-| 261   | Plâtrerie, cloisons sèches                       |
-| 271   | Étanchéité, imperméabilisation (superstructure)  |
-| 273   | Isolation thermique                              |
-| 281   | Revêtements de sols (carrelage, parquet, etc.)   |
-| 283   | Revêtements muraux                               |
-| 285   | Faux plafonds                                    |
-| 286   | Peinture, tapisserie                             |
-| 291   | Menuiserie intérieure, agencement                |
-| 311   | Aménagements extérieurs, espaces verts           |
-| 421   | Cuisine (appareils et agencement)                |
+# CODES CFC SUISSES — TABLE DE RÉFÉRENCE (CRB / SN 506 500)
+Utilise EXCLUSIVEMENT ces codes. Ils sont la source de vérité partagée avec le
+générateur de planning : un code hors de cette table est ignoré en aval.
+${CFC_TABLE}
 
-ATTENTION :
-- CFC 211 = UNIQUEMENT le béton (fourniture + coulage). NE PAS y mettre coffrage ni ferraillage.
-- CFC 211.1 = coffrage → toujours séparé du béton armé
-- CFC 211.2 = ferraillage/armature → toujours séparé du béton armé
-- CFC 271 = étanchéité en SUPERSTRUCTURE (toitures, terrasses). CFC 215 = étanchéité SOUTERRAINE.
-- CFC 231/232 = électricité. CFC 241/242 = chauffage. NE PAS confondre.
-- En cas de doute, attribue le code CFC le plus précis possible. Ne laisse jamais cfc_code vide si tu peux deviner la discipline.
+ATTENTION — pièges de numérotation CRB :
+- CFC 211 = travaux de l'entreprise de maçonnerie. Détaille toujours :
+  211.1 coffrage · 211.2 ferraillage/armature · 211.3 béton (fourniture + coulage) ·
+  211.5 maçonnerie briques/blocs · 211.6 échafaudages. NE PAS tout mettre sur 211.
+- CFC 214 = construction en BOIS (charpente, ossature). CFC 215 = construction en ACIER
+  (charpente métallique). CFC 216 = éléments PRÉFABRIQUÉS en béton. Ne jamais les confondre.
+- CFC 271 = PLÂTRERIE (cloisons sèches, enduits intérieurs). Les CHAPES sont en 281.1.
+- CFC 281 = revêtements de SOL : 281.1 chape · 281.2 carrelage · 281.3 parquet et sols souples.
+  CFC 282 = revêtements de PAROI (faïence murale). CFC 283 = faux-plafonds. CFC 285 = peinture intérieure.
+- CFC 224 = couverture (tuiles). CFC 225 = étanchéité et isolations spéciales.
+  CFC 226 = crépi de façade. CFC 227 = revêtement de façade et isolation périphérique (ITE).
+- CFC 231/232/233/235 = électricité. CFC 241/242 = chauffage. CFC 243/244 = ventilation/climatisation.
+  CFC 251/253 = sanitaire. Ne jamais confondre chauffage et électricité.
+- CFC 261 = ascenseurs. CFC 258 = agencement de cuisine. CFC 287 = nettoyage du bâtiment.
+- En cas de doute, attribue le code le plus précis possible. Ne laisse jamais cfc_code vide
+  si la discipline est identifiable.
 
 # GROUPES DE MATÉRIAUX
 Utilise UNIQUEMENT ces groupes (en français) :
-Terrassement, Fondations, Béton armé, Coffrage, Ferraillage, Maçonnerie, Étanchéité, Isolation thermique, Fenêtres/Portes, Façades, Toiture, Ferblanterie, Électricité, CVC/Chauffage, Sanitaire/Plomberie, Ventilation, Revêtements sols, Revêtements murs, Peinture, Plâtrerie, Menuiserie intérieure, Faux plafonds, Construction métallique, Aménagements extérieurs, Ascenseurs, Installations de chantier, Divers
+${MATERIAL_GROUPS}
 
 # VALIDATION DES QUANTITÉS
 - REJETTE les cellules qui ressemblent à des numéros de page (1, 2, 3... en séquence)
@@ -251,7 +236,16 @@ export async function POST(
 
     // Route to the correct handler
     if (isChunkMode) {
-      return handleChunk(id, submission, admin, body.chunkIndex, body.totalChunks, body.pageCount);
+      return handleChunk(
+        id,
+        submission,
+        admin,
+        body.chunkIndex,
+        body.totalChunks,
+        body.pageCount,
+        user.id,
+        userProfile.organization_id
+      );
     }
 
     // ── H7 watchdog (PREPARE only) ─────────────────────────────────────────
@@ -284,7 +278,7 @@ export async function POST(
       ).catch(() => {});
     }
 
-    return handlePrepare(id, submission, admin);
+    return handlePrepare(id, submission, admin, user.id, userProfile.organization_id);
 
   } catch (err: any) {
     console.error("[analyze] Fatal error:", err);
@@ -300,12 +294,70 @@ export async function POST(
   }
 }
 
+/**
+ * Token accumulator threaded through the Claude helpers.
+ *
+ * This route fans out into many Claude calls (one Vision call per PDF chunk,
+ * up to 3 concurrent Haiku calls per text batch). It debited
+ * `submission_analyze` but wrote NO api_usage_logs row at all, so the single
+ * most expensive action in the product was invisible in every cost dashboard.
+ * Each phase now accumulates its calls and emits ONE aggregated row.
+ */
+interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  calls: number;
+}
+
+function newUsage(): TokenUsage {
+  return { inputTokens: 0, outputTokens: 0, calls: 0 };
+}
+
+function recordUsage(acc: TokenUsage | undefined, response: any): void {
+  if (!acc) return;
+  acc.inputTokens += response?.usage?.input_tokens || 0;
+  acc.outputTokens += response?.usage?.output_tokens || 0;
+  acc.calls += 1;
+}
+
+/** Emits the aggregated api_usage_logs row for one analysis phase. */
+function trackAnalysisUsage(
+  admin: ReturnType<typeof createAdminClient>,
+  usage: TokenUsage,
+  ctx: {
+    userId?: string | null;
+    organizationId?: string | null;
+    submissionId: string;
+    model: string;
+    phase: string;
+  }
+): void {
+  if (usage.calls === 0 || !ctx.userId || !ctx.organizationId) return;
+  trackApiUsage({
+    supabase: admin as any,
+    userId: ctx.userId,
+    organizationId: ctx.organizationId,
+    actionType: "submission_parse",
+    apiProvider: "anthropic",
+    model: ctx.model,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    metadata: {
+      submission_id: ctx.submissionId,
+      phase: ctx.phase,
+      ai_calls: usage.calls,
+    },
+  }).catch(() => {});
+}
+
 // ── PREPARE: initialize + fast-path for Excel / text PDFs ────
 
 async function handlePrepare(
   id: string,
   submission: any,
-  admin: ReturnType<typeof createAdminClient>
+  admin: ReturnType<typeof createAdminClient>,
+  userId?: string | null,
+  organizationId?: string | null
 ) {
   // Clear stale items and budget, mark as analyzing
   await (admin as any).from("submission_items").delete().eq("submission_id", id);
@@ -336,7 +388,15 @@ async function handlePrepare(
         await setAnalysisError(admin, id, "Document vide ou illisible (moins de 50 caractères extraits)");
         return NextResponse.json({ error: "Document vide ou illisible" }, { status: 422 });
       }
-      const items = await analyzeWithClaude(text);
+      const excelUsage = newUsage();
+      const items = await analyzeWithClaude(text, excelUsage);
+      trackAnalysisUsage(admin, excelUsage, {
+        userId,
+        organizationId,
+        submissionId: id,
+        model: "claude-haiku-4-5-20251001",
+        phase: "prepare_excel",
+      });
       if (!items || items.length === 0) {
         await setAnalysisError(admin, id, "Aucun poste détecté dans le document");
         return NextResponse.json({ error: "Aucun poste détecté" }, { status: 422 });
@@ -399,7 +459,15 @@ async function handlePrepare(
 
     if (meaningfulChars >= 100) {
       // Text-based PDF: full analysis here (~20-35s total, well within maxDuration=300)
-      const items = await analyzeWithClaude(pdfText);
+      const textPdfUsage = newUsage();
+      const items = await analyzeWithClaude(pdfText, textPdfUsage);
+      trackAnalysisUsage(admin, textPdfUsage, {
+        userId,
+        organizationId,
+        submissionId: id,
+        model: "claude-haiku-4-5-20251001",
+        phase: "prepare_text_pdf",
+      });
       if (!items || items.length === 0) {
         await setAnalysisError(admin, id, "Aucun poste détecté dans le document");
         return NextResponse.json({ error: "Aucun poste détecté" }, { status: 422 });
@@ -496,7 +564,9 @@ async function handleChunk(
   admin: ReturnType<typeof createAdminClient>,
   chunkIndex: number,
   totalChunks: number,
-  pageCount: number
+  pageCount: number,
+  userId?: string | null,
+  organizationId?: string | null
 ) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -570,9 +640,10 @@ async function handleChunk(
     // Vision → JSON directly (~25s), no second Haiku round-trip.
     // With PAGES_PER_CHUNK=5 there is always exactly 1 batch, so Promise.all
     // is equivalent to a single call — kept for the fallback full-PDF path.
+    const chunkUsage = newUsage();
     const batchResults = await Promise.all(
       batchBuffers.map(({ buf, label }) =>
-        claudeVisionExtractItems(client, buf, label).catch((err: any) => {
+        claudeVisionExtractItems(client, buf, label, chunkUsage).catch((err: any) => {
           console.error(`[CHUNK] Vision failed for ${label}:`, err.message);
           // Fatal API errors: abort immediately to avoid burning time + credits
           const msg = (err.message || "").toLowerCase();
@@ -589,6 +660,13 @@ async function handleChunk(
     );
 
     const items: any[] = batchResults.flat();
+    trackAnalysisUsage(admin, chunkUsage, {
+      userId,
+      organizationId,
+      submissionId: id,
+      model: "claude-sonnet-4-5-20250929",
+      phase: `chunk_${chunkIndex + 1}_of_${totalChunks}`,
+    });
     console.log(`[CHUNK ${chunkIndex + 1}/${totalChunks}] Vision+JSON: ${items.length} items`);
 
     if (items.length === 0) {
@@ -704,7 +782,8 @@ async function setAnalysisError(admin: ReturnType<typeof createAdminClient>, id:
 async function claudeVisionExtractItems(
   client: any,
   pdfBuffer: Buffer,
-  batchLabel: string
+  batchLabel: string,
+  usage?: TokenUsage
 ): Promise<any[]> {
   const base64 = pdfBuffer.toString("base64");
   console.log(`[VISION] ${batchLabel}: ${(pdfBuffer.length / 1024).toFixed(0)} KB → ${(base64.length / 1024).toFixed(0)} KB base64`);
@@ -734,6 +813,8 @@ async function claudeVisionExtractItems(
       // preamble/markdown without prefilling the assistant turn.
     ],
   });
+
+  recordUsage(usage, response);
 
   const textBlock = response.content.find((c: any) => c.type === "text");
   const raw = (textBlock as any)?.text || "";
@@ -837,7 +918,10 @@ async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fil
 
 // ── Claude text analysis ──────────────────────────────────────
 
-async function analyzeWithClaude(textContent: string): Promise<any[]> {
+async function analyzeWithClaude(
+  textContent: string,
+  usage?: TokenUsage
+): Promise<any[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
@@ -850,7 +934,7 @@ async function analyzeWithClaude(textContent: string): Promise<any[]> {
   const MAX_CHUNK_CHARS = 80_000;
 
   if (textContent.length <= MAX_CHUNK_CHARS) {
-    return analyzeChunk(client, textContent);
+    return analyzeChunk(client, textContent, undefined, undefined, usage);
   }
 
   // Split into chunks by lines
@@ -876,7 +960,9 @@ async function analyzeWithClaude(textContent: string): Promise<any[]> {
   for (let batch = 0; batch < chunks.length; batch += MAX_CONCURRENT) {
     const batchChunks = chunks.slice(batch, batch + MAX_CONCURRENT);
     const results = await Promise.all(
-      batchChunks.map((chunk, i) => analyzeChunk(client, chunk, batch + i + 1, chunks.length))
+      batchChunks.map((chunk, i) =>
+        analyzeChunk(client, chunk, batch + i + 1, chunks.length, usage)
+      )
     );
     allItems.push(...results.flat());
   }
@@ -888,7 +974,8 @@ async function analyzeChunk(
   client: InstanceType<typeof import("@anthropic-ai/sdk").default>,
   text: string,
   chunkIndex?: number,
-  totalChunks?: number
+  totalChunks?: number,
+  usage?: TokenUsage
 ): Promise<any[]> {
   const estimatedTokens = Math.round(text.length / 4);
   const chunkLabel = chunkIndex ? ` (chunk ${chunkIndex}/${totalChunks})` : "";
@@ -915,6 +1002,8 @@ async function analyzeChunk(
       },
     ],
   });
+
+  recordUsage(usage, response);
 
   const textBlock = response.content.find((c: any) => c.type === "text");
   if (!textBlock || textBlock.type !== "text") throw new Error("No text response from Claude");

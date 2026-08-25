@@ -216,7 +216,7 @@ export default function SuperAdminSupportDetailPage({ params }: { params: Promis
             fontSize: 10,
             textTransform: "uppercase",
             letterSpacing: "0.08em",
-            color: "#52525B",
+            color: "#71717A",
             fontWeight: 600,
             marginBottom: 10,
           }}
@@ -257,7 +257,7 @@ export default function SuperAdminSupportDetailPage({ params }: { params: Promis
             fontSize: 10,
             textTransform: "uppercase",
             letterSpacing: "0.08em",
-            color: "#52525B",
+            color: "#71717A",
             fontWeight: 600,
             marginTop: 24,
             marginBottom: 10,

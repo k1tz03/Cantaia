@@ -31,10 +31,10 @@ export function PVConfirmDialog({
               {t("finalize")}
             </h3>
           </div>
-          <p className="mb-4 text-sm text-[#71717A]">
+          <p className="mb-4 text-sm text-[#A1A1AA]">
             {t("finalize_confirm")}
           </p>
-          <p className="mb-4 text-sm text-[#71717A]">
+          <p className="mb-4 text-sm text-[#A1A1AA]">
             {selectedActionsCount} {t("actions_selected")}
           </p>
           <div className="flex justify-end gap-2">
@@ -70,7 +70,7 @@ export function PVConfirmDialog({
               {t("regenerate")}
             </h3>
           </div>
-          <p className="mb-4 text-sm text-[#71717A]">
+          <p className="mb-4 text-sm text-[#A1A1AA]">
             {t("regenerate_confirm")}
           </p>
           <div className="flex justify-end gap-2">
@@ -102,7 +102,7 @@ export function PVConfirmDialog({
             {t("delete_pv")}
           </h3>
         </div>
-        <p className="mb-4 text-sm text-[#71717A]">
+        <p className="mb-4 text-sm text-[#A1A1AA]">
           {t("delete_pv_confirm")}
         </p>
         <div className="flex justify-end gap-2">

@@ -6,6 +6,7 @@ import { Calendar, Clock, MapPin, Plus, Sparkles } from "lucide-react";
 import { isSameDay, isToday, differenceInMinutes } from "date-fns";
 import type { CalendarEvent, CalendarEventType } from "@cantaia/core/calendar";
 import { toLocaleTag } from "./datetime-utils";
+import { isVirtualEvent, sourceMetaFor } from "./event-source";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -21,9 +22,9 @@ const EVENT_TYPE_COLORS: Record<CalendarEventType, string> = {
 
 // ── Helpers ────────────────────────────────────────────────
 
-function formatTime(dateStr: string): string {
+function formatTime(dateStr: string, localeTag: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleTimeString("fr-CH", {
+  return d.toLocaleTimeString(localeTag, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -102,7 +103,7 @@ function SectionHeader({ label }: { label: string }) {
   return (
     <div className="px-4 pt-5 pb-2">
       <span
-        className="text-[#52525B] text-[10px] font-semibold tracking-[0.12em] uppercase"
+        className="text-[#A1A1AA] text-[10px] font-semibold tracking-[0.12em] uppercase"
         style={{ fontFamily: "var(--font-sans)" }}
       >
         {label}
@@ -112,6 +113,7 @@ function SectionHeader({ label }: { label: string }) {
 }
 
 function NowIndicator() {
+  const localeTag = toLocaleTag(useLocale());
   const [time, setTime] = useState(() => new Date());
 
   useEffect(() => {
@@ -119,7 +121,7 @@ function NowIndicator() {
     return () => clearInterval(interval);
   }, []);
 
-  const formatted = time.toLocaleTimeString("fr-CH", {
+  const formatted = time.toLocaleTimeString(localeTag, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -182,6 +184,7 @@ function EventItem({
   onSelect: () => void;
 }) {
   const t = useTranslations("calendar");
+  const localeTag = toLocaleTag(useLocale());
   const color = event.color || EVENT_TYPE_COLORS[event.event_type] || EVENT_TYPE_COLORS.other;
   const duration = formatDuration(event.start_at, event.end_at);
   const attendees = event.invitations?.filter((inv) => !inv.is_organizer) ?? [];
@@ -190,6 +193,10 @@ function EventItem({
     event.ai_prep_status === "ready" || event.ai_prep_status === "delivered";
   const isDeadline = event.event_type === "deadline";
   const isSynced = event.sync_source === "outlook";
+  // Rows derived from another module (submission deadline, PV, tâche…) —
+  // badged with their origin so the user knows why they cannot be edited here.
+  const sourceMeta = sourceMetaFor(event);
+  const isDerived = isVirtualEvent(event);
 
   return (
     <button
@@ -210,11 +217,11 @@ function EventItem({
           className="text-[#A1A1AA] text-[12px] leading-tight"
           style={{ fontFamily: "var(--font-mono)" }}
         >
-          {event.all_day ? t("allDayShort") : formatTime(event.start_at)}
+          {event.all_day ? t("allDayShort") : formatTime(event.start_at, localeTag)}
         </div>
         {!event.all_day && duration && (
           <div
-            className="text-[#52525B] text-[10px] mt-0.5"
+            className="text-[#A1A1AA] text-[10px] mt-0.5"
             style={{ fontFamily: "var(--font-mono)" }}
           >
             {duration}
@@ -222,10 +229,11 @@ function EventItem({
         )}
       </div>
 
-      {/* Color bar */}
+      {/* Color bar — derived rows get a faded bar: they are informative,
+          not something the user scheduled. */}
       <div
         className="w-[3px] flex-shrink-0 rounded-full self-stretch"
-        style={{ backgroundColor: color }}
+        style={{ backgroundColor: color, opacity: isDerived ? 0.5 : 1 }}
       />
 
       {/* Content */}
@@ -238,15 +246,15 @@ function EventItem({
         {/* Meta line: project + location */}
         <div className="flex items-center gap-1.5 mt-0.5">
           {event.project?.name && (
-            <span className="text-[#71717A] text-[11px] truncate max-w-[120px]">
+            <span className="text-[#A1A1AA] text-[11px] truncate max-w-[120px]">
               {event.project.name}
             </span>
           )}
           {event.project?.name && event.location && (
-            <span className="text-[#52525B] text-[11px]">&middot;</span>
+            <span className="text-[#A1A1AA] text-[11px]">&middot;</span>
           )}
           {event.location && (
-            <span className="text-[#71717A] text-[11px] truncate max-w-[100px] inline-flex items-center gap-0.5">
+            <span className="text-[#A1A1AA] text-[11px] truncate max-w-[100px] inline-flex items-center gap-0.5">
               <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
               {event.location}
             </span>
@@ -257,8 +265,11 @@ function EventItem({
         <div className="flex items-center gap-2 mt-1.5">
           {/* Badges */}
           <div className="flex items-center gap-1">
+            {sourceMeta && (
+              <EventBadge label={sourceMeta.label} color={sourceMeta.color} />
+            )}
             {hasAIPrep && <EventBadge label={t("badgeAIPrep")} color="#F97316" withSparkles />}
-            {isDeadline && <EventBadge label={t("badgeDeadline")} color="#EF4444" />}
+            {isDeadline && !sourceMeta && <EventBadge label={t("badgeDeadline")} color="#EF4444" />}
             {isSynced && <EventBadge label={t("badgeSynced")} color="#10B981" />}
           </div>
 
@@ -305,10 +316,10 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
       <div className="w-12 h-12 rounded-xl bg-[#18181B] flex items-center justify-center mb-4">
-        <Calendar className="w-6 h-6 text-[#52525B]" />
+        <Calendar className="w-6 h-6 text-[#A1A1AA]" />
       </div>
-      <p className="text-[#71717A] text-sm font-medium">{t("noEvents")}</p>
-      <p className="text-[#52525B] text-xs mt-1">
+      <p className="text-[#A1A1AA] text-sm font-medium">{t("noEvents")}</p>
+      <p className="text-[#A1A1AA] text-xs mt-1">
         {t("noEventsHint")}
       </p>
     </div>
@@ -450,13 +461,13 @@ export function AgendaStream({
         >
           {dayNumber}
         </div>
-        <div className="text-[#71717A] text-[12px] mt-0.5">{fullDate}</div>
+        <div className="text-[#A1A1AA] text-[12px] mt-0.5">{fullDate}</div>
 
         {/* Event count */}
         {hasEvents && (
           <div className="flex items-center gap-1.5 mt-2">
-            <Clock className="w-3 h-3 text-[#52525B]" />
-            <span className="text-[#52525B] text-[11px]">
+            <Clock className="w-3 h-3 text-[#A1A1AA]" />
+            <span className="text-[#A1A1AA] text-[11px]">
               {t("eventCount", { count: sortedEvents.length })}
             </span>
           </div>
@@ -531,7 +542,7 @@ export function AgendaStream({
         <button
           type="button"
           onClick={onCreateEvent}
-          className="w-full py-2 flex items-center justify-center gap-2 rounded-lg border border-dashed border-[#3F3F46] text-[#71717A] text-[13px] font-medium transition-colors hover:border-[#F97316] hover:text-[#F97316] hover:bg-[#F97316]/5"
+          className="w-full py-2 flex items-center justify-center gap-2 rounded-lg border border-dashed border-[#3F3F46] text-[#A1A1AA] text-[13px] font-medium transition-colors hover:border-[#F97316] hover:text-[#F97316] hover:bg-[#F97316]/5"
         >
           <Plus className="w-4 h-4" />
           {t("addEvent")}

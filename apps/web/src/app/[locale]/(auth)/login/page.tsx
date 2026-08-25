@@ -75,7 +75,7 @@ export default function LoginPage() {
               {t("eyebrow.label")}
             </span>
             <span className="h-px flex-1 bg-[#27272A]" />
-            <span className="font-tech text-[10px] tracking-[0.14em] text-[#52525B]">
+            <span className="font-tech text-[10px] tracking-[0.14em] text-[#A1A1AA]">
               {t("eyebrow.session")}
             </span>
           </div>
@@ -104,7 +104,7 @@ export default function LoginPage() {
           {/* SSO block */}
           <div className="relative mt-10">
             <div className="mb-4 flex items-center gap-3">
-              <span className="font-tech text-[10px] font-bold tracking-[0.22em] text-[#52525B]">
+              <span className="font-tech text-[10px] font-bold tracking-[0.22em] text-[#A1A1AA]">
                 {t("sso.label")}
               </span>
               <span className="h-px flex-1 bg-[#27272A]" />
@@ -121,7 +121,7 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="relative my-8 flex items-center gap-4">
             <span className="h-px flex-1 bg-[#27272A]" />
-            <span className="font-tech text-[10px] font-bold tracking-[0.22em] text-[#52525B]">
+            <span className="font-tech text-[10px] font-bold tracking-[0.22em] text-[#A1A1AA]">
               {t("divider")}
             </span>
             <span className="h-px flex-1 bg-[#27272A]" />
@@ -132,7 +132,7 @@ export default function LoginPage() {
 
           {/* Register link */}
           <div className="relative mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-[#27272A] pt-6">
-            <span className="font-tech text-[11px] font-semibold tracking-[0.18em] text-[#52525B]">
+            <span className="font-tech text-[11px] font-semibold tracking-[0.18em] text-[#A1A1AA]">
               {t("register.prompt")}
             </span>
             <Link
@@ -175,15 +175,15 @@ export default function LoginPage() {
           <div className="font-condensed text-[14px] font-600 leading-snug text-[#FAFAFA]">
             {t("system.message")}
           </div>
-          <div className="mt-3 flex items-center gap-2 font-tech text-[10px] tracking-[0.14em] text-[#52525B]">
+          <div className="mt-3 flex items-center gap-2 font-tech text-[10px] tracking-[0.14em] text-[#A1A1AA]">
             <span>{t("system.incidentLabel")}</span>
             <span className="h-px flex-1 bg-[#27272A]" />
-            <span className="text-[#71717A]">{t("system.incidentValue")}</span>
+            <span className="text-[#A1A1AA]">{t("system.incidentValue")}</span>
           </div>
         </div>
 
         <div className="mt-4 border border-[#27272A] bg-[#0A0A0C] p-5">
-          <div className="mb-2 font-tech text-[10px] font-bold tracking-[0.22em] text-[#52525B]">
+          <div className="mb-2 font-tech text-[10px] font-bold tracking-[0.22em] text-[#A1A1AA]">
             {t("support.label")}
           </div>
           <div className="font-condensed text-[13px] font-600 leading-snug text-[#FAFAFA]">
@@ -259,7 +259,7 @@ function CredentialsForm() {
       <div className="mb-5">
         <label
           htmlFor="email"
-          className="mb-2 flex items-center justify-between font-tech text-[10px] font-bold uppercase tracking-[0.22em] text-[#52525B]"
+          className="mb-2 flex items-center justify-between font-tech text-[10px] font-bold uppercase tracking-[0.22em] text-[#A1A1AA]"
         >
           <span>{t("form.email.label")}</span>
           <span className="text-[#3F3F46]">{t("form.required")}</span>
@@ -270,7 +270,7 @@ function CredentialsForm() {
           id="email"
           autoComplete="email"
           placeholder={t("form.email.placeholder")}
-          className="block h-[52px] w-full border border-[#27272A] bg-[#0A0A0C] px-4 font-sans text-[14px] text-[#FAFAFA] placeholder-[#52525B] outline-none transition-all focus:border-[#F97316] focus:shadow-[0_0_0_2px_rgba(249,115,22,0.15)]"
+          className="block h-[52px] w-full border border-[#27272A] bg-[#0A0A0C] px-4 font-sans text-[14px] text-[#FAFAFA] placeholder-[#71717A] outline-none transition-all focus:border-[#F97316] focus:shadow-[0_0_0_2px_rgba(249,115,22,0.15)]"
         />
         {errors.email && (
           <p className="mt-1.5 font-tech text-[11px] tracking-[0.08em] text-[#EF4444]">
@@ -283,7 +283,7 @@ function CredentialsForm() {
       <div className="mb-3">
         <label
           htmlFor="password"
-          className="mb-2 flex items-center justify-between font-tech text-[10px] font-bold uppercase tracking-[0.22em] text-[#52525B]"
+          className="mb-2 flex items-center justify-between font-tech text-[10px] font-bold uppercase tracking-[0.22em] text-[#A1A1AA]"
         >
           <span>{t("form.password.label")}</span>
           <span className="text-[#3F3F46]">{t("form.required")}</span>
@@ -295,12 +295,12 @@ function CredentialsForm() {
             id="password"
             autoComplete="current-password"
             placeholder="••••••••••••"
-            className="block h-[52px] w-full border border-[#27272A] bg-[#0A0A0C] px-4 pr-[52px] font-sans text-[14px] text-[#FAFAFA] placeholder-[#52525B] outline-none transition-all focus:border-[#F97316] focus:shadow-[0_0_0_2px_rgba(249,115,22,0.15)]"
+            className="block h-[52px] w-full border border-[#27272A] bg-[#0A0A0C] px-4 pr-[52px] font-sans text-[14px] text-[#FAFAFA] placeholder-[#71717A] outline-none transition-all focus:border-[#F97316] focus:shadow-[0_0_0_2px_rgba(249,115,22,0.15)]"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-0 top-0 flex h-[52px] w-[52px] items-center justify-center border-l border-[#27272A] text-[#71717A] transition-colors hover:text-[#F97316]"
+            className="absolute right-0 top-0 flex h-[52px] w-[52px] items-center justify-center border-l border-[#27272A] text-[#A1A1AA] transition-colors hover:text-[#F97316]"
             aria-label={
               showPassword
                 ? t("form.password.hideAria")
@@ -398,7 +398,7 @@ function MicrosoftButtonChantier() {
           </svg>
         )}
         <span className="flex-1">{t("sso.microsoft")}</span>
-        <span className="font-tech text-[10px] tracking-[0.18em] text-[#52525B] transition-colors group-hover:text-[#F97316]">
+        <span className="font-tech text-[10px] tracking-[0.18em] text-[#A1A1AA] transition-colors group-hover:text-[#F97316]">
           {t("sso.tag")}
         </span>
       </button>
@@ -461,7 +461,7 @@ function GoogleButtonChantier() {
           </svg>
         )}
         <span className="flex-1">{t("sso.google")}</span>
-        <span className="font-tech text-[10px] tracking-[0.18em] text-[#52525B] transition-colors group-hover:text-[#F97316]">
+        <span className="font-tech text-[10px] tracking-[0.18em] text-[#A1A1AA] transition-colors group-hover:text-[#F97316]">
           {t("sso.tag")}
         </span>
       </button>

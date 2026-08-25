@@ -96,11 +96,16 @@ export async function POST(request: NextRequest) {
 
     const buffer = await generateVisitePdf(data);
 
-    // Upload to Supabase Storage as .pdf
-    const clientSlug = (typedVisit.client_name ?? "client")
-      .replace(/\s+/g, "-")
-      .toLowerCase()
-      .slice(0, 30);
+    // Upload to Supabase Storage as .pdf.
+    // Sanitize the whole slug (repo convention `[^a-zA-Z0-9._-]`): a client name
+    // with "/", quotes or accents would otherwise create stray path segments and
+    // break the Content-Disposition filename.
+    const clientSlug =
+      (typedVisit.client_name ?? "client")
+        .replace(/\s+/g, "-")
+        .replace(/[^a-zA-Z0-9._-]/g, "_")
+        .toLowerCase()
+        .slice(0, 30) || "client";
     const dateStr = new Date(typedVisit.visit_date).toISOString().split("T")[0];
     const storagePath = `reports/${typedVisit.organization_id}/${visit_id}/rapport-visite-${clientSlug}-${dateStr}.pdf`;
 

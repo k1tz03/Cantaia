@@ -85,7 +85,12 @@ export async function POST(request: NextRequest) {
 
       const buffer = Buffer.from(await file.arrayBuffer());
 
-      // Upload to the "plans" bucket (reuse existing bucket — price-imports is just a path prefix)
+      // Upload to the "plans" bucket (reuse existing bucket — price-imports is just a path prefix).
+      // SÉCURITÉ (AUDIT 08/2026) : le bucket `plans` est PRIVÉ depuis la
+      // migration 112 (public=false, accès par signed URLs / service role
+      // uniquement). Ces fichiers commercialement sensibles (offres, emails
+      // fournisseurs) ne sont donc plus exposés par URL publique ; l'agent les
+      // relit via download service-role (fetch_file_content), jamais getPublicUrl.
       const { error: uploadError } = await adminClient.storage
         .from("plans")
         .upload(storagePath, buffer, {

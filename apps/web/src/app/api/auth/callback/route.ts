@@ -4,6 +4,24 @@ import { NextResponse } from "next/server";
 import { TRIAL_DURATION_DAYS } from "@cantaia/config/constants";
 import { SIGNUP_BONUS_CREDITS } from "@cantaia/config/credit-costs";
 import { grantCredits } from "@/lib/credits";
+import { encryptToken } from "@/lib/crypto/token-encryption";
+
+/**
+ * Encrypt an OAuth token at rest (AES-256-GCM) when the key is configured.
+ * Mirrors safeEncrypt() in microsoft-connect / lib/microsoft/tokens: the reader
+ * (getValidMicrosoftToken → safeDecrypt) transparently handles both plaintext
+ * and ciphertext during the migration window. Never persist a raw provider
+ * token — SEC2.NC4.
+ */
+function safeEncrypt(token: string | null | undefined): string | null {
+  if (!token) return token ?? null;
+  if (!process.env.MICROSOFT_TOKEN_ENCRYPTION_KEY) return token;
+  try {
+    return encryptToken(token);
+  } catch {
+    return token;
+  }
+}
 
 /**
  * Legacy non-transactional migration path (pre-migration 080).
@@ -74,8 +92,8 @@ export async function GET(request: Request) {
   const errorParam = searchParams.get("error");
   const errorDesc = searchParams.get("error_description");
   // Validate next parameter to prevent open redirect attacks
-  const rawNext = searchParams.get("next") ?? "/action-board";
-  const next = (rawNext.startsWith("/") && !rawNext.startsWith("//")) ? rawNext : "/action-board";
+  const rawNext = searchParams.get("next") ?? "/mail";
+  const next = (rawNext.startsWith("/") && !rawNext.startsWith("//")) ? rawNext : "/mail";
   // link_org is set when connecting email from Settings (preserves current org)
   const linkOrgId = searchParams.get("link_org");
   // link_user is the ID of the user who initiated the connection (may differ from OAuth user)
@@ -232,8 +250,8 @@ export async function GET(request: Request) {
 
                   const tokenFields: Record<string, unknown> = { auth_provider: authProvider };
                   if (authProvider === "microsoft") {
-                    tokenFields.microsoft_access_token = providerToken;
-                    tokenFields.microsoft_refresh_token = providerRefreshToken || null;
+                    tokenFields.microsoft_access_token = safeEncrypt(providerToken);
+                    tokenFields.microsoft_refresh_token = safeEncrypt(providerRefreshToken);
                     tokenFields.microsoft_token_expires_at = expiresAt.toISOString();
                     tokenFields.outlook_sync_enabled = true;
                   }
@@ -246,11 +264,12 @@ export async function GET(request: Request) {
                     .maybeSingle();
 
                   // 1. Update tokens on ORIGINAL user (for future email/password logins)
-                  await adminClient.from("users").update(tokenFields as any).eq("id", originalUser.id);
+                  const { error: origTokenErr } = await adminClient.from("users").update(tokenFields as any).eq("id", originalUser.id);
+                  if (origTokenErr) console.error("[auth/callback] original-user token update error:", origTokenErr.message);
 
                   // 2. Ensure OAuth user has a valid row in the same org with the same profile
                   //    Include onboarding_completed: true to prevent OnboardingGuard redirect
-                  await adminClient.from("users").upsert({
+                  const { error: oauthUpsertErr } = await adminClient.from("users").upsert({
                     id: data.user.id,
                     organization_id: linkOrgId,
                     email: data.user.email || origProfile?.email || "",
@@ -261,6 +280,7 @@ export async function GET(request: Request) {
                     onboarding_completed: true,
                     ...tokenFields,
                   } as any, { onConflict: "id" });
+                  if (oauthUpsertErr) console.error("[auth/callback] OAuth-user upsert error:", oauthUpsertErr.message);
 
                   // 3. Sync user_metadata so the profile settings form works for the OAuth user
                   try {
@@ -285,8 +305,8 @@ export async function GET(request: Request) {
                   const connectionBase = {
                     organization_id: linkOrgId,
                     provider: authProvider as "microsoft" | "google",
-                    oauth_access_token: providerToken,
-                    oauth_refresh_token: providerRefreshToken || null,
+                    oauth_access_token: safeEncrypt(providerToken),
+                    oauth_refresh_token: safeEncrypt(providerRefreshToken),
                     oauth_token_expires_at: expiresAt.toISOString(),
                     oauth_scopes: connectionScopes,
                     email_address: data.user.email!,
@@ -402,18 +422,21 @@ export async function GET(request: Request) {
             const expiresAt = new Date();
             expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
 
-            updatePayload.microsoft_access_token = providerTokenForExisting;
+            updatePayload.microsoft_access_token = safeEncrypt(providerTokenForExisting);
             updatePayload.microsoft_token_expires_at = expiresAt.toISOString();
             updatePayload.outlook_sync_enabled = true;
             if (providerRefreshForExisting) {
-              updatePayload.microsoft_refresh_token = providerRefreshForExisting;
+              updatePayload.microsoft_refresh_token = safeEncrypt(providerRefreshForExisting);
             }
           }
 
-          await adminClient
+          const { error: existingUpdateErr } = await adminClient
             .from("users")
             .update(updatePayload as any)
             .eq("id", data.user.id);
+          if (existingUpdateErr) {
+            console.error("[auth/callback] existing-user token update error:", existingUpdateErr.message);
+          }
 
         } else {
           // Check 3: User with same email under different auth ID
@@ -595,15 +618,18 @@ export async function GET(request: Request) {
           if (linkOrgId) {
             // Store in legacy Microsoft columns (for backward compat)
             if (authProvider === "microsoft") {
-              await adminClient
+              const { error: msTokenErr } = await adminClient
                 .from("users")
                 .update({
-                  microsoft_access_token: providerToken,
-                  microsoft_refresh_token: providerRefreshToken || null,
+                  microsoft_access_token: safeEncrypt(providerToken),
+                  microsoft_refresh_token: safeEncrypt(providerRefreshToken),
                   microsoft_token_expires_at: tokenExpiresAt.toISOString(),
                   outlook_sync_enabled: true,
                 })
                 .eq("id", data.user.id);
+              if (msTokenErr) {
+                console.error("[auth/callback] Microsoft token store error:", msTokenErr.message);
+              }
             }
 
             // Get user's organization
@@ -628,8 +654,8 @@ export async function GET(request: Request) {
                   user_id: data.user.id,
                   organization_id: userOrg.organization_id,
                   provider: authProvider as "microsoft" | "google" | "imap",
-                  oauth_access_token: providerToken,
-                  oauth_refresh_token: providerRefreshToken || null,
+                  oauth_access_token: safeEncrypt(providerToken),
+                  oauth_refresh_token: safeEncrypt(providerRefreshToken),
                   oauth_token_expires_at: tokenExpiresAt.toISOString(),
                   oauth_scopes: scopes,
                   email_address: data.user.email!,
@@ -686,8 +712,8 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/${userLocale}/onboarding`);
         }
 
-        // Default redirect: /action-board (post-login destination)
-        let finalNext = next === "/dashboard" ? "/action-board" : next;
+        // Single post-login destination, same as the password-login action.
+        let finalNext = next === "/dashboard" || next === "/action-board" ? "/mail" : next;
 
         // If this was an email connection flow, redirect to the integrations tab with refresh signal
         if (linkOrgId && finalNext.startsWith("/settings")) {

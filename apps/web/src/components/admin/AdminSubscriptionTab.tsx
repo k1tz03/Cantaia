@@ -1,18 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowRight,
+  Coins,
   CreditCard,
   Loader2,
   ExternalLink,
   AlertTriangle,
 } from "lucide-react";
+import { formatNumber } from "@/lib/format";
 import PlanSelector from "@/components/stripe/PlanSelector";
 import InvoicesList from "@/components/stripe/InvoicesList";
 import { CreditBalanceCard } from "@/components/credits/CreditBalanceCard";
 import { Link } from "@/i18n/navigation";
+import { CREDIT_PLANS, isCreditPlanId } from "@cantaia/config/credit-costs";
 
 const PLAN_LABELS: Record<string, string> = {
   trial: "Essai gratuit",
@@ -21,13 +24,16 @@ const PLAN_LABELS: Record<string, string> = {
   enterprise: "Enterprise",
 };
 
-// Per-user pricing (CHF/user/month)
-const PLAN_PRICES_PER_USER: Record<string, number> = {
-  trial: 0,
-  starter: 49,
-  pro: 89,
-  enterprise: 119,
-};
+/**
+ * Flat price per ORGANIZATION per month + the monthly credit allocation, both
+ * read from the single pricing source (`CREDIT_PLANS`). Cantaia does not bill
+ * per user — never reintroduce a "CHF/utilisateur" figure here.
+ */
+function planPricing(plan: string): { priceCHF: number; credits: number } | null {
+  if (!isCreditPlanId(plan)) return null;
+  const config = CREDIT_PLANS[plan];
+  return { priceCHF: config.price_chf, credits: config.monthly_credits };
+}
 
 interface OrgData {
   subscription_plan: string;
@@ -40,6 +46,7 @@ interface OrgData {
 export default function AdminSubscriptionTab() {
   const t = useTranslations("admin");
   const tc = useTranslations("credits");
+  const locale = useLocale();
   const [org, setOrg] = useState<OrgData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPlanSelector, setShowPlanSelector] = useState(false);
@@ -64,27 +71,28 @@ export default function AdminSubscriptionTab() {
 
   async function fetchOrg() {
     try {
-      const profileRes = await fetch("/api/user/profile");
-      const profileData = await profileRes.json();
-      const orgId = profileData?.profile?.organization_id;
-      if (!orgId) {
+      // Dedicated billing snapshot: the branding route did NOT return the
+      // Stripe columns (so hasSubscription was always false and the payment/
+      // cancel controls never showed). This route returns them under
+      // `organization`.
+      const res = await fetch("/api/stripe/subscription-status");
+      if (!res.ok) {
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      const o = data?.organization;
+      if (!o) {
         setLoading(false);
         return;
       }
 
-      // Fetch org details via organization branding route which returns org data
-      const brandingRes = await fetch("/api/organization/branding");
-      const brandingData = await brandingRes.json();
-
       setOrg({
-        subscription_plan:
-          brandingData?.organization?.subscription_plan || "trial",
-        stripe_customer_id:
-          brandingData?.organization?.stripe_customer_id || null,
-        stripe_subscription_id:
-          brandingData?.organization?.stripe_subscription_id || null,
-        trial_ends_at: brandingData?.organization?.trial_ends_at || null,
-        name: brandingData?.organization?.name || "",
+        subscription_plan: o.subscription_plan || "trial",
+        stripe_customer_id: o.stripe_customer_id || null,
+        stripe_subscription_id: o.stripe_subscription_id || null,
+        trial_ends_at: o.trial_ends_at || null,
+        name: o.name || "",
       });
     } catch (err) {
       console.error("Failed to fetch org:", err);
@@ -143,7 +151,7 @@ export default function AdminSubscriptionTab() {
 
   const plan = org?.subscription_plan || "trial";
   const planLabel = PLAN_LABELS[plan] || plan;
-  const planPricePerUser = PLAN_PRICES_PER_USER[plan] || 0;
+  const pricing = planPricing(plan);
   const hasSubscription = !!org?.stripe_subscription_id;
   const isTrial = plan === "trial";
 
@@ -202,15 +210,26 @@ export default function AdminSubscriptionTab() {
               >
                 {planLabel}
               </span>
-              {planPricePerUser > 0 && (
+              {pricing && (
                 <span className="ml-3 text-2xl font-bold text-[#FAFAFA]">
-                  {planPricePerUser} CHF
-                  <span className="text-sm font-normal text-[#71717A]">
-                    {" "}/ utilisateur {t("perMonth")}
+                  {pricing.priceCHF} CHF
+                  <span className="text-sm font-normal text-[#A1A1AA]">
+                    {" "}
+                    {t("perMonth")}
                   </span>
                 </span>
               )}
             </div>
+
+            {/* Monthly credit allocation — what the price actually buys */}
+            {pricing && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-sm text-[#F97316]">
+                <Coins className="h-3.5 w-3.5" />
+                {tc("creditsPerMonth", {
+                  credits: formatNumber(pricing.credits, locale),
+                })}
+              </p>
+            )}
 
             {/* Trial info */}
             {isTrial && org?.trial_ends_at && (
@@ -232,7 +251,7 @@ export default function AdminSubscriptionTab() {
             {hasSubscription && (
               <button
                 onClick={() => setShowCancelConfirm(true)}
-                className="rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
+                className="rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A]"
               >
                 {t("cancelSubscription")}
               </button>
@@ -249,14 +268,14 @@ export default function AdminSubscriptionTab() {
               <h3 className="text-sm font-semibold text-[#FAFAFA]">
                 {t("paymentMethod")}
               </h3>
-              <p className="mt-1 text-sm text-[#71717A]">
+              <p className="mt-1 text-sm text-[#A1A1AA]">
                 Gerez votre moyen de paiement via le portail Stripe.
               </p>
             </div>
             <button
               onClick={handleManagePayment}
               disabled={portalLoading}
-              className="flex items-center gap-1.5 rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
             >
               {portalLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -297,13 +316,13 @@ export default function AdminSubscriptionTab() {
             <h3 className="text-lg font-semibold text-[#FAFAFA]">
               {t("confirmCancel")}
             </h3>
-            <p className="mt-2 text-sm text-[#71717A]">
+            <p className="mt-2 text-sm text-[#A1A1AA]">
               {t("cancelConfirm")}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setShowCancelConfirm(false)}
-                className="rounded-md px-4 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
+                className="rounded-md px-4 py-2 text-sm text-[#A1A1AA] hover:bg-[#27272A]"
               >
                 Annuler
               </button>

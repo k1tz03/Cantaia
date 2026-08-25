@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { PLAN_PRICING, type PlanName } from "@cantaia/config/plan-features";
+import { subscriptionRevenueFor } from "@cantaia/config/credit-costs";
 import {
   BarChart3,
   Loader2,
@@ -228,16 +228,12 @@ interface AdoptionItem {
 type Period = "7d" | "30d" | "90d";
 
 /**
- * Estimated org MRR on the per-user pricing model:
- * pricePerUser × max(memberCount, minUsers).
- *
- * NOTE: interim estimate — the upcoming credits-based billing model will
- * replace this calculation entirely.
+ * Org MRR = the FLAT monthly price of its plan (`CREDIT_PLANS[plan].price_chf`).
+ * Cantaia bills per organization, not per seat, so the member count plays no
+ * part in revenue any more.
  */
-function planMrr(plan: string, memberCount: number): number {
-  const pricing = PLAN_PRICING[plan as PlanName];
-  if (!pricing || pricing.pricePerUser === 0) return 0;
-  return pricing.pricePerUser * Math.max(memberCount, pricing.minUsers);
+function planMrr(plan: string): number {
+  return subscriptionRevenueFor(plan);
 }
 
 const PLAN_COLORS: Record<string, string> = {
@@ -313,13 +309,13 @@ function KpiCard({
   return (
     <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-[#71717A]">{label}</span>
-        {Icon && <Icon className="h-4 w-4 text-[#52525B]" />}
+        <span className="text-xs font-medium text-[#A1A1AA]">{label}</span>
+        {Icon && <Icon className="h-4 w-4 text-[#A1A1AA]" />}
       </div>
       <p className="mt-1 text-xl font-bold font-display" style={{ color }}>
         {value}
       </p>
-      {sub && <p className="mt-0.5 text-[11px] text-[#71717A]">{sub}</p>}
+      {sub && <p className="mt-0.5 text-[11px] text-[#A1A1AA]">{sub}</p>}
     </div>
   );
 }
@@ -449,7 +445,7 @@ export default function AnalyticsPage() {
     let total = 0;
     for (const o of orgs) {
       const plan = o.plan || o.subscription_plan || "trial";
-      total += planMrr(plan, o.member_count || 0);
+      total += planMrr(plan);
     }
     return total;
   }, [orgs]);
@@ -478,7 +474,7 @@ export default function AnalyticsPage() {
               Analytique
             </h1>
           </div>
-          <p className="mt-1 text-sm text-[#71717A]">
+          <p className="mt-1 text-sm text-[#A1A1AA]">
             Metriques plateforme, couts IA, revenue et activite utilisateurs
           </p>
         </div>
@@ -659,7 +655,7 @@ function TabOverview({
                 className="flex items-center justify-between rounded-md border border-[#27272A] bg-[#1C1C1F] px-3 py-2"
               >
                 <div className="flex items-center gap-2">
-                  <item.icon className="h-3.5 w-3.5 text-[#52525B]" />
+                  <item.icon className="h-3.5 w-3.5 text-[#A1A1AA]" />
                   <span className="text-xs text-[#A1A1AA]">{item.label}</span>
                 </div>
                 <span className="text-sm font-semibold text-[#FAFAFA]">
@@ -670,7 +666,7 @@ function TabOverview({
             {m?.storageGb !== undefined && (
               <div className="flex items-center justify-between rounded-md border border-[#27272A] bg-[#1C1C1F] px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <Database className="h-3.5 w-3.5 text-[#52525B]" />
+                  <Database className="h-3.5 w-3.5 text-[#A1A1AA]" />
                   <span className="text-xs text-[#A1A1AA]">Stockage</span>
                 </div>
                 <span className="text-sm font-semibold text-[#FAFAFA]">
@@ -689,7 +685,7 @@ function TabOverview({
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[#27272A] text-left text-[#71717A]">
+                <tr className="border-b border-[#27272A] text-left text-[#A1A1AA]">
                   <th className="pb-2 pr-4 font-medium">Organisation</th>
                   <th className="pb-2 pr-4 font-medium">Plan</th>
                   <th className="pb-2 pr-4 font-medium text-right">Membres</th>
@@ -898,7 +894,7 @@ function TabAICosts({ analytics }: { analytics: Analytics | null }) {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[#27272A] text-left text-[#71717A]">
+                <tr className="border-b border-[#27272A] text-left text-[#A1A1AA]">
                   <th className="pb-2 pr-4 font-medium">Organisation</th>
                   <th className="pb-2 pr-4 font-medium">Plan</th>
                   <th className="pb-2 pr-4 font-medium text-right">Membres</th>
@@ -960,7 +956,7 @@ function TabAICosts({ analytics }: { analytics: Analytics | null }) {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[#27272A] text-left text-[#71717A]">
+                <tr className="border-b border-[#27272A] text-left text-[#A1A1AA]">
                   <th className="pb-2 pr-4 font-medium">Utilisateur</th>
                   <th className="pb-2 pr-4 font-medium">Email</th>
                   <th className="pb-2 pr-4 font-medium">Organisation</th>
@@ -994,7 +990,7 @@ function TabAICosts({ analytics }: { analytics: Analytics | null }) {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[#27272A] text-left text-[#71717A]">
+                <tr className="border-b border-[#27272A] text-left text-[#A1A1AA]">
                   <th className="pb-2 pr-4 font-medium">Fonction</th>
                   <th className="pb-2 pr-4 font-medium text-right">Appels</th>
                   <th className="pb-2 pr-4 font-medium text-right">Cout</th>
@@ -1081,7 +1077,7 @@ function TabRevenue({ orgs, mrr }: { orgs: Org[]; mrr: number }) {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[#27272A] text-left text-[#71717A]">
+              <tr className="border-b border-[#27272A] text-left text-[#A1A1AA]">
                 <th className="pb-2 pr-4 font-medium">Organisation</th>
                 <th className="pb-2 pr-4 font-medium">Plan</th>
                 <th className="pb-2 pr-4 font-medium text-right">MRR</th>
@@ -1094,7 +1090,7 @@ function TabRevenue({ orgs, mrr }: { orgs: Org[]; mrr: number }) {
             <tbody>
               {orgs.map((o) => {
                 const plan = o.plan || o.subscription_plan || "trial";
-                const orgMrr = planMrr(plan, o.member_count || 0);
+                const orgMrr = planMrr(plan);
                 const status = o.status || "active";
                 return (
                   <tr
@@ -1120,7 +1116,7 @@ function TabRevenue({ orgs, mrr }: { orgs: Org[]; mrr: number }) {
                             ? "bg-[#22C55E]/10 text-[#22C55E]"
                             : status === "suspended"
                               ? "bg-[#EF4444]/10 text-[#EF4444]"
-                              : "bg-[#71717A]/10 text-[#71717A]"
+                              : "bg-[#71717A]/10 text-[#A1A1AA]"
                         }`}
                       >
                         {status}
@@ -1464,7 +1460,7 @@ function TabUsers({
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[#27272A] text-left text-[#71717A]">
+                <tr className="border-b border-[#27272A] text-left text-[#A1A1AA]">
                   <th className="pb-2 pr-4 font-medium">Organisation</th>
                   <th className="pb-2 pr-4 font-medium">Plan</th>
                   <th
@@ -1500,7 +1496,7 @@ function TabUsers({
                     </td>
                     <td className="py-2 pr-4 text-[#A1A1AA]">{o.top_feature || "-"}</td>
                     <td className="py-2 pr-4 text-right">{fmtNum(o.total_events)}</td>
-                    <td className="py-2 text-[#71717A]">{fmtDate(o.last_active)}</td>
+                    <td className="py-2 text-[#A1A1AA]">{fmtDate(o.last_active)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1561,7 +1557,7 @@ function TabAdoption({ adoption }: { adoption: AdoptionItem[] }) {
       <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
         <SectionTitle>Adoption des fonctionnalites</SectionTitle>
         {adoption.length === 0 ? (
-          <p className="py-8 text-center text-sm text-[#52525B]">
+          <p className="py-8 text-center text-sm text-[#A1A1AA]">
             Aucune donnee d&apos;adoption disponible
           </p>
         ) : (
@@ -1603,7 +1599,7 @@ function TabAdoption({ adoption }: { adoption: AdoptionItem[] }) {
             placeholder="User ID..."
             value={journeyUserId}
             onChange={(e) => setJourneyUserId(e.target.value)}
-            className="rounded-md border border-[#27272A] bg-[#1C1C1F] px-3 py-1.5 text-xs text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none"
+            className="rounded-md border border-[#27272A] bg-[#1C1C1F] px-3 py-1.5 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#F97316] focus:outline-none"
           />
           <button
             onClick={loadJourney}
@@ -1635,18 +1631,18 @@ function TabAdoption({ adoption }: { adoption: AdoptionItem[] }) {
                   >
                     <div className="flex items-center gap-2">
                       {isExpanded ? (
-                        <ChevronDown className="h-3 w-3 text-[#71717A]" />
+                        <ChevronDown className="h-3 w-3 text-[#A1A1AA]" />
                       ) : (
-                        <ChevronRight className="h-3 w-3 text-[#71717A]" />
+                        <ChevronRight className="h-3 w-3 text-[#A1A1AA]" />
                       )}
                       <span className="font-medium text-[#FAFAFA]">
                         Session {session.session_id.slice(0, 8)}
                       </span>
-                      <span className="text-[#71717A]">
+                      <span className="text-[#A1A1AA]">
                         {session.event_count} events
                       </span>
                     </div>
-                    <span className="text-[#52525B]">
+                    <span className="text-[#A1A1AA]">
                       {session.started_at
                         ? new Date(session.started_at).toLocaleString("fr-CH")
                         : ""}
@@ -1660,7 +1656,7 @@ function TabAdoption({ adoption }: { adoption: AdoptionItem[] }) {
                             key={i}
                             className="flex items-center gap-3 text-[10px]"
                           >
-                            <span className="w-14 shrink-0 text-[#52525B]">
+                            <span className="w-14 shrink-0 text-[#A1A1AA]">
                               {new Date(evt.created_at).toLocaleTimeString("fr-CH", {
                                 hour: "2-digit",
                                 minute: "2-digit",
@@ -1671,7 +1667,7 @@ function TabAdoption({ adoption }: { adoption: AdoptionItem[] }) {
                               {evt.event_type}
                             </span>
                             {evt.page && (
-                              <span className="text-[#71717A]">{evt.page}</span>
+                              <span className="text-[#A1A1AA]">{evt.page}</span>
                             )}
                             {evt.feature && (
                               <span className="text-[#F97316]">{evt.feature}</span>
@@ -1691,7 +1687,7 @@ function TabAdoption({ adoption }: { adoption: AdoptionItem[] }) {
         )}
 
         {journeyData && journeyData.sessions.length === 0 && (
-          <p className="py-4 text-center text-xs text-[#52525B]">
+          <p className="py-4 text-center text-xs text-[#A1A1AA]">
             Aucune session trouvee pour cet utilisateur
           </p>
         )}

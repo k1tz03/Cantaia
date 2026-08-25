@@ -23,49 +23,37 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const results: Array<{ view: string; refreshed: boolean; duration_ms: number; error?: string }> = [];
 
+  // AUDIT 08/2026 — on ne liste QUE des vues réellement définies (043/045/064)
+  // et on appelle une RPC réelle (`refresh_materialized_view_safe`, migration
+  // 127) qui gère le fallback CONCURRENTLY → refresh simple côté SQL. Les deux
+  // vues fantômes (mv_correction_trends, mv_price_calibration_accuracy) et les
+  // RPC inexistantes (refresh_materialized_view_concurrently, exec_sql) ont été
+  // retirées : le cron faisait un no-op tout en loggant des succès.
   const viewsToRefresh = [
     "mv_supplier_daily_metrics",
     "mv_labor_productivity",
-    "mv_correction_trends",
-    "mv_price_calibration_accuracy",
     "mv_reference_prices",
+    "mv_calibration_coefficients",
+    "mv_qty_calibration",
   ];
 
   for (const viewName of viewsToRefresh) {
     const start = Date.now();
-    try {
-      // Use CONCURRENTLY to avoid locking reads during refresh
-      // Falls back to non-concurrent if the unique index doesn't exist
-      const { error } = await (admin as any).rpc("refresh_materialized_view_concurrently", {
-        view_name: viewName,
-      });
+    // supabase-js ne throw pas : on lit `{error}` explicitement.
+    const { error } = await (admin as any).rpc("refresh_materialized_view_safe", {
+      p_view: viewName,
+    });
+    const duration = Date.now() - start;
 
-      if (error) {
-        // RPC function may not exist — try direct SQL via admin
-        // Supabase doesn't support raw SQL via client, so we use a simpler approach:
-        // Just try the refresh and catch if view doesn't exist
-        const { error: directError } = await (admin as any).rpc("exec_sql", {
-          query: `REFRESH MATERIALIZED VIEW CONCURRENTLY ${viewName}`,
-        });
-
-        if (directError) {
-          // The exec_sql RPC likely doesn't exist either — log and skip
-          const duration = Date.now() - start;
-          console.warn(`[cron/refresh-intelligence] Cannot refresh ${viewName}: ${directError.message}`);
-          results.push({ view: viewName, refreshed: false, duration_ms: duration, error: directError.message });
-          continue;
-        }
-      }
-
-      const duration = Date.now() - start;
-      console.log(`[cron/refresh-intelligence] Refreshed ${viewName} in ${duration}ms`);
-      results.push({ view: viewName, refreshed: true, duration_ms: duration });
-    } catch (err: any) {
-      const duration = Date.now() - start;
-      // View may not exist (migration not applied) — non-blocking
-      console.warn(`[cron/refresh-intelligence] Failed to refresh ${viewName}:`, err?.message);
-      results.push({ view: viewName, refreshed: false, duration_ms: duration, error: err?.message });
+    if (error) {
+      // Vue absente (migration non appliquée) ou RPC 127 manquante — non bloquant.
+      console.warn(`[cron/refresh-intelligence] Cannot refresh ${viewName}: ${error.message}`);
+      results.push({ view: viewName, refreshed: false, duration_ms: duration, error: error.message });
+      continue;
     }
+
+    console.log(`[cron/refresh-intelligence] Refreshed ${viewName} in ${duration}ms`);
+    results.push({ view: viewName, refreshed: true, duration_ms: duration });
   }
 
   const refreshed = results.filter((r) => r.refreshed).length;

@@ -94,8 +94,11 @@ export async function getValidMicrosoftToken(
         const newExpiresAt = new Date();
         newExpiresAt.setSeconds(newExpiresAt.getSeconds() + (refreshed.expires_in || 3600));
 
-        // Update BOTH email_connections AND users table
-        await Promise.all([
+        // Update BOTH email_connections AND users table.
+        // supabase-js ne throw pas : on inspecte {error} et on LOGGE une
+        // persistance ratée (le prochain appel re-refreshera). On ne WIPE
+        // JAMAIS les tokens sur échec — contrat de ce module.
+        const [connUpdate, userUpdate] = await Promise.all([
           adminClient
             .from("email_connections")
             .update({
@@ -113,6 +116,12 @@ export async function getValidMicrosoftToken(
             })
             .eq("id", userId),
         ]);
+        if (connUpdate.error) {
+          console.error(`[tokens] Failed to persist refreshed token to email_connections for user ${userId}: ${connUpdate.error.message}`);
+        }
+        if (userUpdate.error) {
+          console.error(`[tokens] Failed to persist refreshed token to users for user ${userId}: ${userUpdate.error.message}`);
+        }
 
         return { accessToken: refreshed.access_token };
       }
@@ -216,7 +225,10 @@ export async function getValidMicrosoftToken(
   const encryptedAccess = safeEncrypt(refreshed.access_token);
   const encryptedRefresh = safeEncrypt(refreshed.refresh_token || refreshToken);
 
-  await Promise.all([
+  // supabase-js ne throw pas : on vérifie {error} et on LOGGE toute persistance
+  // ratée (jamais de wipe — le token en mémoire reste retourné, le prochain
+  // appel re-refreshera).
+  const [userUpdate, connUpdate] = await Promise.all([
     adminClient
       .from("users")
       .update({
@@ -235,8 +247,14 @@ export async function getValidMicrosoftToken(
             oauth_token_expires_at: newExpiresAt.toISOString(),
           })
           .eq("id", conn.id)
-      : Promise.resolve(),
+      : Promise.resolve({ error: null }),
   ]);
+  if (userUpdate?.error) {
+    console.error(`[tokens] Failed to persist refreshed token to users for user ${userId}: ${userUpdate.error.message}`);
+  }
+  if (connUpdate?.error) {
+    console.error(`[tokens] Failed to persist refreshed token to email_connections for user ${userId}: ${connUpdate.error.message}`);
+  }
 
   return { accessToken: refreshed.access_token };
 }

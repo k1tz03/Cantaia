@@ -8,7 +8,8 @@ export type FeatureName =
   | "dataIntel"
   | "branding"
   | "export"
-  | "visualization3d";
+  | "visualization3d"
+  | "nightlyAgents";
 
 export interface PlanLimits {
   maxProjects: number;
@@ -30,6 +31,15 @@ export interface PlanLimits {
    *   "full"    → Enterprise: 3D viewer + glTF export + future BIM integrations
    */
   visualization3d: false | "preview" | "full";
+  /**
+   * Autonomous nightly agents (email-drafter, followup-engine,
+   * supplier-monitor, project-memory, meeting-prep — the `/api/cron/*` jobs).
+   *
+   * They run unattended and burn tokens every night, so they are a Pro+
+   * benefit rather than something a pay-as-you-go org gets by default. The
+   * crons enforce this per organization via `orgHasNightlyAgents()` below.
+   */
+  nightlyAgents: boolean;
   /**
    * Per-month cap on Passe 5 extractions for this org
    * (`action_type = 'plan_3d_extract'` rows in `api_usage_logs`).
@@ -59,10 +69,15 @@ export const PLAN_3D_EXTRACT_ACTION = "plan_3d_extract" as const;
 export type Plan3dExtractAction = typeof PLAN_3D_EXTRACT_ACTION;
 
 /**
- * Pricing (CHF/user/month):
- *   Starter: 49 | Pro: 89 | Enterprise: 119
+ * @deprecated PER-USER PRICING IS DEAD. Cantaia bills ONE flat price per
+ * organization plus credits — see `CREDIT_PLANS` in `./credit-costs.ts`
+ * (Starter 49 / Pro 149 / Enterprise 399 CHF per ORG per month).
  *
- * Per-user model — min users: Starter 1, Pro 5, Enterprise 15
+ * Nothing may derive a price, an MRR figure or a customer-facing label from
+ * this map: use `subscriptionRevenueFor(plan)` for revenue and `CREDIT_PLANS`
+ * for anything a customer reads. It survives only because the `maxUsers` seat
+ * caps mirrored in PLAN_FEATURES came from here, and is scheduled for deletion
+ * once the legacy per-seat Stripe subscriptions are migrated.
  */
 export const PLAN_PRICING: Record<PlanName, { pricePerUser: number; minUsers: number; maxUsers: number }> = {
   trial:      { pricePerUser: 0,   minUsers: 1,  maxUsers: 3 },
@@ -76,18 +91,21 @@ export const PLAN_FEATURES: Record<PlanName, PlanLimits> = {
     maxProjects: 2, maxUsers: 3, aiCalls: 50, maxEmailsSync: 50,
     maxPlanAnalyses: 2, maxSubmissions: 1, maxStorage: 1_000_000_000,
     budgetAI: false, planning: false, dataIntel: false, branding: false, export: false,
+    nightlyAgents: false,
     visualization3d: false, max3dExtractionsPerMonth: 0,
   },
   starter: {
     maxProjects: 5, maxUsers: 5, aiCalls: 200, maxEmailsSync: 500,
     maxPlanAnalyses: 5, maxSubmissions: 3, maxStorage: 5_000_000_000,
     budgetAI: false, planning: false, dataIntel: false, branding: false, export: true,
+    nightlyAgents: false,
     visualization3d: false, max3dExtractionsPerMonth: 0,
   },
   pro: {
     maxProjects: 30, maxUsers: 30, aiCalls: 1000, maxEmailsSync: Infinity,
     maxPlanAnalyses: 50, maxSubmissions: Infinity, maxStorage: 50_000_000_000,
     budgetAI: true, planning: "full", dataIntel: false, branding: false, export: true,
+    nightlyAgents: true,
     // Pro: 20 extractions/mois — chaque plan architectural peut demander 1-3
     // passes (façades + étages). 20 couvre ~6-10 projets/mois.
     visualization3d: "preview", max3dExtractionsPerMonth: 20,
@@ -96,6 +114,7 @@ export const PLAN_FEATURES: Record<PlanName, PlanLimits> = {
     maxProjects: Infinity, maxUsers: Infinity, aiCalls: Infinity, maxEmailsSync: Infinity,
     maxPlanAnalyses: Infinity, maxSubmissions: Infinity, maxStorage: 500_000_000_000,
     budgetAI: true, planning: "full", dataIntel: true, branding: true, export: true,
+    nightlyAgents: true,
     visualization3d: "full", max3dExtractionsPerMonth: Infinity,
   },
 };
@@ -110,6 +129,45 @@ export function canAccess(plan: PlanName | string, feature: FeatureName): boolea
   if (typeof value === "boolean") return value;
   if (typeof value === "string") return true; // "basic" or "full"
   return false;
+}
+
+/**
+ * Does this organization's plan include the autonomous nightly agents?
+ *
+ * CONTRACT for the `/api/cron/*` agent jobs (email-drafter, followup-engine,
+ * supplier-monitor, project-memory, meeting-prep): call this ONCE per
+ * organization inside the loop and `continue` when it returns false, e.g.
+ *
+ *   for (const orgId of orgIds) {
+ *     if (!(await orgHasNightlyAgents(admin, orgId))) continue;
+ *     …run the agent for that org…
+ *   }
+ *
+ * `supabase` must be the ADMIN client — the crons run without a user session,
+ * so RLS would hide `organizations` from them.
+ *
+ * FAILS OPEN: an unreadable `organizations` row (missing column, transient DB
+ * error) returns `true` so an infrastructure hiccup never silently stops every
+ * customer's nightly automation. Only an explicit trial/starter plan is a
+ * "no".
+ */
+export async function orgHasNightlyAgents(
+  supabase: any,
+  organizationId: string
+): Promise<boolean> {
+  if (!organizationId) return false;
+  try {
+    const { data, error } = await supabase
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    if (error || !data) return true; // fail-open
+    return canAccess(data.subscription_plan || "trial", "nightlyAgents");
+  } catch {
+    return true; // fail-open
+  }
 }
 
 /**

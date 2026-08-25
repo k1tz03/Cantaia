@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateBureauProfile } from "@cantaia/core/plans/estimation/calibration-engine";
+import { logLearningEvent, updateModelErrorProfilesForOrg } from "@cantaia/core/learning";
 
 /**
  * POST /api/plans/corrections
@@ -192,21 +193,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Mettre à jour les profils d'erreur par modèle (C2, cross-org).
-    // On préfère les valeurs issues du consensus persisté à celles envoyées
-    // par le client (non fiables / falsifiables).
-    const modelValues = Object.keys(valeurs_par_modele).length > 0
-      ? valeurs_par_modele
-      : (body.valeurs_par_modele as Record<string, number> | undefined);
+    // Mettre à jour les profils d'erreur par modèle.
+    //
+    // AUDIT 08/2026 — writer UNIQUE désormais : le recalcul complet (médiane
+    // signée en %, nb_corrections réel) vit dans @cantaia/core/learning et se
+    // base sur les quantity_corrections persistées de l'ORG — jamais sur les
+    // valeurs envoyées par le client. L'ancien writer incrémental local (qui
+    // écrivait la |erreur| absolue et entrait en conflit avec le cron) est
+    // supprimé.
+    await updateModelErrorProfilesForOrg(adminClient, {
+      orgId: userOrg.organization_id,
+      discipline: passe1?.classification?.discipline || 'general',
+      cfcPrefix: String(cfc_code).split('.')[0] || 'general',
+    });
 
-    if (modelValues && Object.keys(modelValues).length > 0) {
-      await updateModelErrorProfiles(adminClient, {
-        valeurs_par_modele: modelValues,
-        valeur_corrigee: quantiteCorrigee,
-        discipline: passe1?.classification?.discipline || 'general',
-        element_cfc: String(cfc_code).split('.')[0] || 'general',
-      });
-    }
+    // Journal d'apprentissage : une correction humaine de quantité.
+    await logLearningEvent(adminClient, {
+      organizationId: userOrg.organization_id,
+      module: "plans",
+      eventType: "correction",
+      decisionSource: "consensus_multi_ia",
+      wasCorrected: true,
+      payload: { cfc_code, raison, ecart_source: "quantity_correction" },
+    });
 
     return NextResponse.json({ correction });
   } catch (err) {
@@ -215,105 +224,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Met à jour l'agrégat C2 `model_error_profiles`.
- *
- * B7 — la colonne s'appelle `nb_corrections` (migration 043), pas
- * `nombre_corrections` : le SELECT 400ait, l'UPDATE aussi, et l'INSERT
- * violait quatre NOT NULL (`contributor_count`, `ecart_median_pct`,
- * `ecart_stddev_pct`, `nb_corrections`). Aucun profil n'a jamais été écrit,
- * donc les poids adaptatifs du consensus multi-modèle étaient morts.
- */
-async function updateModelErrorProfiles(
-  admin: any,
-  params: {
-    valeurs_par_modele: Record<string, number>;
-    valeur_corrigee: number;
-    discipline: string;
-    element_cfc: string;
-  }
-) {
-  try {
-    const { valeurs_par_modele, valeur_corrigee, discipline, element_cfc } = params;
-    const corrected = valeur_corrigee;
-
-    for (const [provider, rawValue] of Object.entries(valeurs_par_modele)) {
-      // La contrainte CHECK n'accepte que ces trois providers.
-      if (!["claude", "gpt4o", "gemini"].includes(provider)) continue;
-
-      const value = Number(rawValue);
-      if (!Number.isFinite(value)) continue;
-
-      // Écart signé en % : le signe porte la tendance (sur/sous-estimation).
-      const signedErrorPct = ((value - corrected) / Math.max(Math.abs(corrected), 0.01)) * 100;
-      const absErrorPct = Math.abs(signedErrorPct);
-
-      const { data: existing, error: readError } = await (admin as any)
-        .from("model_error_profiles")
-        .select("id, ecart_moyen_pct, ecart_median_pct, ecart_stddev_pct, nb_corrections, contributor_count")
-        .eq("provider", provider)
-        .eq("discipline", discipline)
-        .eq("type_element_cfc", element_cfc)
-        .maybeSingle();
-
-      if (readError) {
-        console.error("[corrections] model_error_profiles SELECT error:", readError.message);
-        continue;
-      }
-
-      if (existing) {
-        const prevCount = Number(existing.nb_corrections) || 0;
-        const newCount = prevCount + 1;
-        const prevAvg = Number(existing.ecart_moyen_pct) || 0;
-        const newAvg = (prevAvg * prevCount + absErrorPct) / newCount;
-        // Écart-type incrémental approché (Welford simplifié sur la moyenne).
-        const prevStd = Number(existing.ecart_stddev_pct) || 0;
-        const newStd = Math.sqrt(
-          (prevStd ** 2 * prevCount + (absErrorPct - newAvg) ** 2) / newCount
-        );
-
-        const { error: updateError } = await (admin as any)
-          .from("model_error_profiles")
-          .update({
-            ecart_moyen_pct: Math.round(newAvg * 1000) / 1000,
-            // Approximation : la médiane exacte demanderait de conserver
-            // l'échantillon. La moyenne mobile est suffisante pour pondérer.
-            ecart_median_pct: Math.round(newAvg * 1000) / 1000,
-            ecart_stddev_pct: Math.round(newStd * 1000) / 1000,
-            nb_corrections: newCount,
-            tendance: signedErrorPct > 5 ? "surestime" : signedErrorPct < -5 ? "sous_estime" : "neutre",
-            coefficient_correction: Math.round((corrected / Math.max(value, 0.01)) * 1000) / 1000,
-            fiabilite: Math.min(0.95, 0.5 + newCount * 0.02),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existing.id);
-
-        if (updateError) {
-          console.error("[corrections] model_error_profiles UPDATE error:", updateError.message);
-        }
-      } else {
-        const { error: insertError } = await (admin as any).from("model_error_profiles").insert({
-          provider,
-          discipline,
-          type_element_cfc: element_cfc,
-          // Colonnes NOT NULL sans DEFAULT dans la migration 043 :
-          nb_corrections: 1,
-          contributor_count: 1,
-          ecart_moyen_pct: Math.round(absErrorPct * 1000) / 1000,
-          ecart_median_pct: Math.round(absErrorPct * 1000) / 1000,
-          ecart_stddev_pct: 0,
-          tendance: signedErrorPct > 5 ? "surestime" : signedErrorPct < -5 ? "sous_estime" : "neutre",
-          coefficient_correction: Math.round((corrected / Math.max(value, 0.01)) * 1000) / 1000,
-          fiabilite: 0.5,
-        });
-
-        if (insertError) {
-          console.error("[corrections] model_error_profiles INSERT error:", insertError.message);
-        }
-      }
-    }
-  } catch (err) {
-    // Ne jamais laisser l'erreur des profils modèle bloquer la sauvegarde de la correction
-    console.error("[corrections] Model error profiles update failed (non-fatal):", err);
-  }
-}
+// L'ancien writer incrémental `updateModelErrorProfiles` (|erreur| absolue,
+// moyenne mobile) vivait ici et entrait en conflit avec un second writer dans
+// /api/cron/calibrate (erreur signée cross-org). Le writer UNIQUE est désormais
+// `updateModelErrorProfilesForOrg` dans @cantaia/core/learning — médiane
+// signée en %, org-scopé (migration 102), recalcul complet à chaque correction.

@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { classifyAIError } from "@cantaia/core/ai";
+import { classifyAIError, AI_MODELS } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 /**
  * POST /api/pricing/estimate-from-plan
  * Run automatic cost estimation from plan analysis quantities.
  */
 export async function POST(request: Request) {
+  // Locale pour les messages d'erreur IA (Accept-Language, défaut fr).
+  const locale = (request.headers.get("accept-language") || "fr").slice(0, 2).toLowerCase();
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -52,6 +57,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // ─── Metering ───────────────────────────────────────────
+  // Pricing a full plan analysis is a paid Claude run — it tracked its cost but never debited it.
+  const { data: meterOrg } = await (adminClient as any)
+    .from("organizations")
+    .select("subscription_plan")
+    .eq("id", userOrg.organization_id)
+    .maybeSingle();
+
+  const usageCheck = await checkUsageLimit(
+    adminClient,
+    userOrg.organization_id,
+    meterOrg?.subscription_plan || "trial",
+    "price_estimate"
+  );
+  if (!usageCheck.allowed) {
+    if (usageCheck.insufficient_credits) {
+      return insufficientCreditsResponse(
+        usageCheck.required_credits ?? 1,
+        usageCheck.remaining_credits ?? 0
+      );
+    }
+    return NextResponse.json(
+      {
+        error: "usage_limit_reached",
+        current: usageCheck.current,
+        limit: usageCheck.limit,
+        required_plan: usageCheck.requiredPlan,
+      },
+      { status: 429 }
+    );
+  }
+
   const quantities = analysis.analysis_result?.quantities;
   if (!quantities || quantities.length === 0) {
     return NextResponse.json({ error: "No quantities found in analysis" }, { status: 400 });
@@ -74,7 +111,7 @@ export async function POST(request: Request) {
           organizationId: userOrg.organization_id!,
           actionType: "price_estimate",
           apiProvider: "anthropic",
-          model: "claude-sonnet-4-5-20250929",
+          model: AI_MODELS.SONNET,
           inputTokens: usage.input_tokens,
           outputTokens: usage.output_tokens,
           metadata: { analysis_id, plan_id: analysis.plan_id },
@@ -117,7 +154,7 @@ export async function POST(request: Request) {
     });
   } catch (err: any) {
     console.error("[estimate-from-plan] Error:", err?.message || err);
-    const aiErr = classifyAIError(err);
+    const aiErr = classifyAIError(err, locale);
     return NextResponse.json({ error: aiErr.message }, { status: aiErr.status });
   }
 }

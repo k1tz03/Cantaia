@@ -6,7 +6,8 @@ import type {
   CalendarEvent,
   CalendarEventType,
 } from "@cantaia/core/calendar";
-import { toLocaleTag } from "./datetime-utils";
+import { toLocaleTag, toLocalDateString } from "./datetime-utils";
+import { sourceMetaFor } from "./event-source";
 
 // ── Props ─────────────────────────────────────────────────
 
@@ -58,14 +59,6 @@ function useWeekdayLabels(localeTag: string): string[] {
   }, [localeTag]);
 }
 
-const AVAILABILITY_SLOTS = [
-  { label: "08-10", start: 8, end: 10 },
-  { label: "10-12", start: 10, end: 12 },
-  { label: "12-14", start: 12, end: 14 },
-  { label: "14-16", start: 14, end: 16 },
-  { label: "16-18", start: 16, end: 18 },
-];
-
 // ── Helpers ───────────────────────────────────────────────
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -97,6 +90,25 @@ function getEventColor(event: CalendarEvent): string {
   return event.color || EVENT_TYPE_COLORS[event.event_type] || "#71717A";
 }
 
+/**
+ * Small "source" chip for rows derived from another module (submission
+ * deadline, PV, tâche, jalon planning, réception, garantie, réserve, visite).
+ * Without it the grid mixes real appointments and echoes of other modules
+ * with no way to tell them apart.
+ */
+function SourceChip({ event }: { event: CalendarEvent }) {
+  const meta = sourceMetaFor(event);
+  if (!meta) return null;
+  return (
+    <span
+      className="inline-flex flex-shrink-0 items-center rounded px-1 py-[1px] text-[9px] font-semibold leading-none"
+      style={{ backgroundColor: `${meta.color}26`, color: meta.color }}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
 function getEventMinutes(event: CalendarEvent): {
   startMin: number;
   durationMin: number;
@@ -116,6 +128,146 @@ function getInitials(name: string | null): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0][0]?.toUpperCase() || "?";
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Split a day's events into all-day (rendered in a dedicated header row) and
+ * timed (positioned in the grid). Without this, an all-day event started at
+ * 00:00 → top clamped to 0 and a ~24h height, painting a block over the whole
+ * grid and hiding every real appointment.
+ */
+function splitAllDay(events: CalendarEvent[]): {
+  allDay: CalendarEvent[];
+  timed: CalendarEvent[];
+} {
+  const allDay: CalendarEvent[] = [];
+  const timed: CalendarEvent[] = [];
+  for (const e of events) (e.all_day ? allDay : timed).push(e);
+  return { allDay, timed };
+}
+
+interface LaidOutEvent {
+  event: CalendarEvent;
+  col: number;
+  cols: number;
+}
+
+/**
+ * Column layout for overlapping timed events: events that overlap in time are
+ * placed side by side instead of stacked on top of each other. Returns each
+ * event with its column index and the column count of its overlap cluster.
+ */
+function layoutTimedEvents(events: CalendarEvent[]): LaidOutEvent[] {
+  const sorted = [...events].sort((a, b) => {
+    const d = new Date(a.start_at).getTime() - new Date(b.start_at).getTime();
+    return d !== 0
+      ? d
+      : new Date(b.end_at).getTime() - new Date(a.end_at).getTime();
+  });
+
+  const result: LaidOutEvent[] = [];
+  let cluster: CalendarEvent[] = [];
+  let clusterEnd = -Infinity;
+
+  const flush = () => {
+    const columnEnds: number[] = [];
+    const assigned: Array<{ event: CalendarEvent; col: number }> = [];
+    for (const ev of cluster) {
+      const s = new Date(ev.start_at).getTime();
+      const e = new Date(ev.end_at).getTime();
+      let placed = false;
+      for (let c = 0; c < columnEnds.length; c++) {
+        if (s >= columnEnds[c]) {
+          columnEnds[c] = e;
+          assigned.push({ event: ev, col: c });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        columnEnds.push(e);
+        assigned.push({ event: ev, col: columnEnds.length - 1 });
+      }
+    }
+    const cols = Math.max(1, columnEnds.length);
+    for (const a of assigned) result.push({ event: a.event, col: a.col, cols });
+    cluster = [];
+    clusterEnd = -Infinity;
+  };
+
+  for (const ev of sorted) {
+    const s = new Date(ev.start_at).getTime();
+    const e = new Date(ev.end_at).getTime();
+    if (cluster.length && s >= clusterEnd) flush();
+    cluster.push(ev);
+    clusterEnd = Math.max(clusterEnd, e);
+  }
+  if (cluster.length) flush();
+  return result;
+}
+
+/** Horizontal placement (CSS left/width) for a column within the grid body. */
+function columnStyle(
+  col: number,
+  cols: number,
+  leftPx: number,
+  rightPx: number
+): { left: string; width: string } {
+  if (cols <= 1) {
+    return { left: `${leftPx}px`, width: `calc(100% - ${leftPx + rightPx}px)` };
+  }
+  const gap = 3;
+  return {
+    left: `calc(${leftPx}px + (100% - ${leftPx + rightPx}px) * ${col} / ${cols})`,
+    width: `calc((100% - ${leftPx + rightPx}px) / ${cols} - ${gap}px)`,
+  };
+}
+
+/** Compact chip row for all-day / derived events above the timed grid. */
+function AllDayRow({
+  events,
+  selectedEvent,
+  onSelectEvent,
+  label,
+}: {
+  events: CalendarEvent[];
+  selectedEvent: CalendarEvent | null;
+  onSelectEvent: (event: CalendarEvent | null) => void;
+  label: string;
+}) {
+  if (events.length === 0) return null;
+  return (
+    <div className="flex items-start gap-2 px-4 py-2 border-b border-[#27272A]">
+      <span
+        className="text-[11px] font-medium mt-0.5 flex-shrink-0"
+        style={{ color: "#A1A1AA" }}
+      >
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {events.map((event) => {
+          const color = getEventColor(event);
+          const isSelected = selectedEvent?.id === event.id;
+          return (
+            <button
+              key={event.id}
+              type="button"
+              onClick={() => onSelectEvent(event)}
+              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium truncate max-w-[220px] transition-colors"
+              style={{
+                backgroundColor: isSelected ? `${color}30` : `${color}1F`,
+                borderLeft: `2px solid ${color}`,
+                color: "#FAFAFA",
+              }}
+            >
+              <SourceChip event={event} />
+              <span className="truncate">{event.title}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ── Day View ──────────────────────────────────────────────
@@ -158,45 +310,15 @@ function DayView({
     }
   }, [showNow, selectedDate]);
 
-  // Filter events for this day
-  const dayEvents = useMemo(() => {
-    return events.filter((e) => {
-      const start = new Date(e.start_at);
-      return isSameDay(start, selectedDate);
-    });
+  // Filter events for this day, split all-day out of the timed grid, and lay
+  // out overlapping timed events into side-by-side columns.
+  const { allDayEvents, laidOutTimed } = useMemo(() => {
+    const dayEvents = events.filter((e) =>
+      isSameDay(new Date(e.start_at), selectedDate)
+    );
+    const { allDay, timed } = splitAllDay(dayEvents);
+    return { allDayEvents: allDay, laidOutTimed: layoutTimedEvents(timed) };
   }, [events, selectedDate]);
-
-  // Team availability computation
-  const availability = useMemo(() => {
-    return AVAILABILITY_SLOTS.map((slot) => {
-      const slotStart = slot.start * 60;
-      const slotEnd = slot.end * 60;
-      let busyCount = 0;
-      const totalSlots = 5;
-
-      for (const event of dayEvents) {
-        const { startMin, durationMin } = getEventMinutes(event);
-        const eventEnd = startMin + durationMin;
-        if (startMin < slotEnd && eventEnd > slotStart) {
-          busyCount++;
-        }
-      }
-
-      const busyRatio = busyCount / totalSlots;
-      const freeCount = Math.max(0, totalSlots - busyCount);
-
-      let statusColor = "#10B981"; // green
-      if (busyRatio > 0.7) statusColor = "#EF4444"; // red
-      else if (busyRatio > 0.3) statusColor = "#F59E0B"; // amber
-
-      return {
-        ...slot,
-        freeCount,
-        totalSlots,
-        statusColor,
-      };
-    });
-  }, [dayEvents]);
 
   const handleSlotClick = useCallback(
     (hour: number) => {
@@ -244,40 +366,13 @@ function DayView({
         </div>
       </div>
 
-      {/* Team availability strip */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-[#27272A]">
-        <span
-          className="text-[11px] font-medium mr-1"
-          style={{ color: "#52525B" }}
-        >
-          {t("availabilityShort")}
-        </span>
-        {availability.map((slot) => (
-          <div
-            key={slot.label}
-            className="flex flex-col items-center gap-0.5"
-          >
-            <div className="flex items-center gap-1">
-              <div
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: slot.statusColor }}
-              />
-              <span
-                className="text-[10px] font-mono"
-                style={{ color: "#52525B" }}
-              >
-                {slot.label}
-              </span>
-            </div>
-            <span
-              className="text-[9px]"
-              style={{ color: "#52525B" }}
-            >
-              {t("slotsAvailable", { free: slot.freeCount, total: slot.totalSlots })}
-            </span>
-          </div>
-        ))}
-      </div>
+      {/* All-day / derived events row (kept out of the timed grid) */}
+      <AllDayRow
+        events={allDayEvents}
+        selectedEvent={selectedEvent}
+        onSelectEvent={onSelectEvent}
+        label={t("allDayShort")}
+      />
 
       {/* Time grid */}
       <div
@@ -305,7 +400,7 @@ function DayView({
                 >
                   <span
                     className="text-[11px] font-mono"
-                    style={{ color: "#52525B" }}
+                    style={{ color: "#71717A" }}
                   >
                     {formatTime(hour, 0)}
                   </span>
@@ -332,7 +427,7 @@ function DayView({
           })}
 
           {/* Event blocks */}
-          {dayEvents.map((event) => {
+          {laidOutTimed.map(({ event, col, cols }) => {
             const { startMin, durationMin } = getEventMinutes(event);
             const color = getEventColor(event);
             const top = ((startMin - HOUR_START * 60) / 60) * HOUR_HEIGHT;
@@ -340,6 +435,7 @@ function DayView({
             const startDate = new Date(event.start_at);
             const endDate = new Date(event.end_at);
             const isSelected = selectedEvent?.id === event.id;
+            const pos = columnStyle(col, cols, EVENT_LEFT, EVENT_RIGHT_MARGIN);
 
             return (
               <div
@@ -347,8 +443,8 @@ function DayView({
                 className="absolute cursor-pointer transition-all duration-150"
                 style={{
                   top: Math.max(0, top),
-                  left: EVENT_LEFT,
-                  right: EVENT_RIGHT_MARGIN,
+                  left: pos.left,
+                  width: pos.width,
                   height: Math.max(24, height),
                   backgroundColor: isSelected
                     ? `${color}20`
@@ -374,11 +470,14 @@ function DayView({
                 }}
               >
                 {/* Title */}
-                <div
-                  className="text-[13px] font-semibold leading-tight truncate"
-                  style={{ color: "#FAFAFA" }}
-                >
-                  {event.title}
+                <div className="flex items-center gap-1.5">
+                  <SourceChip event={event} />
+                  <div
+                    className="text-[13px] font-semibold leading-tight truncate"
+                    style={{ color: "#FAFAFA" }}
+                  >
+                    {event.title}
+                  </div>
                 </div>
                 {/* Meta: time range + location */}
                 {height >= 36 && (
@@ -496,21 +595,23 @@ function WeekView({
     return days;
   }, [monday]);
 
-  // Group events by day of week
+  // Group events by day of week, splitting all-day (shown in the header) from
+  // timed events (laid out into overlap columns inside the day column).
   const eventsByDay = useMemo(() => {
-    const map: Record<number, CalendarEvent[]> = {};
-    for (let i = 0; i < 7; i++) map[i] = [];
-
+    const buckets: CalendarEvent[][] = Array.from({ length: 7 }, () => []);
     for (const event of events) {
       const start = new Date(event.start_at);
       for (let i = 0; i < 7; i++) {
         if (isSameDay(start, weekDays[i])) {
-          map[i].push(event);
+          buckets[i].push(event);
           break;
         }
       }
     }
-    return map;
+    return buckets.map((dayEvents) => {
+      const { allDay, timed } = splitAllDay(dayEvents);
+      return { allDay, timed: layoutTimedEvents(timed) };
+    });
   }, [events, weekDays]);
 
   const hours = useMemo(() => {
@@ -575,6 +676,35 @@ function WeekView({
               >
                 {day.getDate()}
               </span>
+              {/* All-day / derived events — kept out of the timed grid */}
+              {(eventsByDay[i]?.allDay?.length ?? 0) > 0 && (
+                <div className="mt-1 flex w-full flex-col gap-0.5 px-1">
+                  {eventsByDay[i].allDay.slice(0, 2).map((event) => {
+                    const color = getEventColor(event);
+                    return (
+                      <button
+                        key={event.id}
+                        type="button"
+                        onClick={() => onSelectEvent(event)}
+                        className="truncate rounded px-1 py-[1px] text-left text-[9px] font-medium"
+                        style={{
+                          backgroundColor: `${color}1F`,
+                          borderLeft: `2px solid ${color}`,
+                          color: "#FAFAFA",
+                        }}
+                        title={event.title}
+                      >
+                        {event.title}
+                      </button>
+                    );
+                  })}
+                  {eventsByDay[i].allDay.length > 2 && (
+                    <span className="px-1 text-[9px]" style={{ color: "#A1A1AA" }}>
+                      +{eventsByDay[i].allDay.length - 2}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -604,7 +734,7 @@ function WeekView({
               >
                 <span
                   className="text-[11px] font-mono"
-                  style={{ color: "#52525B" }}
+                  style={{ color: "#71717A" }}
                 >
                   {formatTime(hour, 0)}
                 </span>
@@ -615,7 +745,7 @@ function WeekView({
           {/* Day columns */}
           {weekDays.map((day, dayIdx) => {
             const dayIsToday = isToday(day);
-            const dayEvents = eventsByDay[dayIdx] || [];
+            const timedEvents = eventsByDay[dayIdx]?.timed ?? [];
 
             return (
               <div
@@ -655,7 +785,7 @@ function WeekView({
                 ))}
 
                 {/* Events */}
-                {dayEvents.map((event) => {
+                {timedEvents.map(({ event, col, cols }) => {
                   const { startMin, durationMin } = getEventMinutes(event);
                   const color = getEventColor(event);
                   const top =
@@ -666,6 +796,7 @@ function WeekView({
                   );
                   const startDate = new Date(event.start_at);
                   const isSelected = selectedEvent?.id === event.id;
+                  const pos = columnStyle(col, cols, 2, 2);
 
                   return (
                     <div
@@ -673,8 +804,8 @@ function WeekView({
                       className="absolute cursor-pointer transition-all duration-150"
                       style={{
                         top: Math.max(0, top),
-                        left: 2,
-                        right: 2,
+                        left: pos.left,
+                        width: pos.width,
                         height: Math.max(18, height),
                         backgroundColor: isSelected
                           ? `${color}20`
@@ -700,6 +831,9 @@ function WeekView({
                         }
                       }}
                     >
+                      <div className="flex items-center gap-1">
+                        <SourceChip event={event} />
+                      </div>
                       <div
                         className="text-[10px] font-semibold leading-tight truncate"
                         style={{ color: "#FAFAFA" }}
@@ -882,7 +1016,7 @@ function MonthView({
             }}
           >
             {row.map((cell, colIdx) => {
-              const cellKey = cell.date.toISOString().split("T")[0];
+              const cellKey = toLocalDateString(cell.date);
               const isHovered = hoveredDate === cellKey;
               const hasEvents = cell.events.length > 0;
               const visibleEvents = cell.events.slice(0, MAX_EVENTS_PER_CELL);
@@ -968,12 +1102,16 @@ function MonthView({
                           }}
                           title={`${formatTime(startDate.getHours(), startDate.getMinutes())} ${event.title}`}
                         >
-                          <span
-                            className="text-[9px] font-mono flex-shrink-0"
-                            style={{ color }}
-                          >
-                            {formatTime(startDate.getHours(), startDate.getMinutes())}
-                          </span>
+                          {sourceMetaFor(event) ? (
+                            <SourceChip event={event} />
+                          ) : (
+                            <span
+                              className="text-[9px] font-mono flex-shrink-0"
+                              style={{ color }}
+                            >
+                              {formatTime(startDate.getHours(), startDate.getMinutes())}
+                            </span>
+                          )}
                           <span
                             className="text-[10px] font-medium truncate"
                             style={{ color: "#FAFAFA" }}

@@ -53,7 +53,7 @@ function ToolBtn({
       className={`p-1.5 rounded transition-colors ${
         active
           ? "bg-[#F97316]/20 text-[#F97316]"
-          : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#27272A]"
+          : "text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A]"
       }`}
     >
       <Icon className="h-3.5 w-3.5" />
@@ -314,7 +314,7 @@ export default function RichSignatureEditor({
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
         data-placeholder={placeholder}
-        className="min-h-[140px] max-h-[400px] overflow-y-auto px-3.5 py-2.5 text-[13px] text-[#D4D4D8] focus:outline-none [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-[#52525B] [&:empty]:before:pointer-events-none [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded [&_a]:text-[#3B82F6] [&_a]:underline"
+        className="min-h-[140px] max-h-[400px] overflow-y-auto px-3.5 py-2.5 text-[13px] text-[#D4D4D8] focus:outline-none [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-[#A1A1AA] [&:empty]:before:pointer-events-none [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded [&_a]:text-[#3B82F6] [&_a]:underline"
         style={{ wordBreak: "break-word" }}
       />
 
@@ -330,7 +330,7 @@ export default function RichSignatureEditor({
 
       {/* ── Help text ── */}
       <div className="px-3 py-1.5 border-t border-[#27272A] bg-[#111113]">
-        <p className="text-[10px] text-[#52525B]">
+        <p className="text-[10px] text-[#A1A1AA]">
           💡 Astuce : copiez votre signature depuis Outlook et collez-la ici directement (Ctrl+V). Les images et le formatage seront conservés.
         </p>
       </div>

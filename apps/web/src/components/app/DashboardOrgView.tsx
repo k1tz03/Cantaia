@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatCHF } from "@/lib/format";
+import { toLocalDateString } from "@/components/calendar/datetime-utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -125,7 +126,7 @@ interface ProjectAlert {
 
 function isOverdue(task: { due_date: string | null; status: string }): boolean {
   if (!task.due_date || task.status === "done" || task.status === "cancelled") return false;
-  return task.due_date < new Date().toISOString().split("T")[0];
+  return task.due_date < toLocalDateString(new Date());
 }
 
 function daysBetween(dateStr: string): number {
@@ -261,8 +262,8 @@ function KPICard({
   return (
     <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-3 shadow-sm">
       <div className="flex items-center gap-2">
-        <Icon className={cn("h-4 w-4", iconColor || "text-[#71717A]")} />
-        <span className="text-xs font-medium text-[#71717A] truncate">{label}</span>
+        <Icon className={cn("h-4 w-4", iconColor || "text-[#A1A1AA]")} />
+        <span className="text-xs font-medium text-[#A1A1AA] truncate">{label}</span>
       </div>
       <p className={cn("mt-1.5 text-2xl font-bold tabular-nums", valueColor || "text-[#FAFAFA]")}>
         {value}
@@ -285,7 +286,7 @@ function BudgetBar({
 
   return (
     <div>
-      <div className="flex items-center justify-between text-[11px] text-[#71717A] mb-1">
+      <div className="flex items-center justify-between text-[11px] text-[#A1A1AA] mb-1">
         <span>{t("budget")}</span>
         <span className="tabular-nums">
           {Math.round(pct)}% {t("of")} {formatBudgetCompact(total)}
@@ -386,14 +387,14 @@ function ProjectCard({
                 {project.name}
               </h3>
               {project.code && (
-                <p className="text-[11px] text-[#71717A] truncate">{project.code}</p>
+                <p className="text-[11px] text-[#A1A1AA] truncate">{project.code}</p>
               )}
             </div>
           </div>
           <HealthBadge health={health} />
         </div>
         {manager && (
-          <p className="mt-1 text-[11px] text-[#71717A] truncate">
+          <p className="mt-1 text-[11px] text-[#A1A1AA] truncate">
             {t("manager")}: {manager.first_name} {manager.last_name}
           </p>
         )}
@@ -405,7 +406,7 @@ function ProjectCard({
         {hasBudget ? (
           <BudgetBar consumed={0} total={project.budget_total!} t={t} />
         ) : (
-          <div className="flex items-center justify-between text-[11px] text-[#71717A]">
+          <div className="flex items-center justify-between text-[11px] text-[#A1A1AA]">
             <span>{t("budget")}</span>
             <span>{t("budgetNotDefined")}</span>
           </div>
@@ -413,7 +414,7 @@ function ProjectCard({
 
         {/* Tasks */}
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-[#71717A]">{t("tasks")}</span>
+          <span className="text-[#A1A1AA]">{t("tasks")}</span>
           <span>
             {overdueTasks.length > 0 && (
               <span className="font-semibold text-red-600">
@@ -421,9 +422,9 @@ function ProjectCard({
               </span>
             )}
             {overdueTasks.length > 0 && activeTasks.length > 0 && (
-              <span className="text-[#71717A]"> / </span>
+              <span className="text-[#A1A1AA]"> / </span>
             )}
-            <span className="text-[#71717A]">
+            <span className="text-[#A1A1AA]">
               {activeTasks.length} {t("active")}
             </span>
           </span>
@@ -431,13 +432,13 @@ function ProjectCard({
 
         {/* Submissions */}
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-[#71717A]">{t("submissions")}</span>
+          <span className="text-[#A1A1AA]">{t("submissions")}</span>
           <span>
-            <span className="text-[#71717A]">
+            <span className="text-[#A1A1AA]">
               {activeSubmissions.length} {t("pending")}
             </span>
-            <span className="text-[#71717A]"> / </span>
-            <span className="text-[#71717A]">
+            <span className="text-[#A1A1AA]"> / </span>
+            <span className="text-[#A1A1AA]">
               {projectSubmissions.length} {t("total")}
             </span>
           </span>
@@ -446,8 +447,8 @@ function ProjectCard({
         {/* Next deadline */}
         {nextDeadline?.deadline && (
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-[#71717A]">{t("nextDeadline")}</span>
-            <span className="flex items-center gap-1 text-[#71717A]">
+            <span className="text-[#A1A1AA]">{t("nextDeadline")}</span>
+            <span className="flex items-center gap-1 text-[#A1A1AA]">
               <Clock className="h-3 w-3" />
               {new Date(nextDeadline.deadline).toLocaleDateString("fr-CH", {
                 day: "2-digit",
@@ -460,8 +461,8 @@ function ProjectCard({
         {/* Next meeting or last PV */}
         {nextMeeting && (
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-[#71717A]">{t("nextMeeting")}</span>
-            <span className="flex items-center gap-1 text-[#71717A]">
+            <span className="text-[#A1A1AA]">{t("nextMeeting")}</span>
+            <span className="flex items-center gap-1 text-[#A1A1AA]">
               <Calendar className="h-3 w-3" />
               {new Date(nextMeeting.meeting_date).toLocaleDateString("fr-CH", {
                 day: "2-digit",
@@ -604,7 +605,7 @@ export function DashboardOrgView() {
   }, []);
 
   // ---- Derived data ----
-  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const today = useMemo(() => toLocalDateString(new Date()), []);
 
   const filteredProjects = useMemo(() => {
     if (statusFilter === "all") return projects;
@@ -682,7 +683,7 @@ export function DashboardOrgView() {
       <div className="flex h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-brand" />
-          <p className="text-sm text-[#71717A]">{t("title")}...</p>
+          <p className="text-sm text-[#A1A1AA]">{t("title")}...</p>
         </div>
       </div>
     );
@@ -702,14 +703,14 @@ export function DashboardOrgView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
           <h1 className="text-xl font-semibold text-[#FAFAFA]">{t("title")}</h1>
-          <p className="mt-0.5 text-sm text-[#71717A]">{t("subtitle")}</p>
+          <p className="mt-0.5 text-sm text-[#A1A1AA]">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-2 print:hidden">
           {/* Filter */}
           <div className="relative">
             <button
               onClick={() => setFilterOpen(!filterOpen)}
-              className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A] transition-colors"
+              className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A] transition-colors"
             >
               <Filter className="h-3.5 w-3.5" />
               {filterOptions.find((f) => f.value === statusFilter)?.label}
@@ -728,7 +729,7 @@ export function DashboardOrgView() {
                       "w-full text-left px-3 py-1.5 text-xs transition-colors",
                       statusFilter === opt.value
                         ? "bg-brand/5 text-brand font-medium"
-                        : "text-[#71717A] hover:bg-[#27272A]"
+                        : "text-[#A1A1AA] hover:bg-[#27272A]"
                     )}
                   >
                     {opt.label}
@@ -740,7 +741,7 @@ export function DashboardOrgView() {
           {/* Export */}
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A] transition-colors"
+            className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A] transition-colors"
           >
             <Printer className="h-3.5 w-3.5" />
             {t("exportButton")}
@@ -768,14 +769,14 @@ export function DashboardOrgView() {
             label={t("kpiOverdue")}
             value={totalOverdue}
             valueColor={totalOverdue > 0 ? "text-red-600" : "text-[#FAFAFA]"}
-            iconColor={totalOverdue > 0 ? "text-red-500" : "text-[#71717A]"}
+            iconColor={totalOverdue > 0 ? "text-red-500" : "text-[#A1A1AA]"}
           />
           <KPICard
             icon={ShieldAlert}
             label={t("kpiAlerts")}
             value={totalCriticalAlerts}
             valueColor={totalCriticalAlerts > 0 ? "text-red-600" : "text-[#FAFAFA]"}
-            iconColor={totalCriticalAlerts > 0 ? "text-red-500" : "text-[#71717A]"}
+            iconColor={totalCriticalAlerts > 0 ? "text-red-500" : "text-[#A1A1AA]"}
           />
           <KPICard
             icon={FileSpreadsheet}
@@ -788,8 +789,8 @@ export function DashboardOrgView() {
 
       {/* Project Cards Grid */}
       {filteredProjects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-[#71717A]">
-          <Building2 className="h-10 w-10 mb-3 text-[#71717A]" />
+        <div className="flex flex-col items-center justify-center py-16 text-[#A1A1AA]">
+          <Building2 className="h-10 w-10 mb-3 text-[#A1A1AA]" />
           <p className="text-sm">{t("noProjects")}</p>
         </div>
       ) : (
@@ -825,8 +826,8 @@ export function DashboardOrgView() {
           </div>
         ) : !finStats || finStats.projects.length === 0 ? (
           <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-8 text-center">
-            <Banknote className="h-8 w-8 mx-auto mb-2 text-[#71717A]" />
-            <p className="text-sm text-[#71717A]">{t("noData")}</p>
+            <Banknote className="h-8 w-8 mx-auto mb-2 text-[#A1A1AA]" />
+            <p className="text-sm text-[#A1A1AA]">{t("noData")}</p>
           </div>
         ) : (
           <>
@@ -866,13 +867,13 @@ export function DashboardOrgView() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#27272A] bg-[#27272A]/50">
-                      <th className="text-left px-4 py-2.5 text-xs font-medium text-[#71717A]">{t("projectName")}</th>
-                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#71717A]">{t("invoicedAmount")}</th>
-                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#71717A]">{t("purchaseCosts")}</th>
-                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#71717A]">{t("margin")}</th>
-                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#71717A]">{t("marginPct")}</th>
-                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#71717A]">{t("totalHours")}</th>
-                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#71717A]">{t("hoursPerThousand")}</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-[#A1A1AA]">{t("projectName")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#A1A1AA]">{t("invoicedAmount")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#A1A1AA]">{t("purchaseCosts")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#A1A1AA]">{t("margin")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#A1A1AA]">{t("marginPct")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#A1A1AA]">{t("totalHours")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-[#A1A1AA]">{t("hoursPerThousand")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -901,10 +902,10 @@ export function DashboardOrgView() {
                         )}>
                           {fp.margin_pct.toFixed(1)}%
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-[#71717A]">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#A1A1AA]">
                           {fp.total_labor_hours ? `${fp.total_labor_hours}h` : "\u2014"}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-[#71717A]">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#A1A1AA]">
                           {fp.hours_per_thousand ? fp.hours_per_thousand.toFixed(1) : "\u2014"}
                         </td>
                       </tr>

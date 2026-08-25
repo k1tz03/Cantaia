@@ -35,6 +35,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "project_id, submission_id, and offer_id are required" }, { status: 400 });
     }
 
+    // Anti-IDOR : le core résout le project_id depuis submission_id sans filtre
+    // org. On vérifie donc ICI que projet ET soumission appartiennent bien à
+    // l'organisation de l'appelant avant de déclencher la calibration.
+    const [{ data: projCheck }, { data: subCheck }] = await Promise.all([
+      (adminClient as any)
+        .from("projects")
+        .select("organization_id")
+        .eq("id", project_id)
+        .maybeSingle(),
+      (adminClient as any)
+        .from("submissions")
+        .select("organization_id")
+        .eq("id", submission_id)
+        .maybeSingle(),
+    ]);
+
+    if (
+      !projCheck ||
+      projCheck.organization_id !== userOrg.organization_id ||
+      !subCheck ||
+      subCheck.organization_id !== userOrg.organization_id
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const result = await autoCalibrate({
       org_id: userOrg.organization_id,
       project_id,

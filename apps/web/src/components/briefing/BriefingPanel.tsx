@@ -63,8 +63,8 @@ export function BriefingPanel({ compact = true }: BriefingPanelProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <Loader2 className="h-4 w-4 animate-spin text-[#71717A]" />
-        <span className="ml-2 text-xs text-[#71717A]">{t("generating")}</span>
+        <Loader2 className="h-4 w-4 animate-spin text-[#A1A1AA]" />
+        <span className="ml-2 text-xs text-[#A1A1AA]">{t("generating")}</span>
       </div>
     );
   }
@@ -88,7 +88,7 @@ export function BriefingPanel({ compact = true }: BriefingPanelProps) {
     return (
       <div>
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[#71717A]">
+          <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
             <Sparkles className="h-3.5 w-3.5 text-amber-500" />
             {t("title")}
           </h3>
@@ -117,7 +117,7 @@ export function BriefingPanel({ compact = true }: BriefingPanelProps) {
               key={project.project_id}
               className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2"
             >
-              <p className="text-xs text-[#71717A]">
+              <p className="text-xs text-[#A1A1AA]">
                 <span className="mr-1">{project.status_emoji}</span>
                 <span className="font-medium text-[#FAFAFA]">
                   {project.name}

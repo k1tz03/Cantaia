@@ -70,6 +70,34 @@
   input, select, textarea {
     @apply bg-background;
   }
+
+  /* ── Global keyboard focus ────────────────────────────────────────
+     Most controls in the app set `focus:outline-none` and then style
+     only `:focus`, which leaves keyboard users with no visible target.
+     This gives every interactive element one consistent ring, driven by
+     --ring, and only for keyboard focus so mouse users see nothing. */
+  :where(button, a, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: var(--radius, 0.375rem);
+  }
+  /* Elements that opt out of the outline still get a ring. */
+  :where(button, a, input, select, textarea):focus-visible:where(.focus\:outline-none, [class*="outline-none"]) {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+/* ── Toast placement ────────────────────────────────────────────────
+   Bottom-centre. On small screens the mobile bottom nav (~60px plus the
+   safe-area inset) sits exactly where toasts would land, so lift them. */
+[data-sonner-toaster][data-y-position="bottom"] {
+  --offset: 16px;
+}
+@media (max-width: 1023px) {
+  [data-sonner-toaster][data-y-position="bottom"] {
+    --offset: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* ═══════════════════════════════════════════════
@@ -79,25 +107,39 @@
    This avoids modifying 1800+ .tsx files.
    ═══════════════════════════════════════════════ */
 html:not(.dark) {
-  /* Main backgrounds */
+  /* Main backgrounds — the dark ladder mapped onto a light one.
+     #0A0A0C/#111114 were missing before, which produced pages that were
+     light everywhere except a few near-black panels. */
+  .bg-\[\#0A0A0C\] { background-color: #F4F4F5 !important; }
   .bg-\[\#0F0F11\] { background-color: #FAFAFA !important; }
-  .bg-\[\#09090B\] { background-color: #F4F4F5 !important; }
+  .bg-\[\#09090B\] { background-color: #FFFFFF !important; }
   .bg-\[\#111113\] { background-color: #FFFFFF !important; }
+  .bg-\[\#111114\] { background-color: #FFFFFF !important; }
   .bg-\[\#18181B\] { background-color: #FFFFFF !important; }
-  .bg-\[\#1C1C1F\] { background-color: #FFFFFF !important; }
-  .bg-\[\#27272A\] { background-color: #F4F4F5 !important; }
+  .bg-\[\#1C1C1F\] { background-color: #F4F4F5 !important; }
+  .bg-\[\#27272A\] { background-color: #F1F1F3 !important; }
   .bg-\[\#3F3F46\] { background-color: #E4E4E7 !important; }
+  .bg-\[\#52525B\] { background-color: #D4D4D8 !important; }
 
   /* Hover backgrounds */
   .hover\:bg-\[\#27272A\]:hover { background-color: #E4E4E7 !important; }
   .hover\:bg-\[\#27272A\]\/50:hover { background-color: rgba(228,228,231,0.5) !important; }
   .hover\:bg-\[\#18181B\]:hover { background-color: #F4F4F5 !important; }
+  .hover\:bg-\[\#1C1C1F\]:hover { background-color: #F1F1F3 !important; }
   .hover\:bg-\[\#3F3F46\]:hover { background-color: #D4D4D8 !important; }
+  .hover\:bg-\[\#0A0A0C\]:hover { background-color: #F1F1F3 !important; }
 
   /* Backgrounds with opacity */
   .bg-\[\#0F0F11\]\/95 { background-color: rgba(250,250,250,0.95) !important; }
-  .bg-\[\#09090B\]\/95 { background-color: rgba(244,244,245,0.95) !important; }
-  .bg-\[\#09090B\]\/80 { background-color: rgba(244,244,245,0.80) !important; }
+  .bg-\[\#0F0F11\]\/80 { background-color: rgba(250,250,250,0.80) !important; }
+  .bg-\[\#0F0F11\]\/50 { background-color: rgba(250,250,250,0.50) !important; }
+  .bg-\[\#09090B\]\/95 { background-color: rgba(255,255,255,0.95) !important; }
+  .bg-\[\#09090B\]\/80 { background-color: rgba(255,255,255,0.80) !important; }
+  .bg-\[\#18181B\]\/95 { background-color: rgba(255,255,255,0.95) !important; }
+  .bg-\[\#18181B\]\/50 { background-color: rgba(255,255,255,0.50) !important; }
+  .bg-\[\#27272A\]\/50 { background-color: rgba(241,241,243,0.7) !important; }
+  .bg-\[\#27272A\]\/30 { background-color: rgba(241,241,243,0.5) !important; }
+  .bg-\[\#1C1C1F\]\/50 { background-color: rgba(244,244,245,0.6) !important; }
 
   /* Text colors */
   .text-\[\#FAFAFA\] { color: #18181B !important; }
@@ -106,11 +148,42 @@ html:not(.dark) {
   .text-\[\#71717A\] { color: #71717A !important; }
   .text-\[\#52525B\] { color: #A1A1AA !important; }
   .text-\[\#3F3F46\] { color: #A1A1AA !important; }
+  .text-\[\#8A9CA8\] { color: #52525B !important; }
   .text-white { color: #18181B !important; }
+  /* #0F0F11 is the text colour ON orange buttons — it must stay dark. */
+  .text-\[\#0F0F11\] { color: #0F0F11 !important; }
+
+  /* Hover text */
+  .hover\:text-\[\#FAFAFA\]:hover { color: #18181B !important; }
+  .hover\:text-\[\#D4D4D8\]:hover { color: #3F3F46 !important; }
+  .hover\:text-\[\#A1A1AA\]:hover { color: #52525B !important; }
+
+  /* Placeholders */
+  .placeholder-\[\#52525B\]::placeholder,
+  .placeholder\:text-\[\#52525B\]::placeholder { color: #A1A1AA !important; }
+  .placeholder-\[\#71717A\]::placeholder,
+  .placeholder\:text-\[\#71717A\]::placeholder { color: #A1A1AA !important; }
+
+  /* Status colours — the dark-theme greens/reds wash out on white */
+  .text-\[\#34D399\] { color: #059669 !important; }
+  .text-\[\#10B981\] { color: #047857 !important; }
+  .text-\[\#22C55E\] { color: #16A34A !important; }
+  .text-\[\#F87171\] { color: #DC2626 !important; }
+  .text-\[\#EF4444\] { color: #DC2626 !important; }
+  .text-\[\#F59E0B\] { color: #B45309 !important; }
+  .text-\[\#3B82F6\] { color: #2563EB !important; }
+  .text-\[\#FCA5A5\] { color: #DC2626 !important; }
 
   /* Border colors */
   .border-\[\#27272A\] { border-color: #E4E4E7 !important; }
+  .border-\[\#27272A\]\/50 { border-color: rgba(228,228,231,0.7) !important; }
   .border-\[\#3F3F46\] { border-color: #D4D4D8 !important; }
+  .border-\[\#1C1C1F\] { border-color: #E4E4E7 !important; }
+  .border-\[\#0A0A0C\] { border-color: #E4E4E7 !important; }
+  .border-\[\#18181B\] { border-color: #E4E4E7 !important; }
+  .hover\:border-\[\#3F3F46\]:hover { border-color: #A1A1AA !important; }
+  .hover\:border-\[\#27272A\]:hover { border-color: #D4D4D8 !important; }
+  .divide-\[\#27272A\] > * + * { border-color: #E4E4E7 !important; }
 
   /* Structural overrides */
   .bg-header { background-color: #FFFFFF !important; }

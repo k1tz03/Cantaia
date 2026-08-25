@@ -37,14 +37,22 @@ export async function GET() {
     .maybeSingle();
 
   if (profile?.organization_id) {
-    const { data: orgConnection } = await adminClient
-      .from("email_connections")
-      .select("provider, email_address, status, last_sync_at, total_emails_synced")
-      .eq("organization_id", profile.organization_id)
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Split-identity fallback: the SAME person may have a connection saved under
+    // a different auth user in this org. Match ONLY on their own email address —
+    // returning any active org connection would surface a colleague's mailbox
+    // and falsely show the user as "connected".
+    const ownEmail = profile.email || user.email;
+    const { data: orgConnection } = ownEmail
+      ? await adminClient
+          .from("email_connections")
+          .select("provider, email_address, status, last_sync_at, total_emails_synced")
+          .eq("organization_id", profile.organization_id)
+          .eq("status", "active")
+          .ilike("email_address", ownEmail)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
 
     if (orgConnection) {
       return NextResponse.json({ connection: orgConnection });

@@ -2,7 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
+import { getAppUrl } from "@/lib/env";
 import { randomBytes } from "crypto";
+import {
+  buildPortalUrl,
+  buildPriceRequestEmail,
+  generatePortalToken,
+  normalizeSupplierLanguage,
+  renderItemsTable,
+  renderPortalBlock,
+  supplierStrings,
+  escapeHtml,
+  type SupplierLanguage,
+} from "@cantaia/core/submissions";
 
 interface ManualSupplierInfo {
   id: string;
@@ -30,9 +42,28 @@ interface SendRequest {
   group_attachments?: Record<string, AttachmentData[]>; // per-group attachments (keyed by material_group name)
   custom_subject?: string;
   custom_body?: string;
-  custom_bodies?: Record<string, string>; // per-supplier body overrides (supplier_id → body text)
-  custom_subjects?: Record<string, string>; // per-supplier subject overrides (supplier_id → subject)
+  /**
+   * Per-supplier body overrides. Two shapes are accepted:
+   *   - legacy flat:      { [supplier_id]: body }                        (one body per supplier)
+   *   - per (supplier, lot): { [supplier_id]: { [material_group]: body } } (current client)
+   * The flat shape silently reused ONE body for every lot of a supplier, so a
+   * text edited for "Béton" also went out for "Ferblanterie".
+   */
+  custom_bodies?: Record<string, string | Record<string, string>>;
+  /** Per-supplier subject overrides — same two shapes as custom_bodies. */
+  custom_subjects?: Record<string, string | Record<string, string>>;
   manual_suppliers?: ManualSupplierInfo[];
+}
+
+/** Resolves a per-supplier override for one lot, accepting both payload shapes. */
+function resolveOverride(
+  entry: string | Record<string, string> | undefined,
+  materialGroup: string
+): string | undefined {
+  if (entry === undefined || entry === null) return undefined;
+  if (typeof entry === "string") return entry || undefined;
+  const value = entry[materialGroup];
+  return typeof value === "string" && value ? value : undefined;
 }
 
 export async function POST(
@@ -118,16 +149,62 @@ export async function POST(
     }
 
     // H2: `sent` now means "Microsoft Graph accepted the message".
-    //   - "sent"   → email left the mailbox, sent_at is set
-    //   - "failed" → the record exists but no email went out (error explains why)
+    //   - "sent"    → email left the mailbox, sent_at is set
+    //   - "failed"  → the record exists but no email went out (error explains why)
+    //   - "skipped" → this (supplier, lot) pair was already served by a previous
+    //                 send — a retry after a partial failure must not double-email
     const results: Array<{
       material_group: string;
       supplier_id: string;
       supplier_name?: string;
       tracking_code: string;
-      status: "sent" | "failed";
+      status: "sent" | "failed" | "skipped";
+      reason?: string;
       error?: string;
     }> = [];
+
+    // F1: the supplier-facing language drives BOTH the email copy and the
+    // portal page. It used to be accepted in the payload and then ignored, so a
+    // German supplier received French — on a market that is 70 % German-speaking.
+    const language: SupplierLanguage = normalizeSupplierLanguage(body.language);
+
+    // Canonical app URL (BASE_DOMAIN → NEXT_PUBLIC_APP_URL → cantaia.io).
+    const appUrl = getAppUrl();
+    let portalDisabledReason: string | null = null;
+    if (!appUrl) {
+      console.warn(
+        "[SEND] portail désactivé : NEXT_PUBLIC_APP_URL manquante — les emails partent sans lien portail"
+      );
+      portalDisabledReason = "app_url_missing";
+    }
+
+    // Migration 099 adds `portal_token` / `language`. Until it is applied the
+    // insert would fail on an unknown column, so the first such failure disables
+    // those columns for the rest of this run and the emails degrade to "reply by
+    // email" — which is exactly the pre-portal behaviour. NB: this flag tracks
+    // SCHEMA availability only — a missing app URL no longer prevents the
+    // supplier language (and token) from being persisted.
+    let portalColumnsAvailable = true;
+
+    // Migration 104 adds `sent_by` (who to notify when the offer arrives).
+    let sentByColumnAvailable = true;
+
+    // Idempotence: pairs (supplier, lot) already served by a previous run.
+    // A re-POST after a partial failure re-sends ONLY what actually failed.
+    const { data: alreadySentRows, error: alreadySentError } = await (admin as any)
+      .from("submission_price_requests")
+      .select("supplier_id, supplier_email_manual, material_group")
+      .eq("submission_id", submissionId)
+      .eq("status", "sent");
+    if (alreadySentError) {
+      console.warn("[SEND] already-sent lookup failed (idempotence skipped):", alreadySentError.message);
+    }
+    const alreadySentKeys = new Set<string>(
+      (alreadySentRows || []).map(
+        (r: any) =>
+          `${r.supplier_id || (r.supplier_email_manual || "").toLowerCase()}|${r.material_group || ""}`
+      )
+    );
 
     /**
      * Marks a price request as failed. Kept tolerant of a database where
@@ -157,12 +234,15 @@ export async function POST(
       for (const supplierId of group.supplier_ids) {
         // Generate tracking code
         const shortId = submissionId.slice(0, 4).toUpperCase();
-        const groupSlug = group.material_group
+        // Slug jamais vide (un material_group vide produisait SUB-XXXX--RANDOM,
+        // ind\u00e9tectable par la regex d'extraction) ; 64 bits d'al\u00e9a \u2014 le code
+        // circule par email et sert de capability de rattachement.
+        const groupSlug = (group.material_group || "lot")
           .toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-z0-9]/g, "-")
-          .slice(0, 15);
-        const random = randomBytes(3).toString("hex").toUpperCase();
+          .slice(0, 15) || "lot";
+        const random = randomBytes(8).toString("hex").toUpperCase();
         const trackingCode = `SUB-${shortId}-${groupSlug}-${random}`;
 
         // Check if this is a manual (temp) supplier
@@ -182,17 +262,30 @@ export async function POST(
           supplierContactName = manualInfo.contact_name || null;
           console.log("[SEND] Manual supplier:", supplierCompanyName, supplierEmail);
         } else {
+          // Org-scoped lookup — a supplier id from another org must never
+          // receive this org's price request (anti-IDOR).
           const { data: supplier } = await admin
             .from("suppliers")
             .select("company_name, contact_name, email")
             .eq("id", supplierId)
+            .eq("organization_id", userProfile.organization_id)
             .maybeSingle();
 
-          if (!supplier?.email) {
+          if (!supplier) {
             results.push({
               material_group: group.material_group,
               supplier_id: supplierId,
-              supplier_name: supplier?.company_name,
+              tracking_code: trackingCode,
+              status: "failed",
+              error: "Fournisseur introuvable",
+            });
+            continue;
+          }
+          if (!supplier.email) {
+            results.push({
+              material_group: group.material_group,
+              supplier_id: supplierId,
+              supplier_name: supplier.company_name,
               tracking_code: trackingCode,
               status: "failed",
               error: "Fournisseur sans adresse email",
@@ -212,6 +305,23 @@ export async function POST(
             tracking_code: trackingCode,
             status: "failed",
             error: "Fournisseur sans adresse email",
+          });
+          continue;
+        }
+
+        // Idempotence: this (supplier, lot) pair already has a request that
+        // actually left the mailbox — do not email the supplier again.
+        const idempotencyKey = isManual
+          ? `${supplierEmail.toLowerCase()}|${group.material_group}`
+          : `${supplierId}|${group.material_group}`;
+        if (alreadySentKeys.has(idempotencyKey)) {
+          results.push({
+            material_group: group.material_group,
+            supplier_id: supplierId,
+            supplier_name: supplierCompanyName,
+            tracking_code: "",
+            status: "skipped",
+            reason: "already_sent",
           });
           continue;
         }
@@ -247,11 +357,62 @@ export async function POST(
           insertData.supplier_id = supplierId;
         }
 
+        // Supplier portal: one unguessable token per request (migration 099).
+        // The token and the language are persisted whenever the columns exist —
+        // independently of the app URL (the language must survive even when the
+        // portal link cannot be built).
+        const portalToken = generatePortalToken();
+        if (portalColumnsAvailable) {
+          insertData.portal_token = portalToken;
+          insertData.language = language;
+        }
+
+        // Who sent the request → who gets the "offre reçue" notification (104).
+        if (sentByColumnAvailable) {
+          insertData.sent_by = user.id;
+        }
+
         let { data: inserted, error: insertError } = await (admin as any)
           .from("submission_price_requests")
           .insert(insertData)
           .select("id")
           .single();
+
+        // Migration 104 not applied → retry without sent_by.
+        // (Checked FIRST: the generic "schema cache" pattern of the portal
+        // fallback below would otherwise swallow this error too.)
+        if (insertError && sentByColumnAvailable && /sent_by/i.test(insertError.message || "")) {
+          console.warn("[SEND] sent_by column missing — apply migration 104.");
+          sentByColumnAvailable = false;
+          delete insertData.sent_by;
+          const retry = await (admin as any)
+            .from("submission_price_requests")
+            .insert(insertData)
+            .select("id")
+            .single();
+          inserted = retry.data;
+          insertError = retry.error;
+        }
+
+        // Migration 099 not applied → retry without the portal columns.
+        if (
+          insertError &&
+          /portal_token|column .*language|schema cache/i.test(insertError.message || "")
+        ) {
+          console.warn(
+            "[SEND] portal columns missing — apply migration 099. Falling back to email-only reply."
+          );
+          portalColumnsAvailable = false;
+          delete insertData.portal_token;
+          delete insertData.language;
+          const retry = await (admin as any)
+            .from("submission_price_requests")
+            .insert(insertData)
+            .select("id")
+            .single();
+          inserted = retry.data;
+          insertError = retry.error;
+        }
 
         // Fallback for a database where migration 082 has not widened the status
         // CHECK constraint yet — insert with the legacy value but still no sent_at.
@@ -281,41 +442,58 @@ export async function POST(
 
         const priceRequestId: string = inserted.id;
 
+        // The portal link only exists if the token could actually be stored
+        // AND an app URL is configured (the language is persisted regardless).
+        const portalUrl =
+          appUrl && portalColumnsAvailable ? buildPortalUrl(appUrl, portalToken, language) : null;
+
         // Generate and send email
         if (canSendEmail) {
           try {
             const projectName = (submission as any).projects?.name || "Projet";
+            const s = supplierStrings(language);
 
             let subject: string;
             let htmlContent: string;
 
-            // Check per-supplier overrides, then global fallbacks
-            const effectiveCustomBody = body.custom_bodies?.[supplierId] || body.custom_body;
-            const effectiveCustomSubject = body.custom_subjects?.[supplierId] || body.custom_subject;
+            // Per-(supplier, lot) overrides first (new shape), then the legacy
+            // flat per-supplier shape, then the global fallbacks.
+            const effectiveCustomBody =
+              resolveOverride(body.custom_bodies?.[supplierId], group.material_group) ||
+              body.custom_body;
+            const effectiveCustomSubject =
+              resolveOverride(body.custom_subjects?.[supplierId], group.material_group) ||
+              body.custom_subject;
 
             if (effectiveCustomBody) {
               // Use custom content from editable preview
-              subject = effectiveCustomSubject || `Demande de prix — ${projectName} — ${group.material_group}`;
-              const itemsTableHtml = generateItemsTableHtml(groupItems);
-              htmlContent = customBodyToHtml(effectiveCustomBody, itemsTableHtml, trackingCode);
+              subject = effectiveCustomSubject || s.prSubject(projectName, group.material_group);
+              const itemsTableHtml = renderItemsTable(groupItems, language);
+              htmlContent = customBodyToHtml(
+                effectiveCustomBody,
+                itemsTableHtml,
+                trackingCode,
+                language,
+                portalUrl
+              );
               // Append user signature if available
               if (userProfile.email_signature?.trim()) {
                 htmlContent += `<br/><p>--<br/>${userProfile.email_signature.replace(/\n/g, "<br/>")}</p>`;
               }
               console.log("[SEND] Using custom email body for supplier:", supplierEmail);
             } else {
-              const emailBody = generatePriceRequestEmail({
-                supplierName: supplierCompanyName,
+              const emailBody = buildPriceRequestEmail({
                 contactName: supplierContactName,
                 projectName,
                 materialGroup: group.material_group,
                 items: groupItems,
                 trackingCode,
+                portalUrl,
                 deadline: body.deadline,
                 senderName: `${userProfile.first_name} ${userProfile.last_name}`,
                 senderCompany: org?.name || "",
                 senderTitle: userProfile.job_title,
-                language: body.language || "fr",
+                language,
                 emailSignature: userProfile.email_signature || "",
               });
               subject = effectiveCustomSubject || emailBody.subject;
@@ -347,6 +525,9 @@ export async function POST(
             if (sentUpdateError) {
               console.error("[SEND] Email delivered but status update failed:", sentUpdateError.message);
             }
+
+            // Same pair listed twice in this payload → the second pass skips.
+            alreadySentKeys.add(idempotencyKey);
 
             results.push({
               material_group: group.material_group,
@@ -386,17 +567,20 @@ export async function POST(
 
     const sentCount = results.filter((r) => r.status === "sent").length;
     const failedCount = results.filter((r) => r.status === "failed").length;
-    console.log("[SEND] Done. Sent:", sentCount, "Failed:", failedCount);
+    const skippedCount = results.filter((r) => r.status === "skipped").length;
+    console.log("[SEND] Done. Sent:", sentCount, "Failed:", failedCount, "Skipped:", skippedCount);
 
     return NextResponse.json({
       success: true,
       sent: sentCount,
       failed: failedCount,
+      skipped: skippedCount,
       // `saved` kept for backward compatibility with older clients: a failed
       // request is still persisted, it simply never left the mailbox.
       saved: failedCount,
       results,
       ...(microsoftError ? { microsoft_error: microsoftError } : {}),
+      ...(portalDisabledReason ? { portal_disabled_reason: portalDisabledReason } : {}),
     });
 
   } catch (err: any) {
@@ -406,136 +590,42 @@ export async function POST(
 }
 
 /**
- * M8: escape any value interpolated into the outgoing HTML email.
- * Item descriptions, product names and supplier/contact names come from parsed
- * documents and from user input — an unescaped `<` was enough to break the
- * markup (or inject arbitrary HTML) into a mail sent from the user's own mailbox.
+ * Renders a supplier-authored (edited-in-preview) body into HTML, then appends
+ * the portal call-to-action and the tracking-code note in the supplier language.
  *
- * NOT applied to `email_signature`, which is authored rich HTML by design.
+ * The body itself is edited as PLAIN TEXT in the preview textarea, so it is
+ * escaped before being turned into HTML (M8). Item descriptions and names come
+ * from parsed documents: an unescaped `<` was enough to break the markup of a
+ * mail sent from the user's own mailbox.
  */
-function escapeHtml(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/**
- * Clean item description for supplier emails.
- * Strips service/labor phrases that are irrelevant to the supplier — they only need
- * to quote the material/product part. Swiss construction descriptions often include
- * "fourniture et pose", "livraison et mise en place", "y compris X" etc.
- */
-function cleanDescriptionForSupplier(desc: string): string {
-  let cleaned = desc;
-  cleaned = cleaned.replace(/^(?:fourniture\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
-  cleaned = cleaned.replace(/^(?:livraison\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
-  cleaned = cleaned.replace(/^(?:fourniture,?\s+(?:transport\s+et\s+)?(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
-  cleaned = cleaned.replace(/^(?:Lieferung\s+und\s+(?:Montage|Verlegung|Einbau)\s+(?:von\s+)?)/i, "");
-  cleaned = cleaned.replace(/[,;]\s*(?:y\s+compris|incl(?:us|uant)?|inkl(?:usive)?|einschliesslich)\s+.{0,80}$/i, "");
-  cleaned = cleaned.replace(/\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))$/i, "");
-  cleaned = cleaned.replace(/\s+und\s+(?:Montage|Verlegung|Einbau)$/i, "");
-  cleaned = cleaned.trim();
-  if (cleaned.length > 0) cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-  return cleaned.length >= 10 ? cleaned : desc;
-}
-
-function generatePriceRequestEmail(opts: {
-  supplierName: string;
-  contactName: string | null;
-  projectName: string;
-  materialGroup: string;
-  items: any[];
-  trackingCode: string;
-  deadline?: string;
-  senderName: string;
-  senderCompany: string;
-  senderTitle: string | null;
-  language: "fr" | "en" | "de";
-  emailSignature?: string;
-}) {
-  const contactFirstName = opts.contactName?.split(/\s+/)[0] || null;
-  const greeting = contactFirstName ? `Bonjour ${contactFirstName}` : "Bonjour";
-  const deadlineStr = opts.deadline
-    ? new Date(opts.deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })
-    : "dans les meilleurs délais";
-
-  const itemsTable = opts.items
-    .map((i) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(i.item_number || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(cleanDescriptionForSupplier(i.description || ""))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${escapeHtml(i.unit || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
-    .join("\n");
-
-  const subject = `Demande de prix — ${opts.projectName} — ${opts.materialGroup}`;
-
-  const html = `
-<p>${escapeHtml(greeting)},</p>
-
-<p>Dans le cadre du projet <strong>${escapeHtml(opts.projectName)}</strong>, nous vous sollicitons pour une offre de prix concernant les postes suivants (<strong>${escapeHtml(opts.materialGroup)}</strong>) :</p>
-
-<table style="border-collapse:collapse;width:100%;font-size:13px;margin:16px 0;">
-  <thead>
-    <tr style="background:#f3f4f6;">
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">N°</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Description</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:center;">Unité</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:right;">Quantité</th>
-    </tr>
-  </thead>
-  <tbody>
-    ${itemsTable}
-  </tbody>
-</table>
-
-<p>Merci de nous transmettre votre offre de prix unitaires HT pour ces postes, <strong>avant le ${escapeHtml(deadlineStr)}</strong>.</p>
-
-<p style="background:#f0f9ff;padding:12px;border-radius:6px;border-left:4px solid #3b82f6;margin:16px 0;">
-  <strong>Important :</strong> Merci de mentionner le code <strong>${escapeHtml(opts.trackingCode)}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.
-</p>
-
-<p>Nous restons à votre disposition pour tout renseignement complémentaire.</p>
-
-${opts.emailSignature?.trim()
-    // Signature is authored rich HTML (RichSignatureEditor) — intentionally not escaped
-    ? `<p>--<br/>${opts.emailSignature.replace(/\n/g, "<br/>")}</p>`
-    : `<p>Cordialement,<br/>
-<strong>${escapeHtml(opts.senderName)}</strong>${opts.senderTitle ? `<br/>${escapeHtml(opts.senderTitle)}` : ""}<br/>
-${escapeHtml(opts.senderCompany)}</p>`}
-`.trim();
-
-  return { subject, html };
-}
-
-function generateItemsTableHtml(items: any[]): string {
-  const rows = items
-    .map((i) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(i.item_number || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(cleanDescriptionForSupplier(i.description || ""))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${escapeHtml(i.unit || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
-    .join("\n");
-
-  return `<table style="border-collapse:collapse;width:100%;font-size:13px;margin:16px 0;">
-  <thead>
-    <tr style="background:#f3f4f6;">
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">N°</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Description</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:center;">Unité</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:right;">Quantité</th>
-    </tr>
-  </thead>
-  <tbody>
-    ${rows}
-  </tbody>
-</table>`;
-}
-
-function customBodyToHtml(text: string, itemsTableHtml: string, trackingCode: string): string {
+function customBodyToHtml(
+  text: string,
+  itemsTableHtml: string,
+  trackingCode: string,
+  language: SupplierLanguage,
+  portalUrl: string | null
+): string {
+  const s = supplierStrings(language);
   const TABLE_MARKER = "[TABLEAU AUTOMATIQUE]";
   const paragraphs = text.split("\n\n");
 
-  // Detect text table: starts with "N°" header line and contains "---" separator
+  // Detect the plain-text items table pasted back from the preview textarea,
+  // in ANY of the three supplier languages (FR "N°/Description",
+  // DE "Nr./Bezeichnung", EN "No./Description") — the old check only knew the
+  // French headers, so an edited DE/EN body shipped the raw ASCII table.
   function isTextTable(block: string): boolean {
     const lines = block.trim().split("\n");
     if (lines.length < 3) return false;
-    return (lines[0].includes("N°") && lines[0].includes("Description") && lines[1].startsWith("---"));
+    const header = lines[0];
+    const separatorNext = lines[1].trim().startsWith("---");
+    if (!separatorNext) return false;
+    // Structural: a pipe-separated header row over a "---" separator line.
+    if (header.split("|").length - 1 >= 2) return true;
+    // Header words of one of the three supplier languages.
+    return (["fr", "de", "en"] as const).some((lang) => {
+      const t = supplierStrings(lang);
+      return header.includes(t.colNumber) && header.includes(t.colDescription);
+    });
   }
 
   const htmlParts = paragraphs
@@ -551,9 +641,14 @@ function customBodyToHtml(text: string, itemsTableHtml: string, trackingCode: st
     })
     .filter(Boolean);
 
-  // Auto-append tracking code box
+  // Portal CTA — the supplier answers online instead of writing an email back.
+  if (portalUrl) {
+    htmlParts.push(renderPortalBlock(portalUrl, language));
+  }
+
+  // Auto-append the tracking-code box, in the supplier's language.
   htmlParts.push(
-    `<p style="background:#f0f9ff;padding:12px;border-radius:6px;border-left:4px solid #3b82f6;margin:16px 0;"><strong>Important :</strong> Merci de mentionner le code <strong>${escapeHtml(trackingCode)}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.</p>`
+    `<p style="background:#f0f9ff;padding:12px;border-radius:6px;border-left:4px solid #3b82f6;margin:16px 0;">${s.prTracking(trackingCode)}</p>`
   );
 
   return htmlParts.join("\n\n");

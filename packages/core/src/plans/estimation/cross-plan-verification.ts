@@ -180,12 +180,8 @@ export async function verifyCrossPlan(params: {
   return { project_id, plans_compares: plansCompares, verifications, score_coherence_projet: score, alertes };
 }
 
-// Calcul du bonus de confiance basé sur la vérification croisée
-export function getCrossPlanBonus(score: number): number {
-  if (score >= 90) return 0.10;
-  if (score >= 70) return 0.05;
-  return 0;
-}
+// (getCrossPlanBonus SUPPRIMÉ — AUDIT 08/2026, purge du code mort : aucun
+// appelant. Le score de cohérence projet est déjà exposé via `verifyCrossPlan`.)
 
 // Extrait les quantités totales par CFC::unite d'un résultat d'estimation
 function extractQuantities(result: any): Map<string, number> {

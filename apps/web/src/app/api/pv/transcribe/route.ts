@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const maxDuration = 120;
 
@@ -15,6 +16,14 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Whisper is a costly external call (up to 24 MB, maxDuration 120s) billed to
+    // Cantaia and free of credits by design (`pv_transcribe` = 0). Cap the abuse
+    // surface so a client cannot loop the endpoint into an unbounded bill.
+    const rl = await rateLimit(`pv-transcribe:user:${user.id}`, { limit: 10, windowSec: 3600 });
+    if (!rl.allowed) {
+      return rateLimitResponse(rl) as unknown as NextResponse;
     }
 
     const { data: body, error: parseError } = await parseBody(request);
@@ -48,7 +57,7 @@ export async function POST(request: NextRequest) {
     // Get the meeting with org check
     const { data: meeting, error: meetingError } = await admin
       .from("meetings")
-      .select("id, audio_url, projects!inner(organization_id)")
+      .select("id, audio_url, transcription_raw, transcription_language, audio_duration_seconds, projects!inner(organization_id)")
       .eq("id", meeting_id)
       .maybeSingle();
 
@@ -63,6 +72,19 @@ export async function POST(request: NextRequest) {
     const meetingOrg = (meeting.projects as any)?.organization_id;
     if (meetingOrg !== userProfile.organization_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Already transcribed → return the stored transcription instead of paying
+    // Whisper again. `force: true` re-runs it (e.g. after replacing the audio).
+    const existingTranscript = (meeting as any).transcription_raw;
+    if (existingTranscript && body.force !== true) {
+      return NextResponse.json({
+        success: true,
+        transcription: existingTranscript,
+        language: (meeting as any).transcription_language || "fr",
+        duration: (meeting as any).audio_duration_seconds || 0,
+        already_transcribed: true,
+      });
     }
 
     if (!meeting.audio_url) {

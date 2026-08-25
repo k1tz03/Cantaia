@@ -12,6 +12,8 @@
 //   3. Les unités n'étaient pas normalisées : `m2` (Excel fournisseur) ne
 //      matchait jamais `m²` (référentiel CFC).
 
+import { logLearningFailure } from '../../learning/log';
+
 /** Normalisation d'unité — aligne ASCII fournisseur et unicode CFC. */
 function normalizeUnit(unit: string | null | undefined): string {
   if (!unit) return '';
@@ -118,13 +120,20 @@ export async function autoCalibrate(params: {
     return result;
   }
 
-  // 3. Construire un index des postes estimés par CFC
+  // 3. Construire un index des postes estimés par CFC.
+  //    AUDIT 08/2026 — anti-cliquet : on compare le prix réel au prix médian
+  //    BRUT (`median_brut`, persisté par la Passe 4 avant application du
+  //    coefficient de calibration). Sans cela, l'écart était calculé sur un
+  //    prix DÉJÀ calibré et les coefficients se composaient à chaque
+  //    adjudication. `median` reste le fallback pour les estimations
+  //    antérieures (jamais calibrées ou pré-refonte).
   const estimatedByCode = new Map<string, { median: number; source: string; unite: string; description: string }>();
   for (const cfcGroup of estimation.passe4.estimation_par_cfc) {
     for (const poste of cfcGroup.postes) {
-      if (poste.prix_unitaire.median) {
+      const rawMedian = poste.prix_unitaire.median_brut ?? poste.prix_unitaire.median;
+      if (rawMedian) {
         estimatedByCode.set(poste.cfc_code, {
-          median: poste.prix_unitaire.median,
+          median: rawMedian,
           source: poste.prix_unitaire.source,
           unite: poste.unite,
           description: poste.description,
@@ -183,10 +192,12 @@ export async function autoCalibrate(params: {
           });
 
         if (insertError) {
-          console.warn(
-            `[auto-calibration] Insert price_calibrations échoué (${cfcCode}):`,
-            insertError.message
-          );
+          await logLearningFailure(supabase, {
+            organizationId: org_id,
+            module: 'pricing',
+            error: insertError,
+            context: { table: 'price_calibrations', cfc_code: cfcCode, offer_id },
+          });
           result.postes_non_matche++;
         } else {
           result.calibrations_creees++;
@@ -201,7 +212,12 @@ export async function autoCalibrate(params: {
           });
         }
       } catch (err) {
-        console.warn(`[auto-calibration] Exception sur ${cfcCode}:`, err);
+        await logLearningFailure(supabase, {
+          organizationId: org_id,
+          module: 'pricing',
+          error: err,
+          context: { table: 'price_calibrations', cfc_code: cfcCode, offer_id, op: 'exception' },
+        });
         result.postes_non_matche++;
       }
     } else {
@@ -212,9 +228,22 @@ export async function autoCalibrate(params: {
   // 5. Rafraîchir les vues si des calibrations ont été créées
   if (result.calibrations_creees > 0) {
     try {
-      await supabase.rpc('refresh_calibration_views');
-    } catch {
-      // Non bloquant
+      const { error: refreshError } = await supabase.rpc('refresh_calibration_views');
+      if (refreshError) {
+        await logLearningFailure(supabase, {
+          organizationId: org_id,
+          module: 'pricing',
+          error: refreshError,
+          context: { op: 'refresh_calibration_views' },
+        });
+      }
+    } catch (err) {
+      await logLearningFailure(supabase, {
+        organizationId: org_id,
+        module: 'pricing',
+        error: err,
+        context: { op: 'refresh_calibration_views' },
+      });
     }
   }
 

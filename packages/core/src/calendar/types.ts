@@ -308,9 +308,18 @@ export interface TeamMemberAvailability {
   email: string;
   avatar_color: string;
   initials: string;
-  /** Array of 5 slots (morning blocks) representing half-day availability */
-  slots: Array<"free" | "busy" | "meeting" | "partial">;
+  /**
+   * Array of 5 slots (08–10, 10–12, 12–14, 14–16, 16–18 Europe/Zurich).
+   * "unknown" when the member has no calendar data at all — see `synced`.
+   */
+  slots: Array<"free" | "busy" | "meeting" | "partial" | "unknown">;
   events_today: number;
+  /**
+   * False when the member has never synced a calendar and owns no Cantaia
+   * event. Their day is unknown, NOT free — the UI must say
+   * "non synchronisé" instead of painting five green slots.
+   */
+  synced: boolean;
 }
 
 export interface CalendarWeather {
@@ -366,4 +375,6 @@ export interface AICommandResult {
   slots?: Array<{ start_at: string; end_at: string; score: number }>;
   summary?: string;
   message: string;
+  /** Token usage of the underlying model call, for cost tracking. */
+  usage?: { input_tokens: number; output_tokens: number };
 }

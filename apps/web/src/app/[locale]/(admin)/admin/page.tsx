@@ -33,7 +33,7 @@ export default function AdminPage() {
           <h1 className="pt-6 text-2xl font-display font-extrabold text-[#FAFAFA]">
             {t("title")}
           </h1>
-          <p className="mt-0.5 text-sm text-[#71717A]">
+          <p className="mt-0.5 text-sm text-[#A1A1AA]">
             {t("overviewSubtitle")}
           </p>
           <div className="mt-4 flex gap-1">
@@ -44,7 +44,7 @@ export default function AdminPage() {
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.id
                     ? "border-[#F97316] text-[#F97316]"
-                    : "border-transparent text-[#71717A] hover:text-[#D4D4D8]"
+                    : "border-transparent text-[#A1A1AA] hover:text-[#D4D4D8]"
                 }`}
               >
                 <tab.icon className="h-4 w-4" />

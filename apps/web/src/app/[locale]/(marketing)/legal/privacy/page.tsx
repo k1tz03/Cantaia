@@ -36,6 +36,7 @@ export async function generateMetadata({
         fr: "https://cantaia.io/fr/legal/privacy",
         en: "https://cantaia.io/en/legal/privacy",
         de: "https://cantaia.io/de/legal/privacy",
+        "x-default": "https://cantaia.io/fr/legal/privacy",
       },
     },
   };
@@ -49,7 +50,7 @@ export default function PrivacyPage() {
       <h1 className="text-3xl font-bold tracking-tight text-[#FAFAFA] sm:text-4xl">
         {t("privacy.title")}
       </h1>
-      <p className="mt-4 text-sm text-[#71717A]">
+      <p className="mt-4 text-sm text-[#A1A1AA]">
         {t("privacy.lastUpdated")}
       </p>
 

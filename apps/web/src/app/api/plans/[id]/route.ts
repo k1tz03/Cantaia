@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createSignedPlanUrl } from "@cantaia/core/plans";
 
 /**
  * GET /api/plans/:id
@@ -57,6 +58,18 @@ export async function GET(
   // Sort versions by version_number descending
   const versions = (plan.plan_versions || []).sort(
     (a: any, b: any) => (b.version_number || 0) - (a.version_number || 0)
+  );
+
+  // Bucket `plans` privé (migration 112) : la valeur `file_url` stockée est au
+  // format public mais ne se résout plus publiquement. On remplace, pour le
+  // navigateur, chaque `file_url` par une URL SIGNÉE fraîche (courte durée).
+  await Promise.all(
+    versions.map(async (v: any) => {
+      if (v.file_url) {
+        const signed = await createSignedPlanUrl(adminClient, v.file_url);
+        if (signed) v.file_url = signed;
+      }
+    })
   );
 
   return NextResponse.json({

@@ -5,8 +5,6 @@ import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   User,
-  Globe,
-  Bell,
   Mail,
   Shield,
   Loader2,
@@ -15,14 +13,16 @@ import {
   Layers,
   Lock,
   Key,
-  Settings,
   SlidersHorizontal,
-  Database,
   FileSignature,
   Eye,
   EyeOff,
   Check,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useFormSection } from "@/lib/hooks/use-form-section";
 import { SaveButton } from "@/components/settings/SaveButton";
@@ -34,6 +34,36 @@ import { ClassificationSettingsTab } from "@/components/settings/ClassificationS
 import { EmailPreferencesTab } from "@/components/settings/EmailPreferencesTab";
 import { DataSharingTab } from "@/components/settings/DataSharingTab";
 import RichSignatureEditor from "@/components/settings/RichSignatureEditor";
+import DOMPurify from "dompurify";
+
+/**
+ * Sanitize the email signature HTML (contentEditable can ingest arbitrary HTML
+ * pasted from Outlook) with DOMPurify BEFORE it is persisted or rendered.
+ * The editor's own regex "sanitizeHtml" is too weak (misses javascript: URLs,
+ * unquoted handlers, svg, etc.). Same allowlist as the mail body pipeline.
+ * Returns "" during SSR where DOMPurify has no DOM.
+ */
+function sanitizeSignatureHtml(html: string): string {
+  if (typeof window === "undefined") return "";
+  return DOMPurify.sanitize(html || "", {
+    ALLOWED_TAGS: [
+      "p", "div", "span", "br", "hr", "a", "b", "i", "u", "em", "strong",
+      "table", "thead", "tbody", "tr", "td", "th", "caption", "colgroup", "col",
+      "ul", "ol", "li", "blockquote", "pre", "code", "h1", "h2", "h3", "h4", "h5", "h6",
+      "img", "figure", "figcaption", "sup", "sub", "small", "s", "del", "ins",
+      "font", "center",
+    ],
+    ALLOWED_ATTR: [
+      "href", "target", "rel", "style", "class", "id",
+      "src", "alt", "width", "height", "title",
+      "border", "cellpadding", "cellspacing", "align", "valign",
+      "bgcolor", "color", "size", "face",
+      "colspan", "rowspan",
+    ],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|data:image\/|\/api\/|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    ADD_ATTR: ["target"],
+  });
+}
 
 type SettingsTab =
   | "profile"
@@ -47,17 +77,25 @@ type SettingsTab =
   | "organisation"
   | "subscription";
 
-const TABS: { id: SettingsTab; icon: React.ComponentType<any> }[] = [
-  { id: "profile", icon: User },
-  { id: "language", icon: Globe },
-  { id: "notifications", icon: Bell },
-  { id: "outlook", icon: Mail },
-  { id: "email_prefs", icon: SlidersHorizontal },
-  { id: "classification", icon: Settings },
-  { id: "security", icon: Shield },
-  { id: "data_sharing", icon: Database },
-  { id: "organisation", icon: Layers },
-  { id: "subscription", icon: Key },
+/**
+ * Ten flat entries in the settings rail asked the user to know which of
+ * three near-synonymous mail sections they wanted. Same ten panels and
+ * the same `?tab=` URLs, gathered into five groups.
+ */
+type SettingsGroup = {
+  id: string;
+  labelKey: string;
+  fallback: string;
+  icon: React.ComponentType<any>;
+  tabs: SettingsTab[];
+};
+
+const SETTINGS_GROUPS: SettingsGroup[] = [
+  { id: "profile", labelKey: "group_profile", fallback: "Profil", icon: User, tabs: ["profile"] },
+  { id: "messaging", labelKey: "group_messaging", fallback: "Messagerie", icon: Mail, tabs: ["outlook", "email_prefs", "classification"] },
+  { id: "organisation", labelKey: "group_organisation", fallback: "Organisation", icon: Layers, tabs: ["organisation", "data_sharing"] },
+  { id: "subscription", labelKey: "group_subscription", fallback: "Abonnement", icon: Key, tabs: ["subscription"] },
+  { id: "preferences", labelKey: "group_preferences", fallback: "Préférences", icon: SlidersHorizontal, tabs: ["language", "notifications", "security"] },
 ];
 
 export default function SettingsPage() {
@@ -74,6 +112,25 @@ export default function SettingsPage() {
     router.replace(`${pathname}?${params.toString()}`);
   }
 
+  const groupLabel = (g: SettingsGroup): string => {
+    try {
+      const has = (t as unknown as { has?: (k: string) => boolean }).has;
+      if (has && !has(g.labelKey)) return g.fallback;
+      const value = t(g.labelKey);
+      // next-intl echoes the key path when a message is missing.
+      return !value || value === g.labelKey || value.endsWith(`.${g.labelKey}`)
+        ? g.fallback
+        : value;
+    } catch {
+      return g.fallback;
+    }
+  };
+
+  const activeGroup =
+    SETTINGS_GROUPS.find((g) => g.tabs.includes(activeTab)) ?? SETTINGS_GROUPS[0];
+  // Single-panel groups don't need a sub-tab row.
+  const subTabs = activeGroup.tabs.length > 1 ? activeGroup.tabs : [];
+
   return (
     <div className="flex h-full min-h-[calc(100vh-64px)]">
       {/* Mobile: horizontal tab bar */}
@@ -82,14 +139,14 @@ export default function SettingsPage() {
           {t("title")}
         </h1>
         <div className="flex gap-1 overflow-x-auto scrollbar-hide -mb-px pb-0">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
+          {SETTINGS_GROUPS.map((group) => {
+            const Icon = group.icon;
+            const isActive = group.id === activeGroup.id;
             return (
               <button
-                key={tab.id}
+                key={group.id}
                 type="button"
-                onClick={() => setTab(tab.id)}
+                onClick={() => setTab(group.tabs[0])}
                 className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
                   isActive
                     ? "border-[#F97316] text-[#F97316]"
@@ -97,7 +154,7 @@ export default function SettingsPage() {
                 }`}
               >
                 <Icon className={`h-3.5 w-3.5 ${isActive ? "text-[#F97316]" : "text-[#A1A1AA]"}`} />
-                {t(`tab_${tab.id}`)}
+                {groupLabel(group)}
               </button>
             );
           })}
@@ -110,14 +167,14 @@ export default function SettingsPage() {
           {t("title")}
         </h1>
         <ul className="space-y-[1px]">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
+          {SETTINGS_GROUPS.map((group) => {
+            const Icon = group.icon;
+            const isActive = group.id === activeGroup.id;
             return (
-              <li key={tab.id}>
+              <li key={group.id}>
                 <button
                   type="button"
-                  onClick={() => setTab(tab.id)}
+                  onClick={() => setTab(group.tabs[0])}
                   className={`flex w-full items-center gap-2 rounded-[7px] px-[10px] py-[7px] text-[13px] transition-colors ${
                     isActive
                       ? "bg-[#F9731612] text-[#F97316] font-medium"
@@ -125,8 +182,29 @@ export default function SettingsPage() {
                   }`}
                 >
                   <Icon className={`h-[14px] w-[14px] ${isActive ? "text-[#F97316]" : "text-[#A1A1AA]"}`} />
-                  {t(`tab_${tab.id}`)}
+                  {groupLabel(group)}
                 </button>
+
+                {/* Sub-entries of the open group only */}
+                {isActive && group.tabs.length > 1 && (
+                  <ul className="mb-1 ml-[22px] mt-0.5 space-y-[1px] border-l border-[#27272A] pl-2">
+                    {group.tabs.map((tabId) => (
+                      <li key={tabId}>
+                        <button
+                          type="button"
+                          onClick={() => setTab(tabId)}
+                          className={`w-full rounded-[6px] px-2 py-[5px] text-left text-[12px] transition-colors ${
+                            activeTab === tabId
+                              ? "text-[#FAFAFA] font-medium"
+                              : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
+                          }`}
+                        >
+                          {t(`tab_${tabId}`)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}
@@ -139,6 +217,27 @@ export default function SettingsPage() {
           <h2 className="font-display text-[20px] font-bold text-[#FAFAFA] mb-1">
             {t(`tab_${activeTab}`)}
           </h2>
+
+          {/* Mobile sub-tabs — the desktop rail nests these under its group */}
+          {subTabs.length > 0 && (
+            <div className="mt-3 flex gap-1 overflow-x-auto scrollbar-hide md:hidden">
+              {subTabs.map((tabId) => (
+                <button
+                  key={tabId}
+                  type="button"
+                  onClick={() => setTab(tabId)}
+                  className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    activeTab === tabId
+                      ? "bg-[#F97316] text-[#0F0F11]"
+                      : "bg-[#18181B] text-[#A1A1AA] hover:text-[#D4D4D8]"
+                  }`}
+                >
+                  {t(`tab_${tabId}`)}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="mb-6" />
 
           {activeTab === "profile" && <ProfileSection />}
@@ -248,7 +347,7 @@ function ProfileSection() {
           {t("profilePhoto")}
         </div>
         <div className="flex items-center gap-[14px]">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#F97316] to-[#EF4444] text-[22px] font-bold text-white">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#F97316] to-[#EF4444] text-[22px] font-bold text-[#0F0F11]">
             {initials}
           </div>
           <div className="flex flex-col gap-1">
@@ -259,7 +358,7 @@ function ProfileSection() {
               <Camera className="h-3 w-3" />
               {t("changePhoto")}
             </button>
-            <span className="text-[10px] text-[#52525B]">JPG, PNG. Max 2 MB.</span>
+            <span className="text-[10px] text-[#A1A1AA]">{t("photoHint")}</span>
           </div>
         </div>
       </div>
@@ -280,7 +379,7 @@ function ProfileSection() {
               type="text"
               value={form.data.first_name as string}
               onChange={(e) => form.update({ first_name: e.target.value })}
-              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
+              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316]"
             />
           </div>
           <div>
@@ -291,7 +390,7 @@ function ProfileSection() {
               type="text"
               value={form.data.last_name as string}
               onChange={(e) => form.update({ last_name: e.target.value })}
-              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
+              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316]"
             />
           </div>
         </div>
@@ -306,7 +405,7 @@ function ProfileSection() {
               type="email"
               value={userEmail}
               readOnly
-              className="w-full bg-[#18181B] border border-[#27272A] rounded-lg px-[14px] py-[9px] text-[13px] text-[#71717A] cursor-not-allowed outline-none"
+              className="w-full bg-[#18181B] border border-[#27272A] rounded-lg px-[14px] py-[9px] text-[13px] text-[#A1A1AA] cursor-not-allowed outline-none"
             />
           </div>
           <div>
@@ -317,7 +416,7 @@ function ProfileSection() {
               type="tel"
               value={form.data.phone as string}
               onChange={(e) => form.update({ phone: e.target.value })}
-              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
+              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316]"
             />
           </div>
         </div>
@@ -333,7 +432,7 @@ function ProfileSection() {
               value={form.data.job_title as string}
               onChange={(e) => form.update({ job_title: e.target.value })}
               placeholder={t("jobTitlePlaceholder")}
-              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
+              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316]"
             />
           </div>
           <div>
@@ -371,7 +470,7 @@ function ProfileSection() {
         <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#27272A]">
           <div className="flex items-center gap-2">
             <FileSignature className="h-4 w-4 text-[#F97316]" />
-            <span className="font-display text-[14px] font-bold text-[#FAFAFA]">Signature email</span>
+            <span className="font-display text-[14px] font-bold text-[#FAFAFA]">{t("signatureTitle")}</span>
           </div>
           <button
             type="button"
@@ -379,27 +478,27 @@ function ProfileSection() {
             className="flex items-center gap-1.5 text-[11px] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
           >
             {showSignaturePreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            {showSignaturePreview ? "Masquer aperçu" : "Voir aperçu"}
+            {showSignaturePreview ? t("hidePreview") : t("showPreview")}
           </button>
         </div>
-        <p className="text-[11px] text-[#71717A] mb-3">
-          Copiez votre signature depuis Outlook et collez-la directement ci-dessous. Les images, logos et formatage seront conservés.
+        <p className="text-[11px] text-[#A1A1AA] mb-3">
+          {t("signatureHelp")}
         </p>
 
         <RichSignatureEditor
           value={signature}
           onChange={(html) => setSignature(html)}
-          placeholder="Collez votre signature Outlook ici (Ctrl+V), ou créez-en une avec la barre d'outils..."
+          placeholder={t("signaturePlaceholder")}
         />
 
         {showSignaturePreview && signature && (
           <div className="mt-3 rounded-lg border border-[#27272A] bg-white p-4">
-            <p className="text-[10px] uppercase tracking-wider text-[#A1A1AA] mb-2">Aperçu dans l&apos;email (fond blanc)</p>
+            <p className="text-[10px] uppercase tracking-wider text-[#A1A1AA] mb-2">{t("signaturePreviewLabel")}</p>
             <div className="border-t border-gray-200 pt-3">
               {/* Render as real HTML — same as how recipients see it */}
               <div
                 className="text-[13px] text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline"
-                dangerouslySetInnerHTML={{ __html: signature }}
+                dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(signature) }}
               />
             </div>
           </div>
@@ -412,10 +511,13 @@ function ProfileSection() {
               setSignatureSaving(true);
               setSignatureSaved(false);
               try {
+                // Sanitize BEFORE persistence — the stored signature is later
+                // injected as HTML into outgoing emails.
+                const cleanSignature = sanitizeSignatureHtml(signature);
                 const res = await fetch("/api/user/profile", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email_signature: signature }),
+                  body: JSON.stringify({ email_signature: cleanSignature }),
                 });
                 if (res.ok) {
                   setInitialSignature(signature);
@@ -426,18 +528,18 @@ function ProfileSection() {
               setSignatureSaving(false);
             }}
             disabled={signatureSaving || !signatureDirty}
-            className={`flex items-center gap-2 rounded-lg px-4 py-[7px] text-[12px] font-semibold text-white transition-colors disabled:opacity-50 ${
+            className={`flex items-center gap-2 rounded-lg px-4 py-[7px] text-[12px] font-semibold transition-colors disabled:opacity-50 ${
               signatureDirty
-                ? "bg-[#F97316] hover:bg-[#EA580C]"
-                : "bg-[#27272A] cursor-not-allowed"
+                ? "bg-[#F97316] text-[#0F0F11] hover:bg-[#EA580C]"
+                : "bg-[#27272A] text-[#A1A1AA] cursor-not-allowed"
             }`}
           >
             {signatureSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Enregistrer la signature
+            {t("saveSignature")}
           </button>
           {signatureSaved && (
             <span className="flex items-center gap-1 text-[11px] text-green-400">
-              <Check className="h-3.5 w-3.5" /> Signature enregistrée
+              <Check className="h-3.5 w-3.5" /> {t("signatureSavedLabel")}
             </span>
           )}
         </div>
@@ -449,6 +551,60 @@ function ProfileSection() {
 /* ═══════════════════════════════════════════════
    Language & Region Section
    ═══════════════════════════════════════════════ */
+/**
+ * Appearance control. next-themes persists the choice itself, so there is
+ * nothing to save — the selection applies immediately.
+ */
+function ThemePreference() {
+  const t = useTranslations("settings");
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Theme is only known on the client; render the row after mount so the
+  // server and first client paint agree.
+  useEffect(() => setMounted(true), []);
+
+  const options: { value: string; label: string; icon: React.ComponentType<any> }[] = [
+    { value: "light", label: t("themeLight"), icon: Sun },
+    { value: "dark", label: t("themeDark"), icon: Moon },
+    { value: "system", label: t("themeSystem"), icon: Monitor },
+  ];
+
+  return (
+    <div className="s-section">
+      <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A]">
+        {t("appearanceTitle")}
+      </div>
+      <label className="block text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-2">
+        {t("theme")}
+      </label>
+      <div role="radiogroup" aria-label={t("theme")} className="flex flex-wrap gap-2">
+        {options.map((opt) => {
+          const Icon = opt.icon;
+          const isActive = mounted && theme === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              onClick={() => setTheme(opt.value)}
+              className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-[13px] font-medium transition-colors ${
+                isActive
+                  ? "border-[#F97316] bg-[#F97316]/10 text-[#F97316]"
+                  : "border-[#27272A] text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function LanguageSection() {
   const t = useTranslations("settings");
   const { user } = useAuth();
@@ -505,6 +661,8 @@ function LanguageSection() {
 
   return (
     <div className="space-y-6">
+      <ThemePreference />
+
       <div className="s-section">
         <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A]">
           {t("languageTitle")}
@@ -642,29 +800,48 @@ function NotificationsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Notification preferences now live in `users.notification_prefs` (migration
+  // 092) and are read server-side by every trigger (task assignment, support
+  // reply, deadline cron...). They used to be four localStorage toggles that
+  // piloted strictly nothing.
   const saveNotifs = useCallback(async (data: Record<string, unknown>) => {
-    try {
-      localStorage.setItem("cantaia_notif_prefs", JSON.stringify(data));
-    } catch { /* localStorage unavailable */ }
+    const res = await fetch("/api/user/notification-prefs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prefs: data }),
+    });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.error || "Failed to save notification preferences");
+    }
   }, []);
 
+  // Opt-out semantics: everything on until the user says otherwise.
+  // Only events with a live emitter are surfaced as toggles — `deadline_soon`
+  // and `pv_sent` have NO emitter yet (message builder exists but nothing calls
+  // it), so exposing them would be a placebo. Re-add here once wired.
   const defaultNotifs = {
-    emailNotif: true,
-    pushNotif: false,
-    desktopNotif: false,
-    weeklyReport: true,
+    task_assigned: true,
+    report_submitted: true,
+    offer_received: true,
+    support_reply: true,
+    credits_low: true,
   };
 
   const notifsForm = useFormSection(defaultNotifs, saveNotifs);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("cantaia_notif_prefs");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        notifsForm.setInitial({ ...defaultNotifs, ...parsed });
-      }
-    } catch { /* ignore */ }
+    let cancelled = false;
+    fetch("/api/user/notification-prefs")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d?.prefs) return;
+        notifsForm.setInitial({ ...defaultNotifs, ...d.prefs });
+      })
+      .catch(() => { /* keep defaults */ });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -676,7 +853,7 @@ function NotificationsSection() {
           <Sparkles className="h-4 w-4 text-amber-500" />
           {t("briefingPrefsTitle")}
         </div>
-        <p className="text-[12px] text-[#71717A] mb-4">{t("briefingPrefsDesc")}</p>
+        <p className="text-[12px] text-[#A1A1AA] mb-4">{t("briefingPrefsDesc")}</p>
 
         <div className="space-y-4">
           <ToggleRow
@@ -691,7 +868,7 @@ function NotificationsSection() {
               <div className="flex items-center justify-between py-[10px] border-b border-[#1C1C1F]">
                 <div>
                   <p className="text-[13px] font-medium text-[#D4D4D8]">{t("briefingTime")}</p>
-                  <p className="text-[11px] text-[#71717A] mt-[1px]">{t("briefingTimeDesc")}</p>
+                  <p className="text-[11px] text-[#A1A1AA] mt-[1px]">{t("briefingTimeDesc")}</p>
                 </div>
                 <input
                   type="time"
@@ -711,7 +888,7 @@ function NotificationsSection() {
               {projects.length > 0 && (
                 <div>
                   <p className="text-[13px] font-medium text-[#D4D4D8]">{t("briefingProjects")}</p>
-                  <p className="text-[11px] text-[#71717A] mt-[1px]">{t("briefingProjectsDesc")}</p>
+                  <p className="text-[11px] text-[#A1A1AA] mt-[1px]">{t("briefingProjectsDesc")}</p>
                   <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded-lg border border-[#27272A] bg-[#18181B] p-3">
                     {projects.map((p) => (
                       <label key={p.id} className="flex items-center gap-2 text-[13px] text-[#D4D4D8] cursor-pointer hover:text-[#FAFAFA]">
@@ -733,7 +910,7 @@ function NotificationsSection() {
                     ))}
                   </div>
                   {selectedProjects.length === 0 && (
-                    <p className="mt-1 text-[10px] text-[#52525B]">{t("briefingAllProjects")}</p>
+                    <p className="mt-1 text-[10px] text-[#A1A1AA]">{t("briefingAllProjects")}</p>
                   )}
                 </div>
               )}
@@ -759,32 +936,38 @@ function NotificationsSection() {
         <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A]">
           {t("notifications")}
         </div>
-        <p className="text-[12px] text-[#71717A] mb-4">{t("notificationsDesc")}</p>
+        <p className="text-[12px] text-[#A1A1AA] mb-4">{t("notificationsDesc")}</p>
 
         <div className="space-y-0">
           <ToggleRow
-            label={t("emailNotifications")}
-            description={t("emailNotifDesc")}
-            checked={notifsForm.data.emailNotif as boolean}
-            onChange={(v) => notifsForm.update({ emailNotif: v })}
+            label={t("notifTaskAssigned")}
+            description={t("notifTaskAssignedDesc")}
+            checked={notifsForm.data.task_assigned as boolean}
+            onChange={(v) => notifsForm.update({ task_assigned: v })}
           />
           <ToggleRow
-            label={t("pushNotifications")}
-            description={t("pushNotifDesc")}
-            checked={notifsForm.data.pushNotif as boolean}
-            onChange={(v) => notifsForm.update({ pushNotif: v })}
+            label={t("notifReportSubmitted")}
+            description={t("notifReportSubmittedDesc")}
+            checked={notifsForm.data.report_submitted as boolean}
+            onChange={(v) => notifsForm.update({ report_submitted: v })}
           />
           <ToggleRow
-            label={t("desktopNotifications")}
-            description={t("desktopNotifDesc")}
-            checked={notifsForm.data.desktopNotif as boolean}
-            onChange={(v) => notifsForm.update({ desktopNotif: v })}
+            label={t("notifOfferReceived")}
+            description={t("notifOfferReceivedDesc")}
+            checked={notifsForm.data.offer_received as boolean}
+            onChange={(v) => notifsForm.update({ offer_received: v })}
           />
           <ToggleRow
-            label={t("weeklyReport")}
-            description={t("weeklyReportDesc")}
-            checked={notifsForm.data.weeklyReport as boolean}
-            onChange={(v) => notifsForm.update({ weeklyReport: v })}
+            label={t("notifSupportReply")}
+            description={t("notifSupportReplyDesc")}
+            checked={notifsForm.data.support_reply as boolean}
+            onChange={(v) => notifsForm.update({ support_reply: v })}
+          />
+          <ToggleRow
+            label={t("notifCreditsLow")}
+            description={t("notifCreditsLowDesc")}
+            checked={notifsForm.data.credits_low as boolean}
+            onChange={(v) => notifsForm.update({ credits_low: v })}
           />
         </div>
 
@@ -840,10 +1023,10 @@ function SecuritySection() {
       {/* Password */}
       <div className="s-section">
         <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
-          <Lock className="h-4 w-4 text-[#71717A]" />
+          <Lock className="h-4 w-4 text-[#A1A1AA]" />
           {t("securityPassword")}
         </div>
-        <p className="text-[12px] text-[#71717A] mb-4">{t("securityPasswordDesc")}</p>
+        <p className="text-[12px] text-[#A1A1AA] mb-4">{t("securityPasswordDesc")}</p>
 
         <button
           type="button"
@@ -869,17 +1052,17 @@ function SecuritySection() {
       {/* Active sessions */}
       <div className="s-section">
         <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
-          <Shield className="h-4 w-4 text-[#71717A]" />
+          <Shield className="h-4 w-4 text-[#A1A1AA]" />
           {t("securitySessions")}
         </div>
-        <p className="text-[12px] text-[#71717A] mb-4">{t("securitySessionsDesc")}</p>
+        <p className="text-[12px] text-[#A1A1AA] mb-4">{t("securitySessionsDesc")}</p>
 
         <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-[14px]">
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-[#34D399]" />
             <div>
               <p className="text-[13px] font-medium text-[#FAFAFA]">{t("securityCurrentSession")}</p>
-              <p className="text-[11px] text-[#71717A]">{t("securityBrowserSession")}</p>
+              <p className="text-[11px] text-[#A1A1AA]">{t("securityBrowserSession")}</p>
             </div>
           </div>
         </div>
@@ -919,7 +1102,7 @@ function ToggleRow({
     <div className="flex items-center justify-between py-[10px] border-b border-[#1C1C1F] last:border-b-0">
       <div className="flex-1">
         <p className="text-[13px] font-medium text-[#D4D4D8]">{label}</p>
-        {description && <p className="text-[11px] text-[#71717A] mt-[1px]">{description}</p>}
+        {description && <p className="text-[11px] text-[#A1A1AA] mt-[1px]">{description}</p>}
       </div>
       <button
         type="button"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody } from "@/lib/api/parse-body";
+import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
 
 /**
  * GET /api/projects/[id]
@@ -153,12 +154,37 @@ export async function PUT(
 // Planning calibration: compare planned vs actual durations on project completion
 // ============================================================================
 
+/**
+ * Learn per-task duration corrections when a project is closed.
+ *
+ * WHAT WAS BROKEN
+ * The previous implementation computed one global ratio
+ *   (project.end_date − project.start_date) in CALENDAR days
+ *   ÷ SUM(planning_tasks.duration_days) in WORKING days
+ * and wrote that single number onto every CFC group. Two incompatible units
+ * divided by each other, then applied to ~21 unrelated trades: a project that
+ * ran exactly on schedule still produced a ~1.4 "correction" purely from the
+ * calendar/working-day mismatch, and one badly-closed project poisoned every
+ * future estimate for the organization.
+ *
+ * WHAT IT DOES NOW
+ * Task by task: actual working days vs planned working days, using the real
+ * per-task dates (migration 094). Tasks without actuals are SKIPPED — never
+ * approximated from the project envelope. A CFC group needs at least
+ * MIN_SAMPLES observations, and the resulting factor is clamped to
+ * [MIN_FACTOR, MAX_FACTOR] so a single outlier cannot run away.
+ */
 async function extractPlanningCorrections(
   admin: ReturnType<typeof createAdminClient>,
   projectId: string,
   orgId: string,
 ) {
-  // 1. Get the project's planning
+  /** Below this a CFC group is statistically meaningless — do not learn from it. */
+  const MIN_SAMPLES = 2;
+  /** A learnt factor never leaves this band. */
+  const MIN_FACTOR = 0.5;
+  const MAX_FACTOR = 2.0;
+
   const { data: planning } = await (admin as any)
     .from("project_plannings")
     .select("id, project_type, location_canton")
@@ -167,137 +193,183 @@ async function extractPlanningCorrections(
 
   if (!planning) return;
 
-  // 2. Get planning tasks with their planned durations and productivity ratios
-  const { data: tasks } = await (admin as any)
+  const { data: tasks, error: tasksError } = await (admin as any)
     .from("planning_tasks")
-    .select("id, cfc_code, duration_days, productivity_ratio, unit, start_date, end_date")
+    .select("id, cfc_code, duration_days, productivity_ratio, unit, start_date, end_date, actual_start_date, actual_end_date, is_milestone")
     .eq("planning_id", planning.id);
 
+  if (tasksError) {
+    console.error("[planning-calibration] Read tasks failed:", tasksError.message);
+    return;
+  }
   if (!tasks?.length) return;
 
-  // 3. Get project actual dates
-  const { data: project } = await admin
-    .from("projects")
-    .select("start_date, end_date")
-    .eq("id", projectId)
-    .single();
+  // ── Per-task measurement ──────────────────────────────────────────────────
+  type Observation = { factor: number; ratio: number; unit: string | null };
+  const byCfc = new Map<string, Observation[]>();
+  let skippedNoActuals = 0;
 
-  if (!project?.start_date || !project?.end_date) return;
+  for (const task of tasks) {
+    if (task.is_milestone) continue;
+    if (!task.cfc_code) continue;
 
-  // Calculate actual vs planned total duration
-  const actualTotalDays = Math.ceil(
-    (new Date(project.end_date).getTime() - new Date(project.start_date).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const plannedTotalDays = tasks.reduce(
-    (sum: number, t: any) => sum + (t.duration_days || 0),
-    0,
-  );
-  if (plannedTotalDays === 0 || actualTotalDays <= 0) return;
+    // No actuals → no measurement. Never fall back to the project envelope.
+    if (!task.actual_start_date || !task.actual_end_date) {
+      skippedNoActuals++;
+      continue;
+    }
 
-  // Global ratio: >1 means project took longer than planned, <1 means faster
-  const globalRatio = actualTotalDays / plannedTotalDays;
+    const plannedDays = Number(task.duration_days);
+    if (!Number.isFinite(plannedDays) || plannedDays <= 0) continue;
 
-  // 4. Group tasks by CFC prefix and insert correction rows
-  const cfcTasks = new Map<string, Array<{ productivity_ratio: number; unit: string | null }>>();
-  for (const t of tasks) {
-    if (!t.cfc_code) continue;
-    const prefix = t.cfc_code.split(".")[0];
-    if (!cfcTasks.has(prefix)) cfcTasks.set(prefix, []);
-    cfcTasks.get(prefix)!.push({
-      productivity_ratio: t.productivity_ratio || 1,
-      unit: t.unit || null,
+    // Both sides in WORKING days — the unit the durations were computed in.
+    const actualDays = countWorkingDaysBetween(task.actual_start_date, task.actual_end_date);
+    if (actualDays <= 0) continue;
+
+    // > 1 means the task took longer than planned, so productivity was lower.
+    const slip = actualDays / plannedDays;
+    const factor = Math.min(MAX_FACTOR, Math.max(MIN_FACTOR, 1 / slip));
+
+    const prefix = String(task.cfc_code).split(".")[0];
+    if (!byCfc.has(prefix)) byCfc.set(prefix, []);
+    byCfc.get(prefix)!.push({
+      factor,
+      ratio: Number(task.productivity_ratio) || 0,
+      unit: task.unit || null,
     });
   }
 
-  let insertedCount = 0;
-  for (const [cfcCode, taskGroup] of cfcTasks) {
-    try {
-      // Average the original productivity ratios for tasks in this CFC group
-      const avgOriginalRatio =
-        taskGroup.reduce((s, t) => s + t.productivity_ratio, 0) / taskGroup.length;
+  // ── One correction row per CFC group with enough observations ─────────────
+  let inserted = 0;
+  let skippedThinData = 0;
 
-      // The corrected ratio accounts for the actual/planned drift:
-      // If the project took 1.2x longer, productivity was effectively lower (divide by globalRatio)
-      const correctedRatio = Math.round((avgOriginalRatio / globalRatio) * 100) / 100;
-
-      // Use the most common unit in this CFC group
-      const unitCounts = new Map<string, number>();
-      for (const t of taskGroup) {
-        if (t.unit) unitCounts.set(t.unit, (unitCounts.get(t.unit) || 0) + 1);
-      }
-      let commonUnit: string | null = null;
-      let maxCount = 0;
-      for (const [u, count] of unitCounts) {
-        if (count > maxCount) { maxCount = count; commonUnit = u; }
-      }
-
-      await (admin as any)
-        .from("planning_duration_corrections")
-        .insert({
-          organization_id: orgId,
-          cfc_code: cfcCode,
-          unit: commonUnit,
-          original_ratio: Math.round(avgOriginalRatio * 100) / 100,
-          corrected_ratio: correctedRatio,
-          project_type: planning.project_type || null,
-          canton: planning.location_canton || null,
-        });
-
-      insertedCount++;
-    } catch (e) {
-      // Table may not exist yet (migration 055 not applied) — non-blocking
-      console.warn(`[planning-calibration] Failed to insert correction for CFC ${cfcCode}:`, e);
+  for (const [cfcCode, observations] of byCfc) {
+    if (observations.length < MIN_SAMPLES) {
+      skippedThinData++;
+      continue;
     }
+
+    // Geometric mean — the natural average for a multiplicative factor.
+    const logSum = observations.reduce((s, o) => s + Math.log(o.factor), 0);
+    const meanFactor = Math.min(
+      MAX_FACTOR,
+      Math.max(MIN_FACTOR, Math.exp(logSum / observations.length)),
+    );
+
+    const rated = observations.filter((o) => o.ratio > 0);
+    if (rated.length === 0) continue;
+    const avgOriginalRatio = rated.reduce((s, o) => s + o.ratio, 0) / rated.length;
+
+    // Most frequent unit in the group
+    const unitCounts = new Map<string, number>();
+    for (const o of observations) {
+      if (o.unit) unitCounts.set(o.unit, (unitCounts.get(o.unit) || 0) + 1);
+    }
+    let commonUnit: string | null = null;
+    let maxCount = 0;
+    for (const [u, count] of unitCounts) {
+      if (count > maxCount) { maxCount = count; commonUnit = u; }
+    }
+
+    const { error: insertError } = await (admin as any)
+      .from("planning_duration_corrections")
+      .insert({
+        organization_id: orgId,
+        cfc_code: cfcCode,
+        unit: commonUnit,
+        original_ratio: Math.round(avgOriginalRatio * 1000) / 1000,
+        corrected_ratio: Math.round(avgOriginalRatio * meanFactor * 1000) / 1000,
+        project_type: planning.project_type || null,
+        canton: planning.location_canton || null,
+        source: "project_closure",
+        sample_count: observations.length,
+      });
+
+    if (insertError) {
+      // Table or columns may predate migration 094 — non-blocking.
+      console.warn(`[planning-calibration] CFC ${cfcCode} insert failed:`, insertError.message);
+      continue;
+    }
+    inserted++;
   }
 
   console.log(
-    `[planning-calibration] Stored ${insertedCount} CFC corrections for project ${projectId} (global ratio: ${globalRatio.toFixed(2)}, planned: ${plannedTotalDays}d, actual: ${actualTotalDays}d)`
+    `[planning-calibration] project=${projectId}: ${inserted} corrections CFC ecrites, ` +
+    `${skippedThinData} groupes ignores (<${MIN_SAMPLES} observations), ` +
+    `${skippedNoActuals} taches sans dates reelles`,
   );
 }
 
 /**
+ * Working days between two ISO dates, inclusive of both ends.
+ * Week-ends only — a task's actual span is measured the same way its planned
+ * duration was expressed.
+ */
+function countWorkingDaysBetween(startIso: string, endIso: string): number {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return 0;
+
+  let count = 0;
+  const cursor = new Date(start);
+  let guard = 3650;
+
+  while (cursor <= end && guard-- > 0) {
+    const dow = cursor.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return count;
+}
+
+/**
  * DELETE /api/projects/[id]
- * Deletes a project and declassifies all its emails.
+ *
+ * Deletes a project, declassifies its emails and cleans up its Storage folders.
+ *
+ * `?preview=1` performs no write: it returns the impact counts so the
+ * confirmation dialog can tell the user exactly what disappears — most
+ * importantly the site reports (heures et bons de livraison saisis par les
+ * chefs d'équipe), which cascade away silently today.
+ *
+ * Restricted to org admins / directors (requireOrgAdmin): this is the single
+ * most destructive action in the product and it is not undoable.
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const previewOnly = request.nextUrl.searchParams.get("preview") === "1";
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const check = await requireOrgAdmin();
+  if (!check.authorized) {
+    return NextResponse.json({ error: check.error }, { status: check.status });
   }
 
   const admin = createAdminClient();
-
-  const { data: userRow } = await admin
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!userRow?.organization_id) {
-    return NextResponse.json({ error: "No organization" }, { status: 403 });
-  }
+  const organizationId = check.profile.organization_id;
 
   // Verify project belongs to user's org
   const { data: existing } = await admin
     .from("projects")
-    .select("id")
+    .select("id, name")
     .eq("id", id)
-    .eq("organization_id", userRow.organization_id)
+    .eq("organization_id", organizationId)
     .maybeSingle();
 
   if (!existing) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Declassify all emails linked to this project
+  const counts = await collectDeletionImpact(admin, id);
+
+  if (previewOnly) {
+    return NextResponse.json({ preview: true, project_name: existing.name, counts });
+  }
+
+  // Declassify all emails linked to this project (they are kept, not deleted)
   await admin
     .from("email_records")
     .update({
@@ -309,7 +381,13 @@ export async function DELETE(
     } as Record<string, unknown>)
     .eq("project_id", id);
 
-  // Delete the project (cascade will handle project_members, tasks, etc.)
+  // Storage cleanup runs BEFORE the row delete: once the project is gone we no
+  // longer know which folders belonged to it. Best-effort — an orphaned file is
+  // a lesser evil than a failed delete.
+  const storage = await purgeProjectStorage(admin, organizationId, id);
+
+  // Delete the project (FK cascades handle tasks, meetings, plans… — see
+  // migration 098, which gave the last eight FKs an explicit ON DELETE)
   const { error } = await admin
     .from("projects")
     .delete()
@@ -317,10 +395,147 @@ export async function DELETE(
 
   if (error) {
     console.error("[projects/[id]] Delete error:", error.message);
-    return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          "Suppression impossible : des données liées bloquent l'opération. " +
+          "Vérifiez que la migration 098 est appliquée.",
+        detail: error.message,
+      },
+      { status: 500 },
+    );
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, counts, storage });
+}
+
+/**
+ * Counts everything the delete takes with it.
+ *
+ * Each table is queried independently and failures are swallowed: several of
+ * these tables only exist once their migration is applied, and a missing count
+ * must never block the deletion itself.
+ */
+async function collectDeletionImpact(
+  admin: ReturnType<typeof createAdminClient>,
+  projectId: string,
+): Promise<Record<string, number>> {
+  const targets: { key: string; table: string; column?: string }[] = [
+    { key: "tasks", table: "tasks" },
+    { key: "meetings", table: "meetings" },
+    { key: "plans", table: "plan_registry" },
+    { key: "submissions", table: "submissions" },
+    { key: "site_reports", table: "site_reports" },
+    { key: "visits", table: "client_visits" },
+    { key: "reserves", table: "reception_reserves" },
+    { key: "closure_documents", table: "closure_documents" },
+    { key: "plannings", table: "project_plannings" },
+    { key: "emails", table: "email_records" },
+  ];
+
+  const counts: Record<string, number> = {};
+
+  await Promise.all(
+    targets.map(async ({ key, table, column }) => {
+      try {
+        const { count, error } = await (admin as any)
+          .from(table)
+          .select("id", { count: "exact", head: true })
+          .eq(column || "project_id", projectId);
+        counts[key] = error ? 0 : count || 0;
+      } catch {
+        counts[key] = 0;
+      }
+    }),
+  );
+
+  // Hours logged in the field are the most painful loss — surface them apart
+  // from the report count.
+  try {
+    const { data: reports } = await (admin as any)
+      .from("site_reports")
+      .select("id")
+      .eq("project_id", projectId);
+
+    const reportIds = (reports || []).map((r: any) => r.id);
+    if (reportIds.length > 0) {
+      const { count } = await (admin as any)
+        .from("site_report_entries")
+        .select("id", { count: "exact", head: true })
+        .in("report_id", reportIds);
+      counts.site_report_entries = count || 0;
+    } else {
+      counts.site_report_entries = 0;
+    }
+  } catch {
+    counts.site_report_entries = 0;
+  }
+
+  return counts;
+}
+
+/**
+ * Removes the project's folders from Storage.
+ *
+ * Supabase has no "delete prefix" call: every object has to be listed first.
+ * The three prefixes below are the ones the app writes to (see plan-storage.ts,
+ * /api/submissions, and the closure routes).
+ */
+async function purgeProjectStorage(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+  projectId: string,
+): Promise<{ removed: number; failed: string[] }> {
+  const prefixes: { bucket: string; prefix: string }[] = [
+    { bucket: "plans", prefix: `${organizationId}/${projectId}` },
+    { bucket: "submissions", prefix: `${organizationId}/${projectId}` },
+    { bucket: "audio", prefix: `closure/${organizationId}/${projectId}` },
+    // Legacy closure path, written when the org id was not part of the prefix
+    { bucket: "audio", prefix: `closure/${projectId}` },
+  ];
+
+  let removed = 0;
+  const failed: string[] = [];
+
+  for (const { bucket, prefix } of prefixes) {
+    try {
+      const { data: files, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000 });
+      if (error || !files || files.length === 0) continue;
+
+      // `list` returns folders as entries with a null id — recurse one level,
+      // which is as deep as any of these prefixes goes.
+      const paths: string[] = [];
+      for (const file of files as { name: string; id: string | null }[]) {
+        if (file.id === null) {
+          const { data: nested } = await admin.storage
+            .from(bucket)
+            .list(`${prefix}/${file.name}`, { limit: 1000 });
+          for (const child of nested || []) {
+            paths.push(`${prefix}/${file.name}/${child.name}`);
+          }
+        } else {
+          paths.push(`${prefix}/${file.name}`);
+        }
+      }
+
+      if (paths.length === 0) continue;
+
+      const { error: removeError } = await admin.storage.from(bucket).remove(paths);
+      if (removeError) {
+        failed.push(`${bucket}/${prefix}: ${removeError.message}`);
+      } else {
+        removed += paths.length;
+      }
+    } catch (err) {
+      failed.push(`${bucket}/${prefix}: ${err instanceof Error ? err.message : "unknown"}`);
+    }
+  }
+
+  if (failed.length > 0) {
+    console.warn("[projects/[id]] Storage cleanup partial:", failed);
+  }
+
+  return { removed, failed };
 }
 
 // ============================================================================

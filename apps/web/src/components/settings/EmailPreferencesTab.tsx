@@ -82,7 +82,7 @@ export function EmailPreferencesTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
+        <Loader2 className="h-5 w-5 animate-spin text-[#A1A1AA]" />
       </div>
     );
   }
@@ -104,7 +104,7 @@ export function EmailPreferencesTab() {
           <Mail className="h-4 w-4 text-[#3B82F6]" />
           {t("emailPrefs_outlookTitle")}
         </div>
-        <p className="text-[12px] text-[#71717A] mb-4">{t("emailPrefs_outlookDesc")}</p>
+        <p className="text-[12px] text-[#A1A1AA] mb-4">{t("emailPrefs_outlookDesc")}</p>
 
         <ToggleRow
           label={t("emailPrefs_autoMoveOutlook")}
@@ -117,13 +117,13 @@ export function EmailPreferencesTab() {
           <label className="block text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1">
             {t("emailPrefs_rootFolderName")}
           </label>
-          <p className="text-[10px] text-[#52525B] mb-1">{t("emailPrefs_rootFolderNameDesc")}</p>
+          <p className="text-[10px] text-[#A1A1AA] mb-1">{t("emailPrefs_rootFolderNameDesc")}</p>
           <input
             type="text"
             value={form.data.outlook_root_folder_name as string}
             onChange={(e) => form.update({ outlook_root_folder_name: e.target.value })}
             placeholder="Cantaia"
-            className="w-64 bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
+            className="w-64 bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316]"
           />
         </div>
       </div>
@@ -134,7 +134,7 @@ export function EmailPreferencesTab() {
           <FolderOpen className="h-4 w-4 text-[#F59E0B]" />
           {t("emailPrefs_filteringTitle")}
         </div>
-        <p className="text-[12px] text-[#71717A] mb-4">{t("emailPrefs_filteringDesc")}</p>
+        <p className="text-[12px] text-[#A1A1AA] mb-4">{t("emailPrefs_filteringDesc")}</p>
 
         <ToggleRow
           label={t("emailPrefs_autoDismissSpam")}
@@ -162,7 +162,7 @@ export function EmailPreferencesTab() {
           <Clock className="h-4 w-4 text-[#A855F7]" />
           {t("emailPrefs_snoozeTitle")}
         </div>
-        <p className="text-[12px] text-[#71717A] mb-4">{t("emailPrefs_snoozeDesc")}</p>
+        <p className="text-[12px] text-[#A1A1AA] mb-4">{t("emailPrefs_snoozeDesc")}</p>
 
         <div>
           <label className="block text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1">
@@ -188,7 +188,7 @@ export function EmailPreferencesTab() {
           <Archive className="h-4 w-4 text-[#34D399]" />
           {t("emailPrefs_archiveTitle")}
         </div>
-        <p className="text-[12px] text-[#71717A] mb-4">{t("emailPrefs_archiveDesc")}</p>
+        <p className="text-[12px] text-[#A1A1AA] mb-4">{t("emailPrefs_archiveDesc")}</p>
 
         <ToggleRow
           label={t("emailPrefs_archiveEnabled")}
@@ -202,13 +202,13 @@ export function EmailPreferencesTab() {
             <label className="block text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1">
               {t("emailPrefs_archivePath")}
             </label>
-            <p className="text-[10px] text-[#52525B] mb-1">{t("emailPrefs_archivePathDesc")}</p>
+            <p className="text-[10px] text-[#A1A1AA] mb-1">{t("emailPrefs_archivePathDesc")}</p>
             <input
               type="text"
               value={form.data.archive_path as string}
               onChange={(e) => form.update({ archive_path: e.target.value })}
               placeholder="C:\Chantiers"
-              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
+              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316]"
             />
           </div>
         )}
@@ -245,7 +245,7 @@ function ToggleRow({
     <div className="flex items-center justify-between py-[10px] border-b border-[#1C1C1F] last:border-b-0">
       <div className="flex-1">
         <p className="text-[13px] font-medium text-[#D4D4D8]">{label}</p>
-        {description && <p className="text-[11px] text-[#71717A] mt-[1px]">{description}</p>}
+        {description && <p className="text-[11px] text-[#A1A1AA] mt-[1px]">{description}</p>}
       </div>
       <button
         type="button"

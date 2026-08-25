@@ -7,6 +7,7 @@ import {
   buildPriceEstimatePrompt,
   type PriceEstimateContext,
 } from "../ai/prompts";
+import { AI_MODELS, callAnthropicWithRetry } from "../ai/ai-utils";
 import type {
   EstimateConfig,
   EstimatedLineItem,
@@ -47,7 +48,8 @@ const MARGIN_MULTIPLIERS: Record<string, number> = {
 const TRANSPORT_BASE_CHF = 500;
 const TRANSPORT_PER_KM_CHF = 2;
 
-const AI_MODEL = "claude-sonnet-4-5-20250929";
+// Modèle via AI_MODELS (convention MODEL_FOR_TASK) — jamais d'ID hardcodé.
+const AI_MODEL = AI_MODELS.SONNET;
 
 // Sanity ranges per unit [min, max] in CHF
 const PRICE_RANGES: Record<string, [number, number]> = {
@@ -256,14 +258,18 @@ Réponds UNIQUEMENT en JSON valide (tableau) :
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 30_000 });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 30_000, maxRetries: 0 });
 
-    const response = await client.messages.create({
-      model: AI_MODEL,
-      max_tokens: 1024,
-      temperature: 0,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
-    });
+    const response = await callAnthropicWithRetry(
+      () =>
+        client.messages.create({
+          model: AI_MODEL,
+          max_tokens: 1024,
+          temperature: 0,
+          messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+        }),
+      { maxRetries: 2 }
+    );
 
     const textBlock = response.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") return [];
@@ -342,13 +348,17 @@ async function estimateWithAI(
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000, maxRetries: 0 });
 
-    const response = await client.messages.create({
-      model: AI_MODEL,
-      max_tokens: 4096,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
-    });
+    const response = await callAnthropicWithRetry(
+      () =>
+        client.messages.create({
+          model: AI_MODEL,
+          max_tokens: 4096,
+          messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+        }),
+      { maxRetries: 2 }
+    );
 
     try {
       onUsage?.({

@@ -60,15 +60,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Verify membership
-  const { data: membership } = await admin
-    .from("project_members")
-    .select("role")
-    .eq("project_id", project_id)
-    .eq("user_id", user.id)
+  // Org-wide scope (same rule as /api/tasks): project_members is not maintained
+  // for every project, so a colleague who was never explicitly added used to get
+  // a 403 on the archiving tab of his own org's project.
+  const { data: userProfile } = await (admin as any)
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
     .maybeSingle();
 
-  if (!membership) {
+  if (!userProfile?.organization_id || project.organization_id !== userProfile.organization_id) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
 

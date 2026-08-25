@@ -10,6 +10,8 @@ import {
   isSuccessfulToolResult,
   extractSavedCount,
   countToolInputArray,
+  canRunNightlyAgents,
+  fetchOrgNotifiees,
 } from "../agent-cron-utils";
 
 export const maxDuration = 300;
@@ -84,8 +86,16 @@ export async function POST(request: NextRequest) {
   const results: { orgId: string; alertsGenerated: number; suppliersAnalyzed: number; status: string; error?: string }[] = [];
 
   const skippedOrgs: string[] = [];
+  const gatedOrgs: Array<{ orgId: string; reason: string }> = [];
 
   for (const [orgId, userId] of orgUserMap) {
+    // Nightly agents are a Pro+ feature and can be switched off per org.
+    const gate = await canRunNightlyAgents(admin, orgId);
+    if (!gate.allowed) {
+      gatedOrgs.push({ orgId, reason: gate.reason || "plan" });
+      continue;
+    }
+
     // AGT.H4 — stop cleanly before Vercel kills the function mid-org.
     const orgBudgetMs = nextAgentBudgetMs(cronStart, agentConfig.maxDurationMs);
     if (orgBudgetMs === null) {
@@ -98,7 +108,7 @@ export async function POST(request: NextRequest) {
       const dbSessionId = crypto.randomUUID();
       const supplierCount = orgCounts.get(orgId) || 0;
 
-      await (admin as any).from("agent_sessions").insert({
+      const { error: sessErr } = await (admin as any).from("agent_sessions").insert({
         id: dbSessionId,
         organization_id: orgId,
         user_id: userId,
@@ -108,8 +118,13 @@ export async function POST(request: NextRequest) {
         input_payload: { _initial_message: "Analyze suppliers", trigger: "cron", supplier_count: supplierCount },
         status: "running",
         started_at: now,
+        last_event_at: now,
         model: agentConfig.model,
       });
+      if (sessErr) {
+        console.error(`[cron/supplier-monitor] Session insert failed for org ${orgId}:`, sessErr.message);
+        continue;
+      }
 
       const startTime = Date.now();
       let alertsGenerated = 0;
@@ -195,18 +210,17 @@ export async function POST(request: NextRequest) {
         });
       } catch { /* non-critical */ }
 
-      // Notify if alerts were generated
+      // Notify every admin/director — supplier scores are a management
+      // signal; the whole org used to be pinged, including field users who
+      // cannot act on them.
       if (alertsGenerated > 0) {
         try {
-          const { data: orgMembers } = await (admin as any)
-            .from("users")
-            .select("id")
-            .eq("organization_id", orgId);
+          const notifiees = await fetchOrgNotifiees(admin, orgId);
 
-          if (orgMembers) {
-            const notifications = orgMembers.map((m: { id: string }) => ({
+          if (notifiees.length > 0) {
+            const notifications = notifiees.map((notifieeId: string) => ({
               organization_id: orgId,
-              user_id: m.id,
+              user_id: notifieeId,
               agent_type: "supplier-monitor",
               title: `${alertsGenerated} alerte${alertsGenerated > 1 ? "s" : ""} fournisseur${alertsGenerated > 1 ? "s" : ""}`,
               description: `L'agent Supplier Monitor a détecté ${alertsGenerated} alerte${alertsGenerated > 1 ? "s" : ""} lors de l'analyse hebdomadaire de vos fournisseurs.`,
@@ -243,6 +257,7 @@ export async function POST(request: NextRequest) {
     total_alerts: totalAlerts,
     total_suppliers_analyzed: totalSuppliers,
     skipped_orgs: skippedOrgs,
+    gated_orgs: gatedOrgs,
     duration_ms: Date.now() - cronStart,
     results,
   });

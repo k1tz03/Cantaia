@@ -6,10 +6,10 @@ export type { PipelineParams } from './pipeline';
 
 export { buildConsensus } from './consensus-engine';
 export { resolvePrice } from './price-resolver';
-export { calculateGlobalScore, calculateSourceDistribution, getScoreLabel, getScoreColor, combinedConfidenceLabel } from './confidence-calculator';
+export { calculateGlobalScore, calculateSourceDistribution, getScoreLabel, combinedConfidenceLabel } from './confidence-calculator';
 
-export { getQuantityCalibration, getPriceCalibration, getModelErrorProfile, getBureauProfile } from './calibration-engine';
-export { verifyCrossPlan, getCrossPlanBonus } from './cross-plan-verification';
+export { getQuantityCalibration, getPriceCalibration, getBureauProfile } from './calibration-engine';
+export { verifyCrossPlan } from './cross-plan-verification';
 export { autoCalibrate } from './auto-calibration';
 
 export { callClaudeVision, callClaudeText, callGPT4oVision, callGeminiVision } from './ai-clients';

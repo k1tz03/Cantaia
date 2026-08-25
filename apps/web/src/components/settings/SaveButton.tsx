@@ -27,10 +27,10 @@ export function SaveButton({
         type="button"
         onClick={onClick}
         disabled={!isDirty || saving}
-        className={`inline-flex items-center gap-2 rounded-lg px-6 py-[9px] text-[13px] font-semibold text-white transition-opacity disabled:opacity-50 ${
+        className={`inline-flex items-center gap-2 rounded-lg px-6 py-[9px] text-[13px] font-semibold transition-opacity disabled:opacity-50 ${
           isDirty
-            ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] hover:opacity-90 cursor-pointer"
-            : "bg-[#27272A] cursor-not-allowed"
+            ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] text-[#0F0F11] hover:opacity-90 cursor-pointer"
+            : "bg-[#27272A] text-[#A1A1AA] cursor-not-allowed"
         }`}
       >
         {saving && <Loader2 className="h-4 w-4 animate-spin" />}

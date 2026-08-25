@@ -11,7 +11,14 @@ import { PVSectionEditor } from "@/components/pv-chantier/PVSectionEditor";
 import { PVSummaryEditor } from "@/components/pv-chantier/PVSummaryEditor";
 import { PVSidePanel } from "@/components/pv-chantier/PVSidePanel";
 import { PVConfirmDialog } from "@/components/pv-chantier/PVConfirmDialog";
+import { PVCarriedSection } from "@/components/pv-chantier/PVCarriedSection";
+import { PVSendModal } from "@/components/pv-chantier/PVSendModal";
+import { PVTemplateModal } from "@/components/pv-chantier/PVTemplateModal";
+import { withFallback } from "@/components/pv-chantier/pv-i18n";
 import type { PVSection } from "@/components/pv-chantier/types";
+
+/** Falls back to the org-wide practice when migration 095 is not applied. */
+const DEFAULT_OPPOSITION_DAYS = 10;
 
 export default function PVDetailPage({
   params,
@@ -20,15 +27,16 @@ export default function PVDetailPage({
 }) {
   const { id } = use(params);
   const t = useTranslations("pv");
+  const tf = withFallback(t);
   const tCommon = useTranslations("common");
   const router = useRouter();
 
-  const pv = usePVContent(id);
+  const pv = usePVContent(id, tf);
 
   if (pv.loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#A1A1AA]" />
       </div>
     );
   }
@@ -36,8 +44,8 @@ export default function PVDetailPage({
   if (!pv.meeting || !pv.pvContent) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
-        <FileText className="h-8 w-8 text-[#71717A]" />
-        <p className="text-sm text-[#71717A]">{t("no_pv_found")}</p>
+        <FileText className="h-8 w-8 text-[#A1A1AA]" />
+        <p className="text-sm text-[#A1A1AA]">{t("no_pv_found")}</p>
         <button
           onClick={() => router.push("/pv-chantier")}
           className="text-sm text-[#F97316] hover:text-[#F97316]"
@@ -53,6 +61,8 @@ export default function PVDetailPage({
       <PVTopBar
         meeting={pv.meeting}
         isFinalized={pv.isFinalized}
+        isSent={pv.isSent}
+        canSend={pv.canSend}
         saving={pv.saving}
         saveMessage={pv.saveMessage}
         regenerating={pv.regenerating}
@@ -62,6 +72,8 @@ export default function PVDetailPage({
         onExportPDF={() => pv.handleExportPDF(t("saved"))}
         onRegenerate={() => pv.setShowRegenerateDialog(true)}
         onDelete={() => pv.setShowDeleteDialog(true)}
+        onSend={() => pv.setShowSendModal(true)}
+        onOpenTemplate={() => pv.setShowTemplateModal(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -73,28 +85,41 @@ export default function PVDetailPage({
           />
 
           {(pv.pvContent.sections || []).map(
-            (section: PVSection, sectionIdx: number) => (
-              <PVSectionEditor
-                key={sectionIdx}
-                section={section}
-                sectionIdx={sectionIdx}
-                isFinalized={pv.isFinalized}
-                onUpdateSection={pv.updateSection}
-                onRemoveSection={pv.removeSection}
-                onAddDecision={pv.addDecision}
-                onUpdateDecision={pv.updateDecision}
-                onRemoveDecision={pv.removeDecision}
-                onAddAction={pv.addAction}
-                onUpdateAction={pv.updateAction}
-                onRemoveAction={pv.removeAction}
-              />
-            )
+            (section: PVSection, sectionIdx: number) =>
+              // Points inherited from the previous séance get their own editor:
+              // only their status is editable, and it drives whether they are
+              // carried again into the next PV.
+              section.carried_over ? (
+                <PVCarriedSection
+                  key={sectionIdx}
+                  section={section}
+                  sectionIdx={sectionIdx}
+                  isFinalized={pv.isFinalized}
+                  onUpdateCarriedStatus={pv.updateCarriedStatus}
+                  onRemoveAction={pv.removeAction}
+                />
+              ) : (
+                <PVSectionEditor
+                  key={sectionIdx}
+                  section={section}
+                  sectionIdx={sectionIdx}
+                  isFinalized={pv.isFinalized}
+                  onUpdateSection={pv.updateSection}
+                  onRemoveSection={pv.removeSection}
+                  onAddDecision={pv.addDecision}
+                  onUpdateDecision={pv.updateDecision}
+                  onRemoveDecision={pv.removeDecision}
+                  onAddAction={pv.addAction}
+                  onUpdateAction={pv.updateAction}
+                  onRemoveAction={pv.removeAction}
+                />
+              )
           )}
 
           {!pv.isFinalized && (
             <button
               onClick={pv.addSection}
-              className="mb-6 inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#27272A] py-3 text-sm text-[#71717A] hover:border-[#27272A] hover:text-[#FAFAFA]"
+              className="mb-6 inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#27272A] py-3 text-sm text-[#A1A1AA] hover:border-[#27272A] hover:text-[#FAFAFA]"
             >
               <Plus className="h-4 w-4" />
               {t("add_section")}
@@ -145,6 +170,32 @@ export default function PVDetailPage({
           onConfirm={() => pv.handleDeletePv(() => router.push("/pv-chantier"))}
           onCancel={() => pv.setShowDeleteDialog(false)}
         />
+      )}
+
+      {pv.showSendModal && (
+        <PVSendModal
+          participants={pv.pvContent.header?.participants ?? pv.meeting.participants ?? []}
+          projectName={pv.meeting.projects?.name ?? ""}
+          meetingId={id}
+          meetingNumber={pv.meetingNumber}
+          oppositionDeadlineDays={
+            typeof pv.meeting.opposition_deadline_days === "number"
+              ? pv.meeting.opposition_deadline_days
+              : DEFAULT_OPPOSITION_DAYS
+          }
+          sending={pv.sending}
+          onSend={pv.handleSend}
+          onClose={() => pv.setShowSendModal(false)}
+          onSent={() => {
+            pv.setShowSendModal(false);
+            pv.setSaveMessage(tf("send_success"));
+            setTimeout(() => pv.setSaveMessage(null), 4000);
+          }}
+        />
+      )}
+
+      {pv.showTemplateModal && (
+        <PVTemplateModal onClose={() => pv.setShowTemplateModal(false)} />
       )}
     </div>
   );

@@ -287,18 +287,13 @@ COMMENT ON FUNCTION grant_credits(UUID, INTEGER, TEXT, TEXT, UUID) IS
 REVOKE ALL ON FUNCTION grant_credits(UUID, INTEGER, TEXT, TEXT, UUID) FROM anon, authenticated;
 
 -- ------------------------------------------------------------
--- OPTIONAL backfill — run DELIBERATELY, not as part of the migration
+-- Backfill → migration 091
 -- ------------------------------------------------------------
 -- This migration intentionally creates NO balance rows: an organization
 -- WITHOUT a `credit_balances` row keeps running on the legacy monthly quota
 -- (see checkUsageLimit in packages/config/plan-features.ts). Creating a row
 -- switches that org to credit metering IMMEDIATELY.
 --
--- Uncomment and run once you want existing organizations to move over —
--- it grants the 100-credit signup bonus to every org that has no balance yet:
---
---   SELECT grant_credits(o.id, 100, 'signup_bonus', 'backfill_090')
---     FROM organizations o
---    WHERE NOT EXISTS (
---            SELECT 1 FROM credit_balances b WHERE b.organization_id = o.id
---          );
+-- The switch-over lives in `091_credits_backfill.sql`, which grants the
+-- signup bonus (300) plus the plan's monthly allocation to every organization
+-- that has no balance yet. Apply 090 then 091.

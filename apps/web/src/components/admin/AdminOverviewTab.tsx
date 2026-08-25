@@ -94,7 +94,7 @@ export default function AdminOverviewTab() {
       text: "text-green-700 dark:text-green-400",
     },
     red: { bg: "bg-red-500/10", icon: "text-red-600", text: "text-red-700 dark:text-red-400" },
-    gray: { bg: "bg-[#27272A]", icon: "text-[#71717A]", text: "text-[#FAFAFA]" },
+    gray: { bg: "bg-[#27272A]", icon: "text-[#A1A1AA]", text: "text-[#FAFAFA]" },
     indigo: {
       bg: "bg-indigo-500/10",
       icon: "text-indigo-600",
@@ -120,7 +120,7 @@ export default function AdminOverviewTab() {
                   <kpi.icon className={`h-5 w-5 ${colors.icon}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium uppercase tracking-wide text-[#71717A]">
+                  <p className="truncate text-xs font-medium uppercase tracking-wide text-[#A1A1AA]">
                     {kpi.label}
                   </p>
                   <p className={`text-2xl font-bold ${colors.text}`}>
@@ -143,7 +143,7 @@ export default function AdminOverviewTab() {
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           </div>
         ) : members.length === 0 ? (
-          <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] py-8 text-center text-sm text-[#71717A]">
+          <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] py-8 text-center text-sm text-[#A1A1AA]">
             {t("noMembers")}
           </div>
         ) : (

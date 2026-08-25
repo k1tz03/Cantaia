@@ -65,7 +65,7 @@ export function ProfileStep({ profile, onContinue }: ProfileStepProps) {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors";
+    "w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors";
 
   return (
     <div className="grid gap-8 lg:grid-cols-2">
@@ -164,7 +164,7 @@ export function ProfileStep({ profile, onContinue }: ProfileStepProps) {
                 onClick={() => toggleProjectType(type)}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
                   projectTypes.includes(type)
-                    ? "bg-[#F97316] text-white"
+                    ? "bg-[#F97316] text-[#0F0F11]"
                     : "bg-[#27272A] text-[#A1A1AA] hover:bg-[#3F3F46]"
                 }`}
               >
@@ -177,7 +177,7 @@ export function ProfileStep({ profile, onContinue }: ProfileStepProps) {
         <button
           type="button"
           onClick={handleSubmit}
-          className="w-full rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-white transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
+          className="w-full rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-[#0F0F11] transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
         >
           {tProgress("continue")}
         </button>
@@ -199,7 +199,7 @@ export function ProfileStep({ profile, onContinue }: ProfileStepProps) {
               <p className="font-display font-semibold text-[#FAFAFA]">
                 {orgName || "Mon entreprise"}
               </p>
-              <p className="text-xs text-[#71717A]">
+              <p className="text-xs text-[#A1A1AA]">
                 {jobTitle ? t(`jobs.${jobTitle as typeof JOB_OPTIONS[number]}`) : "—"}
               </p>
             </div>
@@ -207,7 +207,7 @@ export function ProfileStep({ profile, onContinue }: ProfileStepProps) {
 
           <div className="space-y-3 border-t border-[#27272A] pt-4">
             <div className="flex items-center gap-2 text-sm text-[#A1A1AA]">
-              <Users className="h-4 w-4 text-[#71717A]" />
+              <Users className="h-4 w-4 text-[#A1A1AA]" />
               <span>
                 {companySize
                   ? t(`sizes.${companySize as typeof SIZE_OPTIONS[number]}`)

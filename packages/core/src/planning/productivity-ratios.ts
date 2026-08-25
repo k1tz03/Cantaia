@@ -1,9 +1,32 @@
 // ═══════════════════════════════════════════════════════════════
-// Cantaia Gantt — Productivity Ratios for Swiss Construction
-// Source: CRB 2025 reference values, adjusted for CH average
+// Cantaia — Productivity ratios for Swiss construction
+// Source: CRB 2025 reference values, adjusted for CH average.
+//
+// RE-KEYED onto the canonical CFC registry (cfc-registry.ts).
+// The ratios themselves are unchanged field values; what was wrong was
+// the code they hung on — maçonnerie was priced with the steel-frame
+// ratio (370 m² of masonry = 1 day!), plâtrerie with the screed ratio,
+// and six trades had no entry at all and fell back to a generic guess
+// (audit distortion D2).
+//
+// Canonical mapping highlights:
+//   214 = construction BOIS      (was: charpente métallique)
+//   215 = construction ACIER     (was: charpente bois)
+//   211.5 = maçonnerie           (was: 216)
+//   216 = préfabriqué béton      (was: 211.4)
+//   224 = couverture             (was: 225)
+//   225 = étanchéité             (was: 224 generic)
+//   226/227 = crépi / façade ITE (was: 224.3 / 224.1-2)
+//   271 = plâtrerie              (was: chapes)
+//   281.1 = chapes               (was: 271.x)
+//   283 = faux-plafonds          (was: 272)
+//   285 = peinture               (unchanged)
 // ═══════════════════════════════════════════════════════════════
 
+import { getCfcEntry, cfcFamily } from './cfc-registry';
+
 export interface ProductivityRatio {
+  /** Canonical CFC code — MUST exist in CFC_REGISTRY */
   cfc_code: string;
   description: string;
   unit: string;
@@ -21,37 +44,45 @@ export interface ProductivityRatio {
 }
 
 // ============================================================================
-// CFC 1 — Travaux préparatoires / Terrassement
+// CFC 1 / 201 — Travaux préparatoires, terrassement
 // ============================================================================
 
-const CFC_1_TERRASSEMENT: ProductivityRatio[] = [
+const CFC_1_PREPARATION: ProductivityRatio[] = [
   {
-    cfc_code: '113',
-    description: 'Terrassement général — excavation en terrain meuble',
+    cfc_code: '111',
+    description: 'Deblaiement, defrichement, decapage de la terre vegetale',
+    unit: 'm²',
+    productivity_per_day: 400,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
+  {
+    cfc_code: '112',
+    description: 'Demolition / deconstruction — volume bati',
     unit: 'm³',
-    productivity_per_day: 120,
+    productivity_per_day: 25,
     team_size_default: 3,
-    seasonal_factors: { winter: 0.60, spring: 0.90, summer: 1.00, autumn: 0.85 },
+    seasonal_factors: { winter: 0.70, spring: 0.95, summer: 1.00, autumn: 0.90 },
+  },
+  {
+    cfc_code: '112',
+    description: 'Demolition — depose de revetements et cloisons',
+    unit: 'm²',
+    productivity_per_day: 40,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.85, spring: 0.95, summer: 1.00, autumn: 0.95 },
   },
   {
     cfc_code: '113',
-    description: 'Terrassement — fouille en tranchée',
-    unit: 'm³',
-    productivity_per_day: 45,
+    description: 'Installations de chantier — montage / demontage',
+    unit: 'f',
+    productivity_per_day: 0.2,
     team_size_default: 2,
-    seasonal_factors: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.85 },
-  },
-  {
-    cfc_code: '114',
-    description: 'Remblayage et compactage par couches',
-    unit: 'm³',
-    productivity_per_day: 80,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.85 },
+    seasonal_factors: { winter: 0.75, spring: 0.95, summer: 1.00, autumn: 0.90 },
   },
   {
     cfc_code: '116',
-    description: 'Évacuation de matériaux — chargement et transport',
+    description: 'Evacuation de materiaux — chargement et transport',
     unit: 'm³',
     productivity_per_day: 100,
     team_size_default: 2,
@@ -59,7 +90,7 @@ const CFC_1_TERRASSEMENT: ProductivityRatio[] = [
   },
   {
     cfc_code: '117',
-    description: 'Terrassement — travaux spéciaux (blindage, palplanches)',
+    description: 'Travaux speciaux — blindage, palplanches, parois',
     unit: 'm²',
     productivity_per_day: 15,
     team_size_default: 3,
@@ -67,15 +98,15 @@ const CFC_1_TERRASSEMENT: ProductivityRatio[] = [
   },
   {
     cfc_code: '117',
-    description: 'Terrassement — travaux spéciaux (volume)',
+    description: 'Fouille en tranchee / travaux speciaux (volume)',
     unit: 'm³',
-    productivity_per_day: 60,
-    team_size_default: 3,
-    seasonal_factors: { winter: 0.50, spring: 0.85, summer: 1.00, autumn: 0.80 },
+    productivity_per_day: 45,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.85 },
   },
   {
     cfc_code: '151',
-    description: 'Canalisations et drainage — pose tuyaux',
+    description: 'Canalisations et drainage — pose de tuyaux',
     unit: 'ml',
     productivity_per_day: 20,
     team_size_default: 3,
@@ -89,16 +120,32 @@ const CFC_1_TERRASSEMENT: ProductivityRatio[] = [
     team_size_default: 2,
     seasonal_factors: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.85 },
   },
+  {
+    cfc_code: '201',
+    description: 'Excavation en terrain meuble (pelle mecanique)',
+    unit: 'm³',
+    productivity_per_day: 120,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.60, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
+  {
+    cfc_code: '201',
+    description: 'Remblayage et compactage par couches',
+    unit: 'm²',
+    productivity_per_day: 200,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
 ];
 
 // ============================================================================
-// CFC 211 — Béton armé
+// CFC 21 — Gros œuvre 1
 // ============================================================================
 
-const CFC_211_BETON: ProductivityRatio[] = [
+const CFC_21_GROS_OEUVRE: ProductivityRatio[] = [
   {
     cfc_code: '211.1',
-    description: 'Coffrage murs (traditionnel bois)',
+    description: 'Coffrage murs (traditionnel bois / banches)',
     unit: 'm²',
     productivity_per_day: 12,
     team_size_default: 2,
@@ -107,16 +154,16 @@ const CFC_211_BETON: ProductivityRatio[] = [
   {
     cfc_code: '211.1',
     description: 'Coffrage dalles (tables coffrantes)',
-    unit: 'm²',
+    unit: 'm³',
     productivity_per_day: 25,
     team_size_default: 3,
     seasonal_factors: { winter: 0.75, spring: 0.95, summer: 1.00, autumn: 0.90 },
   },
   {
     cfc_code: '211.1',
-    description: 'Coffrage escaliers / formes complexes',
-    unit: 'm²',
-    productivity_per_day: 6,
+    description: 'Coffrage — escaliers et formes complexes',
+    unit: 'pce',
+    productivity_per_day: 0.5,
     team_size_default: 2,
     seasonal_factors: { winter: 0.70, spring: 0.95, summer: 1.00, autumn: 0.90 },
   },
@@ -131,14 +178,14 @@ const CFC_211_BETON: ProductivityRatio[] = [
   {
     cfc_code: '211.2',
     description: 'Ferraillage — armature complexe (poutres, colonnes)',
-    unit: 'kg',
-    productivity_per_day: 200,
+    unit: 'm²',
+    productivity_per_day: 30,
     team_size_default: 2,
     seasonal_factors: { winter: 0.80, spring: 0.95, summer: 1.00, autumn: 0.90 },
   },
   {
     cfc_code: '211.3',
-    description: 'Béton armé — coulage standard (pompe)',
+    description: 'Beton arme — coulage standard (pompe)',
     unit: 'm³',
     productivity_per_day: 30,
     team_size_default: 4,
@@ -146,146 +193,205 @@ const CFC_211_BETON: ProductivityRatio[] = [
   },
   {
     cfc_code: '211.3',
-    description: 'Béton armé — coulage fondations',
-    unit: 'm³',
-    productivity_per_day: 25,
+    description: 'Beton arme — dalles et voiles (surface developpee)',
+    unit: 'm²',
+    productivity_per_day: 60,
     team_size_default: 4,
-    seasonal_factors: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.85 },
+    seasonal_factors: { winter: 0.60, spring: 0.90, summer: 1.00, autumn: 0.85 },
   },
   {
-    cfc_code: '211.4',
-    description: 'Béton armé — éléments préfabriqués (pose)',
-    unit: 'pce',
+    cfc_code: '211.5',
+    description: 'Maconnerie briques / blocs porteurs',
+    unit: 'm²',
     productivity_per_day: 8,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.65, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
+  {
+    cfc_code: '211.5',
+    description: 'Maconnerie — briques legeres (cloisons)',
+    unit: 'm³',
+    productivity_per_day: 3,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.85, spring: 0.95, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '211.6',
+    description: 'Echafaudage de facade — montage et demontage',
+    unit: 'm²',
+    productivity_per_day: 120,
     team_size_default: 3,
     seasonal_factors: { winter: 0.70, spring: 0.95, summer: 1.00, autumn: 0.90 },
   },
   {
-    cfc_code: '211.5',
-    description: 'Décoffrage et nettoyage',
+    cfc_code: '213',
+    description: 'Ouvrages en pierre naturelle — pose',
     unit: 'm²',
-    productivity_per_day: 40,
+    productivity_per_day: 4,
     team_size_default: 2,
-    seasonal_factors: { winter: 0.80, spring: 0.95, summer: 1.00, autumn: 0.95 },
-  },
-  {
-    cfc_code: '211',
-    description: 'Béton armé — travaux généraux',
-    unit: 'm³',
-    productivity_per_day: 8,
-    team_size_default: 4,
     seasonal_factors: { winter: 0.60, spring: 0.90, summer: 1.00, autumn: 0.85 },
   },
-];
-
-// ============================================================================
-// CFC 214 — Charpente métallique / Construction acier
-// ============================================================================
-
-const CFC_214_ACIER: ProductivityRatio[] = [
   {
     cfc_code: '214',
-    description: 'Charpente métallique — montage structure',
+    description: 'Charpente bois — montage toiture / ossature',
+    unit: 'm²',
+    productivity_per_day: 15,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.65, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
+  {
+    cfc_code: '214',
+    description: 'Charpente bois — poutraison (metre lineaire)',
+    unit: 'ml',
+    productivity_per_day: 30,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.65, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
+  {
+    cfc_code: '214',
+    description: 'Construction bois — elements prefabriques (pose)',
+    unit: 'm³',
+    productivity_per_day: 6,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.65, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
+  {
+    cfc_code: '215',
+    description: 'Charpente metallique — montage structure',
     unit: 'kg',
     productivity_per_day: 500,
     team_size_default: 4,
     seasonal_factors: { winter: 0.70, spring: 0.90, summer: 1.00, autumn: 0.85 },
   },
   {
-    cfc_code: '214',
-    description: 'Serrurerie / ouvrages métalliques (garde-corps, escaliers)',
+    cfc_code: '215',
+    description: 'Construction metallique — poutraison montee',
     unit: 'ml',
+    productivity_per_day: 20,
+    team_size_default: 4,
+    seasonal_factors: { winter: 0.70, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
+  {
+    cfc_code: '216',
+    description: 'Elements prefabriques en beton — pose',
+    unit: 'pce',
+    productivity_per_day: 8,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.70, spring: 0.95, summer: 1.00, autumn: 0.90 },
+  },
+  {
+    cfc_code: '216',
+    description: 'Elements prefabriques en beton — surface posee',
+    unit: 'm²',
+    productivity_per_day: 80,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.70, spring: 0.95, summer: 1.00, autumn: 0.90 },
+  },
+];
+
+// ============================================================================
+// CFC 22 — Gros œuvre 2 (clos et couvert)
+// ============================================================================
+
+const CFC_22_CLOS_COUVERT: ProductivityRatio[] = [
+  {
+    cfc_code: '221',
+    description: 'Fenetres PVC / alu — pose standard',
+    unit: 'pce',
     productivity_per_day: 6,
     team_size_default: 2,
     seasonal_factors: { winter: 0.80, spring: 0.95, summer: 1.00, autumn: 0.90 },
   },
-];
-
-// ============================================================================
-// CFC 215 — Charpente bois
-// ============================================================================
-
-const CFC_215_BOIS: ProductivityRatio[] = [
   {
-    cfc_code: '215',
-    description: 'Charpente bois — montage toiture',
-    unit: 'm²',
-    productivity_per_day: 15,
-    team_size_default: 3,
-    seasonal_factors: { winter: 0.65, spring: 0.90, summer: 1.00, autumn: 0.85 },
-  },
-];
-
-// ============================================================================
-// CFC 216 — Maçonnerie
-// ============================================================================
-
-const CFC_216_MACONNERIE: ProductivityRatio[] = [
-  {
-    cfc_code: '216',
-    description: 'Maçonnerie briques / blocs standard',
-    unit: 'm²',
-    productivity_per_day: 8,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.65, spring: 0.90, summer: 1.00, autumn: 0.85 },
-  },
-  {
-    cfc_code: '216',
-    description: 'Maçonnerie — cloisons intérieures (briques légères)',
+    cfc_code: '221',
+    description: 'Fenetres — surface de baie posee',
     unit: 'm²',
     productivity_per_day: 12,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.85, spring: 0.95, summer: 1.00, autumn: 0.95 },
-  },
-  {
-    cfc_code: '216',
-    description: 'Crépis extérieur',
-    unit: 'm²',
-    productivity_per_day: 20,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.40, spring: 0.85, summer: 1.00, autumn: 0.75 },
-  },
-];
-
-// ============================================================================
-// CFC 221 — Fenêtres et portes extérieures
-// ============================================================================
-
-const CFC_221_FENETRES: ProductivityRatio[] = [
-  {
-    cfc_code: '221.1',
-    description: 'Fenêtres PVC/alu — pose standard',
-    unit: 'pce',
-    productivity_per_day: 6,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.80, spring: 0.95, summer: 1.00, autumn: 0.90 },
-  },
-  {
-    cfc_code: '221.1',
-    description: 'Fenêtres bois-alu — pose avec étanchéité',
-    unit: 'pce',
-    productivity_per_day: 4,
     team_size_default: 2,
     seasonal_factors: { winter: 0.75, spring: 0.95, summer: 1.00, autumn: 0.90 },
   },
   {
-    cfc_code: '221.2',
-    description: 'Portes extérieures (porte d\'entrée, porte de garage)',
-    unit: 'pce',
-    productivity_per_day: 3,
+    cfc_code: '221',
+    description: 'Portes exterieures / portes de garage',
+    unit: 'ml',
+    productivity_per_day: 8,
     team_size_default: 2,
     seasonal_factors: { winter: 0.80, spring: 0.95, summer: 1.00, autumn: 0.90 },
   },
   {
-    cfc_code: '221.3',
-    description: 'Portes intérieures — pose avec huisseries',
-    unit: 'pce',
-    productivity_per_day: 5,
+    cfc_code: '222',
+    description: 'Ferblanterie — chenaux, descentes, solins',
+    unit: 'ml',
+    productivity_per_day: 25,
     team_size_default: 2,
-    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+    seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
   },
   {
-    cfc_code: '221',
+    cfc_code: '223',
+    description: 'Protection contre la foudre — conducteurs et prises de terre',
+    unit: 'ml',
+    productivity_per_day: 30,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.60, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
+  {
+    cfc_code: '224',
+    description: 'Couverture tuiles terre cuite / beton',
+    unit: 'm²',
+    productivity_per_day: 20,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
+  },
+  {
+    cfc_code: '224',
+    description: 'Couverture — faitage et rives',
+    unit: 'ml',
+    productivity_per_day: 25,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
+  },
+  {
+    cfc_code: '225',
+    description: 'Etancheite toiture plate (multicouche / synthetique)',
+    unit: 'm²',
+    productivity_per_day: 30,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.35, spring: 0.85, summer: 1.00, autumn: 0.75 },
+  },
+  {
+    cfc_code: '225',
+    description: 'Etancheite enterree / isolation perimetrique',
+    unit: 'ml',
+    productivity_per_day: 20,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.45, spring: 0.85, summer: 1.00, autumn: 0.75 },
+  },
+  {
+    cfc_code: '226',
+    description: 'Crepi de facade (sur isolation ou maconnerie)',
+    unit: 'm²',
+    productivity_per_day: 25,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.30, spring: 0.80, summer: 1.00, autumn: 0.70 },
+  },
+  {
+    cfc_code: '227',
+    description: 'Isolation peripherique EPS / laine minerale (ITE)',
+    unit: 'm²',
+    productivity_per_day: 15,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.40, spring: 0.85, summer: 1.00, autumn: 0.75 },
+  },
+  {
+    cfc_code: '227',
+    description: 'Facade ventilee — sous-construction et panneaux',
+    unit: 'm³',
+    productivity_per_day: 8,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.60, spring: 0.90, summer: 1.00, autumn: 0.80 },
+  },
+  {
+    cfc_code: '228',
     description: 'Stores / volets roulants — pose',
     unit: 'pce',
     productivity_per_day: 8,
@@ -295,146 +401,76 @@ const CFC_221_FENETRES: ProductivityRatio[] = [
 ];
 
 // ============================================================================
-// CFC 224 — Façade / Isolation extérieure
+// CFC 23 — Installations électriques
 // ============================================================================
 
-const CFC_224_FACADE: ProductivityRatio[] = [
+const CFC_23_ELECTRICITE: ProductivityRatio[] = [
   {
-    cfc_code: '224.1',
-    description: 'Isolation extérieure EPS/laine minérale (ITE)',
-    unit: 'm²',
-    productivity_per_day: 15,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.40, spring: 0.85, summer: 1.00, autumn: 0.75 },
-  },
-  {
-    cfc_code: '224.2',
-    description: 'Façade ventilée — pose sous-construction + panneaux',
-    unit: 'm²',
-    productivity_per_day: 8,
-    team_size_default: 3,
-    seasonal_factors: { winter: 0.60, spring: 0.90, summer: 1.00, autumn: 0.80 },
-  },
-  {
-    cfc_code: '224.3',
-    description: 'Enduit de façade (crépi sur isolation)',
-    unit: 'm²',
-    productivity_per_day: 25,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.30, spring: 0.80, summer: 1.00, autumn: 0.70 },
-  },
-  {
-    cfc_code: '224',
-    description: 'Étanchéité toiture plate',
-    unit: 'm²',
-    productivity_per_day: 30,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.35, spring: 0.85, summer: 1.00, autumn: 0.75 },
-  },
-];
-
-// ============================================================================
-// CFC 225 — Couverture / Toiture
-// ============================================================================
-
-const CFC_225_TOITURE: ProductivityRatio[] = [
-  {
-    cfc_code: '225',
-    description: 'Couverture tuiles terre cuite / béton',
-    unit: 'm²',
-    productivity_per_day: 20,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
-  },
-];
-
-// ============================================================================
-// CFC 232 — Installations électriques
-// ============================================================================
-
-const CFC_232_ELECTRICITE: ProductivityRatio[] = [
-  {
-    cfc_code: '232.1',
-    description: 'Tableaux électriques — montage et câblage',
+    cfc_code: '231',
+    description: 'Tableaux electriques — montage et cablage',
     unit: 'pce',
     productivity_per_day: 0.5,
     team_size_default: 2,
     seasonal_factors: { winter: 0.95, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '232.2',
-    description: 'Câblage — tirage de câbles (courant fort)',
+    cfc_code: '232',
+    description: 'Cablage courant fort — tirage de cables',
     unit: 'ml',
     productivity_per_day: 80,
     team_size_default: 2,
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '232.3',
-    description: 'Prises et interrupteurs — pose et raccordement',
+    cfc_code: '232',
+    description: 'Prises, interrupteurs, boitiers d encastrement',
     unit: 'pce',
     productivity_per_day: 15,
     team_size_default: 1,
     seasonal_factors: { winter: 0.95, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '232.4',
-    description: 'Éclairage — pose luminaires + raccordement',
+    cfc_code: '232',
+    description: 'Installations electriques — travaux generaux',
+    unit: 'm²',
+    productivity_per_day: 5,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '233',
+    description: 'Luminaires — pose et raccordement',
     unit: 'pce',
     productivity_per_day: 10,
     team_size_default: 1,
     seasonal_factors: { winter: 0.95, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '232.5',
-    description: 'Courant faible — réseau informatique / téléphone',
+    cfc_code: '235',
+    description: 'Courant faible — reseau informatique / telephone',
     unit: 'pce',
     productivity_per_day: 8,
     team_size_default: 1,
     seasonal_factors: { winter: 0.95, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '232',
-    description: 'Installations électriques — travaux généraux',
-    unit: 'm²',
-    productivity_per_day: 5,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+    cfc_code: '236',
+    description: 'Installations de securite — detection, alarme',
+    unit: 'pce',
+    productivity_per_day: 6,
+    team_size_default: 1,
+    seasonal_factors: { winter: 0.95, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
 ];
 
 // ============================================================================
-// CFC 242 — Chauffage / Ventilation / Climatisation
+// CFC 24 — Chauffage, ventilation, climatisation
 // ============================================================================
 
-const CFC_242_CVC: ProductivityRatio[] = [
+const CFC_24_CVC: ProductivityRatio[] = [
   {
-    cfc_code: '242.1',
-    description: 'Chauffage au sol — pose tubes et collecteurs',
-    unit: 'm²',
-    productivity_per_day: 25,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.85, spring: 1.00, summer: 1.00, autumn: 0.95 },
-  },
-  {
-    cfc_code: '242.2',
-    description: 'Radiateurs — pose et raccordement',
-    unit: 'pce',
-    productivity_per_day: 6,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.85, spring: 1.00, summer: 1.00, autumn: 0.95 },
-  },
-  {
-    cfc_code: '242.3',
-    description: 'Ventilation — gaines et bouches',
-    unit: 'ml',
-    productivity_per_day: 15,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
-  },
-  {
-    cfc_code: '242.4',
-    description: 'Chaufferie / pompe à chaleur — installation',
+    cfc_code: '241',
+    description: 'Production de chaleur — PAC / chaudiere (installation)',
     unit: 'pce',
     productivity_per_day: 0.2,
     team_size_default: 3,
@@ -442,29 +478,77 @@ const CFC_242_CVC: ProductivityRatio[] = [
   },
   {
     cfc_code: '242',
-    description: 'CVC — travaux généraux',
+    description: 'Chauffage au sol — pose tubes et collecteurs',
     unit: 'm²',
-    productivity_per_day: 4,
+    productivity_per_day: 25,
     team_size_default: 2,
     seasonal_factors: { winter: 0.85, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
-];
-
-// ============================================================================
-// CFC 251 — Installations sanitaires
-// ============================================================================
-
-const CFC_251_SANITAIRE: ProductivityRatio[] = [
   {
-    cfc_code: '251.1',
-    description: 'Tuyauterie eau froide/chaude — cuivre ou multicouche',
+    cfc_code: '242',
+    description: 'Radiateurs — pose et raccordement',
+    unit: 'pce',
+    productivity_per_day: 6,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.85, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '242',
+    description: 'Distribution de chaleur — tuyauterie',
     unit: 'ml',
+    productivity_per_day: 30,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.85, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '243',
+    description: 'Ventilation — gaines et bouches',
+    unit: 'ml',
+    productivity_per_day: 15,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '243',
+    description: 'Ventilation — monobloc / centrale double flux',
+    unit: 'pce',
+    productivity_per_day: 0.3,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '243',
+    description: 'Ventilation — travaux generaux (surface traitee)',
+    unit: 'm²',
     productivity_per_day: 20,
     team_size_default: 2,
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '251.2',
+    cfc_code: '244',
+    description: 'Climatisation — splits et raccordements',
+    unit: 'pce',
+    productivity_per_day: 1,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '245',
+    description: 'Installations frigorifiques — groupes et reseaux',
+    unit: 'pce',
+    productivity_per_day: 0.5,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+];
+
+// ============================================================================
+// CFC 25 / 26 — Sanitaire, cuisine, transport
+// ============================================================================
+
+const CFC_25_SANITAIRE: ProductivityRatio[] = [
+  {
+    cfc_code: '251',
     description: 'Appareils sanitaires — pose (lavabo, WC, douche)',
     unit: 'pce',
     productivity_per_day: 3,
@@ -472,54 +556,158 @@ const CFC_251_SANITAIRE: ProductivityRatio[] = [
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '251.3',
-    description: 'Canalisations évacuation EU/EV',
+    cfc_code: '253',
+    description: 'Tuyauterie eau froide / chaude (cuivre, multicouche)',
     unit: 'ml',
-    productivity_per_day: 15,
+    productivity_per_day: 20,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '253',
+    description: 'Conduites sanitaires — travaux generaux (surface)',
+    unit: 'm²',
+    productivity_per_day: 12,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '253',
+    description: 'Canalisations d evacuation EU / EV',
+    unit: 'pce',
+    productivity_per_day: 4,
     team_size_default: 2,
     seasonal_factors: { winter: 0.85, spring: 0.95, summer: 1.00, autumn: 0.90 },
+  },
+  {
+    cfc_code: '258',
+    description: 'Agencement de cuisine — pose complete',
+    unit: 'pce',
+    productivity_per_day: 0.25,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '258',
+    description: 'Agencement de cuisine — lineaire pose',
+    unit: 'ml',
+    productivity_per_day: 2,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '261',
+    description: 'Ascenseur — installation complete',
+    unit: 'pce',
+    productivity_per_day: 0.05,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
 ];
 
 // ============================================================================
-// CFC 271 — Chapes
+// CFC 27 — Aménagements intérieurs 1
 // ============================================================================
 
-const CFC_271_CHAPES: ProductivityRatio[] = [
+const CFC_27_AMENAGEMENTS_1: ProductivityRatio[] = [
   {
-    cfc_code: '271.1',
-    description: 'Chape ciment flottante (épaisseur 6-8 cm)',
+    cfc_code: '271',
+    description: 'Cloisons placo — ossature + plaques (double face)',
+    unit: 'm²',
+    productivity_per_day: 12,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '271',
+    description: 'Platrerie — enduits interieurs et rebouchage',
+    unit: 'ml',
+    productivity_per_day: 45,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '272',
+    description: 'Serrurerie — garde-corps, mains courantes, escaliers',
+    unit: 'ml',
+    productivity_per_day: 6,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.80, spring: 0.95, summer: 1.00, autumn: 0.90 },
+  },
+  {
+    cfc_code: '272',
+    description: 'Serrurerie — elements ponctuels',
+    unit: 'pce',
+    productivity_per_day: 4,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.80, spring: 0.95, summer: 1.00, autumn: 0.90 },
+  },
+  {
+    cfc_code: '273',
+    description: 'Portes interieures — pose avec huisseries',
+    unit: 'pce',
+    productivity_per_day: 5,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '273',
+    description: 'Menuiserie interieure — agencements sur mesure',
+    unit: 'ml',
+    productivity_per_day: 4,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '273',
+    description: 'Menuiserie interieure — habillages (surface)',
+    unit: 'm²',
+    productivity_per_day: 10,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '275',
+    description: 'Systeme de verrouillage — cylindres et organigramme',
+    unit: 'pce',
+    productivity_per_day: 12,
+    team_size_default: 1,
+    seasonal_factors: { winter: 1.00, spring: 1.00, summer: 1.00, autumn: 1.00 },
+  },
+  {
+    cfc_code: '277',
+    description: 'Cloisons systemes / amovibles — montage',
+    unit: 'm²',
+    productivity_per_day: 18,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.95, spring: 1.00, summer: 1.00, autumn: 1.00 },
+  },
+];
+
+// ============================================================================
+// CFC 28 — Aménagements intérieurs 2
+// ============================================================================
+
+const CFC_28_AMENAGEMENTS_2: ProductivityRatio[] = [
+  {
+    cfc_code: '281.1',
+    description: 'Chape ciment flottante (epaisseur 6-8 cm)',
     unit: 'm²',
     productivity_per_day: 60,
     team_size_default: 3,
     seasonal_factors: { winter: 0.70, spring: 0.90, summer: 1.00, autumn: 0.85 },
   },
   {
-    cfc_code: '271.2',
-    description: 'Chape anhydrite / fluide',
-    unit: 'm²',
-    productivity_per_day: 100,
+    cfc_code: '281.1',
+    description: 'Chape anhydrite / fluide (volume)',
+    unit: 'm³',
+    productivity_per_day: 8,
     team_size_default: 3,
     seasonal_factors: { winter: 0.65, spring: 0.90, summer: 1.00, autumn: 0.85 },
   },
   {
-    cfc_code: '271',
-    description: 'Isolation sous chape (EPS / XPS)',
-    unit: 'm²',
-    productivity_per_day: 80,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.85, spring: 0.95, summer: 1.00, autumn: 0.95 },
-  },
-];
-
-// ============================================================================
-// CFC 281 — Revêtements de sols
-// ============================================================================
-
-const CFC_281_SOLS: ProductivityRatio[] = [
-  {
-    cfc_code: '281.1',
-    description: 'Carrelage sol — pose standard (30×60 cm)',
+    cfc_code: '281.2',
+    description: 'Carrelage de sol — pose standard (30x60 cm)',
     unit: 'm²',
     productivity_per_day: 10,
     team_size_default: 1,
@@ -527,9 +715,9 @@ const CFC_281_SOLS: ProductivityRatio[] = [
   },
   {
     cfc_code: '281.2',
-    description: 'Carrelage mural — faïence salle de bain',
-    unit: 'm²',
-    productivity_per_day: 8,
+    description: 'Carrelage — plinthes et finitions',
+    unit: 'ml',
+    productivity_per_day: 40,
     team_size_default: 1,
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
@@ -542,120 +730,107 @@ const CFC_281_SOLS: ProductivityRatio[] = [
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '281.4',
-    description: 'Parquet — pose collée',
-    unit: 'm²',
-    productivity_per_day: 12,
+    cfc_code: '281.3',
+    description: 'Sols souples — lino, moquette (surface)',
+    unit: 'm³',
+    productivity_per_day: 15,
     team_size_default: 2,
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
-];
-
-// ============================================================================
-// CFC 285 — Peinture / Revêtements muraux
-// ============================================================================
-
-const CFC_285_PEINTURE: ProductivityRatio[] = [
   {
-    cfc_code: '285.1',
-    description: 'Peinture intérieure — murs (2 couches)',
+    cfc_code: '282',
+    description: 'Carrelage mural / faience salle de bain',
+    unit: 'm²',
+    productivity_per_day: 8,
+    team_size_default: 1,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '283',
+    description: 'Faux-plafonds — plaques de platre sur ossature',
+    unit: 'm²',
+    productivity_per_day: 15,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+  },
+  {
+    cfc_code: '285',
+    description: 'Peinture interieure — murs (2 couches)',
     unit: 'm²',
     productivity_per_day: 50,
     team_size_default: 2,
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '285.2',
-    description: 'Peinture intérieure — plafonds (2 couches)',
-    unit: 'm²',
-    productivity_per_day: 35,
+    cfc_code: '285',
+    description: 'Peinture interieure — lineaire (boiseries, cadres)',
+    unit: 'ml',
+    productivity_per_day: 60,
     team_size_default: 2,
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '285.3',
-    description: 'Peinture extérieure — façade (avec échafaudage)',
-    unit: 'm²',
-    productivity_per_day: 25,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.30, spring: 0.80, summer: 1.00, autumn: 0.70 },
-  },
-];
-
-// ============================================================================
-// CFC 272 — Faux-plafonds
-// ============================================================================
-
-const CFC_272_PLAFONDS: ProductivityRatio[] = [
-  {
-    cfc_code: '272',
-    description: 'Faux-plafonds — plaques de plâtre sur ossature',
-    unit: 'm²',
-    productivity_per_day: 15,
-    team_size_default: 2,
-    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
-  },
-];
-
-// ============================================================================
-// CFC 273 — Cloisons légères / Plâtrerie sèche
-// ============================================================================
-
-const CFC_273_PLATRERIE: ProductivityRatio[] = [
-  {
-    cfc_code: '273',
-    description: 'Cloisons placo — montage ossature + plaques (double face)',
-    unit: 'm²',
+    cfc_code: '285',
+    description: 'Peinture — elements ponctuels',
+    unit: 'pce',
     productivity_per_day: 12,
     team_size_default: 2,
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
+  {
+    cfc_code: '287',
+    description: 'Nettoyage du batiment — nettoyage final',
+    unit: 'm²',
+    productivity_per_day: 200,
+    team_size_default: 2,
+    seasonal_factors: { winter: 1.00, spring: 1.00, summer: 1.00, autumn: 1.00 },
+  },
 ];
 
 // ============================================================================
-// CFC 3 — Équipements d'exploitation / Systèmes
+// CFC 4 — Aménagements extérieurs
 // ============================================================================
 
-const CFC_3_SYSTEMES: ProductivityRatio[] = [
+const CFC_4_EXTERIEURS: ProductivityRatio[] = [
   {
-    cfc_code: '311',
-    description: 'Aménagements extérieurs — terrassement, plantations, revêtements',
+    cfc_code: '411',
+    description: 'Amenagements exterieurs — revetements, places, acces',
     unit: 'm²',
     productivity_per_day: 30,
     team_size_default: 3,
     seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
   },
   {
-    cfc_code: '311',
-    description: 'Aménagements extérieurs — clôtures, bordures, mobilier',
+    cfc_code: '411',
+    description: 'Amenagements exterieurs — bordures, clotures, murets',
     unit: 'ml',
     productivity_per_day: 15,
     team_size_default: 2,
     seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
   },
   {
-    cfc_code: '311',
-    description: 'Aménagements extérieurs — éléments ponctuels',
+    cfc_code: '411',
+    description: 'Amenagements exterieurs — elements ponctuels (mobilier)',
     unit: 'pce',
     productivity_per_day: 4,
     team_size_default: 2,
     seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
   },
   {
-    cfc_code: '312',
-    description: 'Ascenseur — installation complète',
-    unit: 'pce',
-    productivity_per_day: 0.05,
+    cfc_code: '421',
+    description: 'Jardinage — engazonnement et plantations',
+    unit: 'm²',
+    productivity_per_day: 120,
     team_size_default: 2,
-    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+    seasonal_factors: { winter: 0.30, spring: 1.00, summer: 0.85, autumn: 1.00 },
   },
   {
-    cfc_code: '313',
-    description: 'Cuisine professionnelle — installation équipements',
+    cfc_code: '421',
+    description: 'Jardinage — arbres et arbustes',
     unit: 'pce',
-    productivity_per_day: 0.25,
-    team_size_default: 3,
-    seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
+    productivity_per_day: 10,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.30, spring: 1.00, summer: 0.85, autumn: 1.00 },
   },
 ];
 
@@ -664,39 +839,43 @@ const CFC_3_SYSTEMES: ProductivityRatio[] = [
 // ============================================================================
 
 export const PRODUCTIVITY_RATIOS: ProductivityRatio[] = [
-  ...CFC_1_TERRASSEMENT,
-  ...CFC_211_BETON,
-  ...CFC_214_ACIER,
-  ...CFC_215_BOIS,
-  ...CFC_216_MACONNERIE,
-  ...CFC_221_FENETRES,
-  ...CFC_224_FACADE,
-  ...CFC_225_TOITURE,
-  ...CFC_232_ELECTRICITE,
-  ...CFC_242_CVC,
-  ...CFC_251_SANITAIRE,
-  ...CFC_271_CHAPES,
-  ...CFC_272_PLAFONDS,
-  ...CFC_273_PLATRERIE,
-  ...CFC_281_SOLS,
-  ...CFC_285_PEINTURE,
-  ...CFC_3_SYSTEMES,
+  ...CFC_1_PREPARATION,
+  ...CFC_21_GROS_OEUVRE,
+  ...CFC_22_CLOS_COUVERT,
+  ...CFC_23_ELECTRICITE,
+  ...CFC_24_CVC,
+  ...CFC_25_SANITAIRE,
+  ...CFC_27_AMENAGEMENTS_1,
+  ...CFC_28_AMENAGEMENTS_2,
+  ...CFC_4_EXTERIEURS,
 ];
 
 // ============================================================================
 // LOOKUP HELPERS
 // ============================================================================
 
+/** Normalize unit strings for comparison (m² / m2 / M2 → "m2") */
+function normalizeUnit(u: string): string {
+  return u
+    .toLowerCase()
+    .replace(/²/g, '2')
+    .replace(/³/g, '3')
+    .replace(/\s+/g, '')
+    .trim();
+}
+
 /**
- * Find the best matching productivity ratio for a given CFC code and unit.
- * Tries exact code match first, then prefix match (e.g. "211.3" matches "211").
+ * Find the best matching productivity ratio for a canonical CFC code and unit.
+ * Exact code + unit → exact code → parent code → CFC family.
  */
 export function findProductivityRatio(
   cfc_code: string,
   unit?: string,
   _description?: string,
 ): ProductivityRatio | null {
-  // 1. Exact CFC code + exact unit match
+  if (!cfc_code) return null;
+
+  // 1. Exact CFC code + exact unit
   if (unit) {
     const exactMatch = PRODUCTIVITY_RATIOS.find(
       (r) => r.cfc_code === cfc_code && normalizeUnit(r.unit) === normalizeUnit(unit),
@@ -706,16 +885,9 @@ export function findProductivityRatio(
 
   // 2. Exact CFC code (any unit)
   const codeMatches = PRODUCTIVITY_RATIOS.filter((r) => r.cfc_code === cfc_code);
-  if (codeMatches.length > 0) {
-    // If unit provided, try to find closest match
-    if (unit) {
-      const unitMatch = codeMatches.find((r) => normalizeUnit(r.unit) === normalizeUnit(unit));
-      if (unitMatch) return unitMatch;
-    }
-    return codeMatches[0];
-  }
+  if (codeMatches.length > 0) return codeMatches[0];
 
-  // 3. Prefix match (e.g. "211.3" → "211", or "232.2.1" → "232.2" → "232")
+  // 3. Parent code ("211.3.1" → "211.3" → "211")
   const codeParts = cfc_code.split('.');
   for (let i = codeParts.length - 1; i >= 1; i--) {
     const prefix = codeParts.slice(0, i).join('.');
@@ -729,11 +901,9 @@ export function findProductivityRatio(
     }
   }
 
-  // 4. Major CFC group match (first 1-3 digits)
-  const majorCode = cfc_code.replace(/\..*/g, '');
-  const groupMatches = PRODUCTIVITY_RATIOS.filter((r) =>
-    r.cfc_code.replace(/\..*/g, '') === majorCode,
-  );
+  // 4. CFC family ("211" matches any 211.x)
+  const family = cfcFamily(cfc_code);
+  const groupMatches = PRODUCTIVITY_RATIOS.filter((r) => cfcFamily(r.cfc_code) === family);
   if (groupMatches.length > 0) {
     if (unit) {
       const unitMatch = groupMatches.find((r) => normalizeUnit(r.unit) === normalizeUnit(unit));
@@ -745,22 +915,46 @@ export function findProductivityRatio(
   return null;
 }
 
-/**
- * Get the seasonal factor for a given month (0-indexed: 0=January, 11=December).
- */
-export function getSeasonalFactor(ratio: ProductivityRatio, month: number): number {
-  if (month >= 11 || month <= 1) return ratio.seasonal_factors.winter;  // Dec, Jan, Feb
-  if (month >= 2 && month <= 4) return ratio.seasonal_factors.spring;   // Mar, Apr, May
-  if (month >= 5 && month <= 7) return ratio.seasonal_factors.summer;   // Jun, Jul, Aug
-  return ratio.seasonal_factors.autumn;                                  // Sep, Oct, Nov
+/** Season bucket of a 0-indexed month. */
+export type Season = 'winter' | 'spring' | 'summer' | 'autumn';
+
+export function seasonOfMonth(month: number): Season {
+  if (month >= 11 || month <= 1) return 'winter';   // Dec, Jan, Feb
+  if (month >= 2 && month <= 4) return 'spring';    // Mar, Apr, May
+  if (month >= 5 && month <= 7) return 'summer';    // Jun, Jul, Aug
+  return 'autumn';                                   // Sep, Oct, Nov
 }
 
-/** Normalize unit strings for comparison (m² / m2 / M2 → "m2") */
-function normalizeUnit(u: string): string {
-  return u
-    .toLowerCase()
-    .replace(/²/g, '2')
-    .replace(/³/g, '3')
-    .replace(/\s+/g, '')
-    .trim();
+/** Seasonal factor of a specific ratio for a 0-indexed month. */
+export function getSeasonalFactor(ratio: ProductivityRatio, month: number): number {
+  return ratio.seasonal_factors[seasonOfMonth(month)];
 }
+
+/**
+ * Seasonal factor for ANY canonical CFC code — including trades that have no
+ * CRB ratio and used to escape seasonality entirely (audit distortion D4).
+ * Falls back to the registry's exposure class.
+ */
+export function getSeasonalFactorForCfc(cfc_code: string | null, month: number): number {
+  const season = seasonOfMonth(month);
+
+  if (cfc_code) {
+    const ratio = findProductivityRatio(cfc_code);
+    if (ratio) return ratio.seasonal_factors[season];
+
+    const entry = getCfcEntry(cfc_code);
+    if (entry) return EXPOSURE_SEASONAL_DEFAULTS[entry.exposure][season];
+  }
+
+  return EXPOSURE_SEASONAL_DEFAULTS.sheltered[season];
+}
+
+/** Seasonal defaults by weather exposure — used when no CRB ratio exists. */
+export const EXPOSURE_SEASONAL_DEFAULTS: Record<
+  'exterior' | 'sheltered' | 'interior',
+  Record<Season, number>
+> = {
+  exterior: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.82 },
+  sheltered: { winter: 0.80, spring: 0.95, summer: 1.00, autumn: 0.92 },
+  interior: { winter: 0.92, spring: 1.00, summer: 1.00, autumn: 0.97 },
+};

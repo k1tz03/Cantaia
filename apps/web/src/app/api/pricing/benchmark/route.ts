@@ -45,19 +45,29 @@ export async function GET(request: Request) {
     }
 
     // ═══ Source 2: ingested_offer_lines ═══
-    let query2 = (adminClient as any)
-      .from("ingested_offer_lines")
-      .select(`
-        id, description, cfc_code, unite, quantite,
-        prix_unitaire_ht, prix_total_ht,
-        fournisseur_nom, date_offre, created_at
-      `)
-      .eq("org_id", userOrg.organization_id)
-      .gt("prix_unitaire_ht", 0)
-      .order("created_at", { ascending: false })
-      .limit(5000);
+    //
+    // AUDIT 08/2026 — `ingested_offer_lines` n'a PAS de colonne project_id.
+    // Quand l'utilisateur filtre par projet, mélanger cette source globale aux
+    // groupes affichait des prix hors projet. On la court-circuite donc dès
+    // qu'un project_id est fourni (seule source 1 est réellement filtrable).
+    const query2 = projectId
+      ? null
+      : (adminClient as any)
+          .from("ingested_offer_lines")
+          .select(`
+            id, description, cfc_code, unite, quantite,
+            prix_unitaire_ht, prix_total_ht,
+            fournisseur_nom, date_offre, created_at
+          `)
+          .eq("org_id", userOrg.organization_id)
+          .gt("prix_unitaire_ht", 0)
+          .order("created_at", { ascending: false })
+          .limit(5000);
 
-    const [res1, res2] = await Promise.all([query1, query2]);
+    const [res1, res2] = await Promise.all([
+      query1,
+      query2 ?? Promise.resolve({ data: [], error: null }),
+    ]);
 
     if (res1.error) {
       console.error("[benchmark] offer_line_items error:", res1.error);
@@ -205,6 +215,11 @@ export async function GET(request: Request) {
     }
 
     // ═══ Compute stats per group ═══
+    // Borne le nombre d'entrées détaillées renvoyées par groupe : sans cap, un
+    // groupe très fréquent pouvait renvoyer des milliers de lignes au client
+    // (payload jusqu'à 7 000 entrées au total). Les stats (min/max/médiane/n)
+    // restent calculées sur TOUS les prix ; seule la liste détaillée est tronquée.
+    const MAX_ENTRIES_PER_GROUP = 50;
     const items = Object.entries(groups).map(([key, group]) => {
       const prices = group.prices.sort((a, b) => a - b);
       const n = prices.length;
@@ -225,7 +240,8 @@ export async function GET(request: Request) {
         median_unit_price: Math.round(median * 100) / 100,
         data_points: n,
         price_spread_percent: Math.round(spread * 10) / 10,
-        suppliers: group.entries,
+        suppliers: group.entries.slice(0, MAX_ENTRIES_PER_GROUP),
+        entries_truncated: group.entries.length > MAX_ENTRIES_PER_GROUP,
       };
     }).sort((a, b) => b.data_points - a.data_points);
 

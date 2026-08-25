@@ -222,7 +222,7 @@ export function DataSharingTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#A1A1AA]" />
       </div>
     );
   }
@@ -261,7 +261,7 @@ export function DataSharingTab() {
 
       {/* Toggle all + status message */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-[#71717A]">
+        <div className="text-sm text-[#A1A1AA]">
           <span className="font-medium text-[#FAFAFA]">{activeCount}</span> /{" "}
           {CONSENT_MODULES.length} modules actifs
         </div>
@@ -314,13 +314,13 @@ export function DataSharingTab() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <Icon
-                    className={`mt-0.5 h-5 w-5 ${isActive ? "text-[#34D399]" : "text-[#71717A]"}`}
+                    className={`mt-0.5 h-5 w-5 ${isActive ? "text-[#34D399]" : "text-[#A1A1AA]"}`}
                   />
                   <div>
                     <h4 className="text-sm font-medium text-[#FAFAFA]">
                       {mod.label}
                     </h4>
-                    <p className="mt-0.5 text-xs text-[#71717A]">
+                    <p className="mt-0.5 text-xs text-[#A1A1AA]">
                       {mod.description}
                     </p>
                     <div className="mt-2 text-xs">
@@ -330,7 +330,7 @@ export function DataSharingTab() {
                           {mod.benefitOptIn}
                         </span>
                       ) : (
-                        <span className="text-[#71717A]">
+                        <span className="text-[#A1A1AA]">
                           {mod.benefitOptOut}
                         </span>
                       )}
@@ -347,7 +347,7 @@ export function DataSharingTab() {
                 >
                   {isSaving ? (
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F0F11] shadow">
-                      <Loader2 className="h-3 w-3 animate-spin text-[#71717A]" />
+                      <Loader2 className="h-3 w-3 animate-spin text-[#A1A1AA]" />
                     </span>
                   ) : (
                     <span
@@ -365,7 +365,7 @@ export function DataSharingTab() {
 
       {/* Privacy footer */}
       <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-4">
-        <p className="text-xs text-[#71717A]">
+        <p className="text-xs text-[#A1A1AA]">
           <strong>Protection des données :</strong> Conforme au RGPD et à la LPD suisse.
           Vos données sont anonymisées avant tout traitement collectif.
           Aucune donnée personnelle ou d'entreprise n'est revendue ni transmise à des tiers.

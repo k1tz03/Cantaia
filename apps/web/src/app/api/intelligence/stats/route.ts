@@ -38,28 +38,40 @@ export async function GET() {
 
   const orgId = profile.organization_id;
 
-  // ── Dimension counts (all with try/catch for missing tables) ──
+  // ── Dimension counts ──
+  //
+  // AUDIT 08/2026 — les colonnes org ne portent PAS le même nom partout :
+  //   * price_calibrations / quantity_corrections (043)  → `org_id`
+  //   * offer_line_items / suppliers / supplier_offers /
+  //     planning_duration_corrections / email_classification_feedback
+  //                                                       → `organization_id`
+  // L'ancien code filtrait `organization_id` partout : PostgREST renvoyait une
+  // erreur (silencieuse — supabase-js ne throw pas), le count restait null et
+  // ces dimensions affichaient 0 en permanence.
 
   // Prix: offer_line_items + price_calibrations
   let pricesCount = 0;
-  try {
+  {
     const { count: offerCount } = await (admin as any)
       .from("offer_line_items")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId);
     pricesCount += offerCount || 0;
-  } catch {}
-  try {
+  }
+  {
     const { count: calibCount } = await (admin as any)
       .from("price_calibrations")
       .select("id", { count: "exact", head: true })
-      .eq("organization_id", orgId);
+      .eq("org_id", orgId);
     pricesCount += calibCount || 0;
-  } catch {}
+  }
 
-  // Plans: plan_analyses
+  // Plans: plan_analyses (org via jointure plan_registry).
+  // AUDIT 08/2026 — l'ancien fallback re-comptait TOUTES les plan_analyses de
+  // la plateforme sans filtre org (fuite cross-tenant). Supprimé : si la
+  // jointure échoue, on affiche 0, jamais le total global.
   let plansCount = 0;
-  try {
+  {
     const { count } = await (admin as any)
       .from("plan_analyses")
       .select("id, plan_registry!inner(organization_id)", {
@@ -68,52 +80,44 @@ export async function GET() {
       })
       .eq("plan_registry.organization_id", orgId);
     plansCount = count || 0;
-  } catch {
-    // Fallback: try without join
-    try {
-      const { count } = await (admin as any)
-        .from("plan_analyses")
-        .select("id", { count: "exact", head: true });
-      plansCount = count || 0;
-    } catch {}
   }
 
   // Planning: planning_duration_corrections (table may not exist)
   let planningCount = 0;
-  try {
+  {
     const { count } = await (admin as any)
       .from("planning_duration_corrections")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId);
     planningCount = count || 0;
-  } catch {}
+  }
 
   // Emails: email_classification_feedback
   let emailsCount = 0;
-  try {
+  {
     const { count } = await (admin as any)
       .from("email_classification_feedback")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId);
     emailsCount = count || 0;
-  } catch {}
+  }
 
   // Fournisseurs: suppliers + supplier_offers
   let suppliersCount = 0;
-  try {
+  {
     const { count: supCount } = await (admin as any)
       .from("suppliers")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId);
     suppliersCount += supCount || 0;
-  } catch {}
-  try {
+  }
+  {
     const { count: offCount } = await (admin as any)
       .from("supplier_offers")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId);
     suppliersCount += offCount || 0;
-  } catch {}
+  }
 
   const dimensions: Record<string, DimensionStat> = {
     prices: { count: pricesCount, threshold: 50 },
@@ -132,7 +136,7 @@ export async function GET() {
     const { data: qtyCors } = await (admin as any)
       .from("quantity_corrections")
       .select("id, discipline, created_at")
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .order("created_at", { ascending: false })
       .limit(3);
     if (qtyCors) {
@@ -153,7 +157,7 @@ export async function GET() {
     const { data: priceCals } = await (admin as any)
       .from("price_calibrations")
       .select("id, cfc_code, created_at")
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .order("created_at", { ascending: false })
       .limit(3);
     if (priceCals) {
@@ -195,6 +199,53 @@ export async function GET() {
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
   const recentJournal = journal.slice(0, 5);
+
+  // ── Learning events (migration 097) : accept-rate + échecs d'écriture ──
+  //
+  // AUDIT 08/2026 — `learning_events` était write-only (9 écrivains, 0 lecteur).
+  // On expose ici, sur 30 jours et par org : l'accept-rate des suggestions
+  // (accepté / (accepté + rejeté)) et le nombre d'écritures d'apprentissage
+  // ayant échoué en silence (write_failed), ventilé par module.
+  const learning = {
+    window_days: 30,
+    accept_rate: null as number | null,
+    suggestions_shown: 0,
+    suggestions_accepted: 0,
+    suggestions_rejected: 0,
+    write_failed_by_module: {} as Record<string, number>,
+  };
+  try {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: events } = await (admin as any)
+      .from("learning_events")
+      .select("module, event_type")
+      .eq("organization_id", orgId)
+      .gte("created_at", since)
+      .limit(10000);
+
+    if (events) {
+      let shown = 0;
+      let accepted = 0;
+      let rejected = 0;
+      const writeFailed: Record<string, number> = {};
+      for (const e of events as { module: string; event_type: string }[]) {
+        if (e.event_type === "suggestion_shown") shown++;
+        else if (e.event_type === "suggestion_accepted") accepted++;
+        else if (e.event_type === "suggestion_rejected") rejected++;
+        else if (e.event_type === "write_failed") {
+          writeFailed[e.module] = (writeFailed[e.module] ?? 0) + 1;
+        }
+      }
+      learning.suggestions_shown = shown;
+      learning.suggestions_accepted = accepted;
+      learning.suggestions_rejected = rejected;
+      const decided = accepted + rejected;
+      learning.accept_rate = decided > 0 ? Math.round((accepted / decided) * 100) : null;
+      learning.write_failed_by_module = writeFailed;
+    }
+  } catch {
+    // Table learning_events peut ne pas exister (migration 097 non appliquée).
+  }
 
   // ── C2 collective data ──
 
@@ -270,5 +321,6 @@ export async function GET() {
     journal: recentJournal,
     c2,
     orgCounters,
+    learning,
   });
 }

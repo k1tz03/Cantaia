@@ -1,7 +1,15 @@
 /**
- * SectionCutTool — placeholder for section plane controls.
- * UIX ships the axis picker + elevation slider HUD; Dev B wires the
- * THREE.Plane clipping and live geometry intersection in SceneCanvas.
+ * SectionCutTool — contrôles du plan de coupe.
+ *
+ * Le HUD existait déjà ; ce qu'il pilotait n'existait pas. L'axe et
+ * l'altitude sont désormais transmis à `SceneThreeLayer`, qui construit un
+ * vrai `THREE.Plane` et l'applique à tous les matériaux via le clipping local
+ * du renderer.
+ *
+ * Convention d'axes (documentée ici parce qu'elle n'est pas devinable) :
+ *   - « Z » : coupe HORIZONTALE — on conserve ce qui est sous l'altitude
+ *     réglée. C'est le plan de coupe de l'architecte.
+ *   - « X » / « Y » : coupes VERTICALES le long des axes du monde.
  */
 
 "use client";
@@ -36,9 +44,6 @@ export function SectionCutTool({
 
   if (!active) return null;
 
-  // TODO: Dev B logic — clipping plane sync with THREE, visual helper plane,
-  // drag-to-adjust in viewport. This HUD only exposes the control surface.
-
   const axes: Array<{ key: Axis; label: string }> = [
     { key: "x", label: t("section.axisX") },
     { key: "y", label: t("section.axisY") },
@@ -58,14 +63,14 @@ export function SectionCutTool({
           type="button"
           onClick={onClose}
           aria-label={t("section.close")}
-          className="text-xs text-[#71717A] hover:text-[#FAFAFA] focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:outline-none rounded"
+          className="text-xs text-[#A1A1AA] hover:text-[#FAFAFA] focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:outline-none rounded"
         >
           {t("section.close")}
         </button>
       </header>
 
       <fieldset>
-        <legend className="text-[11px] uppercase tracking-wider text-[#71717A] mb-2">
+        <legend className="text-[11px] uppercase tracking-wider text-[#A1A1AA] mb-2">
           {t("section.axis")}
         </legend>
         <div className="grid grid-cols-3 gap-1" role="radiogroup">
@@ -93,7 +98,7 @@ export function SectionCutTool({
 
       <div className="mt-3">
         <div className="flex items-center justify-between mb-1.5">
-          <label htmlFor="section-elev" className="text-[11px] uppercase tracking-wider text-[#71717A]">
+          <label htmlFor="section-elev" className="text-[11px] uppercase tracking-wider text-[#A1A1AA]">
             {t("section.elevation")}
           </label>
           <span className="font-mono text-xs text-[#FAFAFA]">{elevation.toFixed(2)} m</span>

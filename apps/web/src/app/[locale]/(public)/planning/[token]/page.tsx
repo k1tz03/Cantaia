@@ -71,7 +71,7 @@ export default function PublicPlanningPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center max-w-md p-8">
-          <AlertCircle className="h-16 w-16 text-[#52525B] mx-auto mb-4" />
+          <AlertCircle className="h-16 w-16 text-[#A1A1AA] mx-auto mb-4" />
           <h2 className="text-lg font-medium text-[#FAFAFA] mb-2">
             {t("share.expired")}
           </h2>
@@ -101,7 +101,7 @@ export default function PublicPlanningPage() {
             </div>
             <span className="text-lg font-semibold text-[#FAFAFA]">Cantaia</span>
           </div>
-          <span className="text-sm text-[#71717A] hidden sm:inline">|</span>
+          <span className="text-sm text-[#A1A1AA] hidden sm:inline">|</span>
           <span className="text-sm text-[#A1A1AA] hidden sm:inline">
             {t("poweredBy")}
           </span>

@@ -19,6 +19,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AGENT_TYPES, getAgentConfig, runAgentLoop } from "@cantaia/core/agents";
 import type { AgentType } from "@cantaia/core/agents";
 import { executeCustomTool } from "./tool-handlers";
+import { trackApiUsage } from "@cantaia/core/tracking";
 
 export const maxDuration = 300; // 5 min — the agentic loop can take a while
 export const dynamic = "force-dynamic";
@@ -136,6 +137,14 @@ export async function GET(
     );
   }
 
+  // The agentic loop must finish inside the Vercel function budget with room
+  // to persist the result — cap it at maxDuration minus a 30s safety margin
+  // (the per-agent maxDurationMs is otherwise unreachable and misleading).
+  const loopBudgetMs = Math.max(
+    30_000,
+    Math.min(agentConfig.maxDurationMs ?? Infinity, maxDuration * 1000 - 30_000)
+  );
+
   // ── Setup SSE stream ────────────────────────────────────
   const encoder = new TextEncoder();
 
@@ -151,6 +160,40 @@ export async function GET(
         }
       }
 
+      // Heartbeat: a single non-streamed Messages call can run 60-120s without
+      // emitting a byte; some proxies drop idle SSE connections. A periodic
+      // comment frame keeps the pipe warm without affecting event parsing.
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(`: ping\n\n`));
+        } catch {
+          // client gone
+        }
+      }, 15_000);
+
+      // AGT — `agent_sessions.result_payload` was never written for
+      // interactive runs, so /api/agents/[type]/result and the /agents page
+      // could only ever show "no result". The final assistant message and the
+      // outcome of each save_* tool are captured here as the run's summary.
+      let lastAssistantText: string | null = null;
+      const toolOutcomes: Array<{ tool: string; ok: boolean; preview: string }> = [];
+
+      function captureAndEmit(eventType: string, data: Record<string, unknown>) {
+        if (eventType === "agent.message") {
+          const text = extractText(data);
+          if (text) lastAssistantText = text;
+        } else if (eventType === "custom_tool_result") {
+          const preview =
+            typeof data.result_preview === "string" ? data.result_preview : "";
+          toolOutcomes.push({
+            tool: String(data.tool_name || "unknown"),
+            ok: data.is_error !== true && !/"error"\s*:\s*true/.test(preview),
+            preview: preview.slice(0, 300),
+          });
+        }
+        emit(eventType, data);
+      }
+
       try {
         // Run the agentic tool-use loop
         const result = await runAgentLoop({
@@ -159,7 +202,8 @@ export async function GET(
           systemPrompt: agentConfig.systemPrompt,
           tools: agentConfig.tools,
           initialMessage,
-          onEvent: emit,
+          maxDurationMs: loopBudgetMs,
+          onEvent: captureAndEmit,
           toolExecutor: (toolName, toolInput) =>
             executeCustomTool(
               agentType,
@@ -191,9 +235,53 @@ export async function GET(
             tool_calls_count: result.toolCallsCount,
             custom_tool_calls_count: result.customToolCallsCount,
             tools_used: result.toolsUsed,
+            result_payload: {
+              summary: lastAssistantText,
+              tool_outcomes: toolOutcomes.slice(-20),
+              succeeded_tools: toolOutcomes.filter((t) => t.ok).length,
+              failed_tools: toolOutcomes.filter((t) => !t.ok).length,
+              trigger: "interactive",
+            },
             ...(result.error ? { error_message: result.error } : {}),
           })
           .eq("session_id", sessionId);
+
+        // ── Cost tracking: the REAL tokens ────────────────
+        // /start wrote a 0-token placeholder because the agentic loop had not
+        // run yet. Replace it with the actual aggregate so `api_usage_logs`
+        // shows one row per session carrying the true cost — a 25-iteration
+        // Sonnet run was previously recorded as costing nothing at all.
+        // Delete-then-insert (not update) so the CHF figure is recomputed by
+        // the canonical tracker instead of being duplicated here.
+        try {
+          await (admin as any)
+            .from("api_usage_logs")
+            .delete()
+            .eq("organization_id", sessionRecord.organization_id)
+            .contains("metadata", { session_id: sessionId, phase: "start" });
+        } catch (cleanupErr) {
+          // Non-fatal: worst case the placeholder row survives next to the
+          // real one, inflating the call count but not the cost.
+          console.warn("[agents/stream] placeholder cleanup failed:", cleanupErr);
+        }
+
+        await trackApiUsage({
+          supabase: admin as any,
+          userId: sessionRecord.user_id || user.id,
+          organizationId: sessionRecord.organization_id,
+          actionType: `agent_${agentType}` as any,
+          apiProvider: "anthropic",
+          model: agentConfig.model,
+          inputTokens: result.inputTokens || 0,
+          outputTokens: result.outputTokens || 0,
+          metadata: {
+            session_id: sessionId,
+            phase: "completion",
+            status: result.status,
+            events_count: result.eventsCount,
+            tool_calls_count: result.toolCallsCount,
+          },
+        }).catch(() => {});
 
         // Send final status to client
         emit("done", {
@@ -222,6 +310,7 @@ export async function GET(
         // Send error to client
         emit("error", { error: errorMsg });
       } finally {
+        clearInterval(heartbeat);
         controller.close();
       }
     },
@@ -235,4 +324,19 @@ export async function GET(
       "X-Accel-Buffering": "no",
     },
   });
+}
+
+/** Pull plain text out of an `agent.message` event payload. */
+function extractText(data: Record<string, unknown>): string | null {
+  const content = (data.content ?? data.text) as unknown;
+  if (typeof content === "string") return content.trim() || null;
+  if (Array.isArray(content)) {
+    const text = content
+      .filter((b: any) => b?.type === "text" && typeof b.text === "string")
+      .map((b: any) => b.text)
+      .join("\n")
+      .trim();
+    return text || null;
+  }
+  return null;
 }

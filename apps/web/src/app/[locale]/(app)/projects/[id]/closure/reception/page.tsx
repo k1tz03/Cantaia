@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -12,8 +12,12 @@ import {
   Loader2,
   ShieldCheck,
   AlertTriangle,
+  ClipboardList,
+  CheckSquare,
 } from "lucide-react";
 import type { ReceptionParticipant, LotReception } from "@cantaia/database";
+import { ReserveFormModal } from "@/components/closure/ReserveFormModal";
+import { toLocalDateString } from "@/components/calendar/datetime-utils";
 
 interface ReserveForm {
   description: string;
@@ -31,7 +35,7 @@ export default function ReceptionFormPage() {
 
   // All hooks before early returns
   const [receptionType, setReceptionType] = useState<"provisional" | "partial" | "final">("provisional");
-  const [receptionDate, setReceptionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [receptionDate, setReceptionDate] = useState(toLocalDateString(new Date()));
   const [receptionLocation, setReceptionLocation] = useState("");
   const [participants, setParticipants] = useState<ReceptionParticipant[]>([]);
   const [lots, setLots] = useState<(LotReception & { reserves: ReserveForm[] })[]>([]);
@@ -43,6 +47,32 @@ export default function ReceptionFormPage() {
   });
   const [initialized, setInitialized] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+
+  // ── Persisted reserves (reception_reserves rows, not the DOCX-only ones) ──
+  // The reserves nested under a lot below only ever reach the generated DOCX.
+  // These are the real rows: each one gets a "Lever la réserve" task and shows
+  // up in the reserve register and on the Clôture tab.
+  const [projectReserves, setProjectReserves] = useState<
+    { id: string; description: string; severity: string; status: string; deadline: string | null }[]
+  >([]);
+  const [showReserveModal, setShowReserveModal] = useState(false);
+  const projectId = params.id as string;
+
+  const loadProjectReserves = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`/api/reserves?project_id=${projectId}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setProjectReserves(data.reserves || []);
+    } catch {
+      // Non-blocking: the reception form still works without the register.
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    loadProjectReserves();
+  }, [loadProjectReserves]);
 
   // Initialize state values that depend on loaded project
   useEffect(() => {
@@ -100,7 +130,7 @@ export default function ReceptionFormPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-[#71717A]">{t("projectNotFound")}</p>
+        <p className="text-[#A1A1AA]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -233,7 +263,7 @@ export default function ReceptionFormPage() {
       <div className="flex items-start gap-4">
         <Link
           href={`/projects/${project.id}/closure`}
-          className="mt-1 rounded-md p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+          className="mt-1 rounded-md p-2 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
@@ -241,7 +271,7 @@ export default function ReceptionFormPage() {
           <h1 className="text-xl font-semibold text-[#FAFAFA]">
             {t("generateReceptionPV")}
           </h1>
-          <p className="mt-1 text-sm text-[#71717A]">{project.name}</p>
+          <p className="mt-1 text-sm text-[#A1A1AA]">{project.name}</p>
         </div>
       </div>
 
@@ -258,7 +288,7 @@ export default function ReceptionFormPage() {
                 className={`rounded-md border px-4 py-2 text-sm transition-colors ${
                   receptionType === type
                     ? "border-brand bg-brand/5 text-brand font-medium"
-                    : "border-[#27272A] text-[#71717A] hover:bg-[#27272A]"
+                    : "border-[#27272A] text-[#A1A1AA] hover:bg-[#27272A]"
                 }`}
               >
                 {t(type)}
@@ -320,15 +350,15 @@ export default function ReceptionFormPage() {
                 />
                 <div className="flex-1 text-sm">
                   <span className="font-medium text-[#FAFAFA]">{p.name}</span>
-                  <span className="mx-1 text-[#71717A]">—</span>
-                  <span className="text-[#71717A]">{p.role}</span>
-                  <span className="mx-1 text-[#71717A]">—</span>
-                  <span className="text-[#71717A]">{p.company}</span>
+                  <span className="mx-1 text-[#A1A1AA]">—</span>
+                  <span className="text-[#A1A1AA]">{p.role}</span>
+                  <span className="mx-1 text-[#A1A1AA]">—</span>
+                  <span className="text-[#A1A1AA]">{p.company}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => removeParticipant(i)}
-                  className="p-1 text-[#71717A] hover:text-red-500"
+                  className="p-1 text-[#A1A1AA] hover:text-red-500"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -372,7 +402,7 @@ export default function ReceptionFormPage() {
                 <button
                   type="button"
                   onClick={() => setShowNewParticipant(false)}
-                  className="rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+                  className="rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
                 >
                   Annuler
                 </button>
@@ -392,17 +422,17 @@ export default function ReceptionFormPage() {
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="text-xs font-medium text-[#71717A]">CFC {lot.cfc_code}</span>
+                    <span className="text-xs font-medium text-[#A1A1AA]">CFC {lot.cfc_code}</span>
                     <p className="text-sm font-medium text-[#FAFAFA]">{lot.lot_name} — {lot.company}</p>
                   </div>
-                  <span className="text-xs text-[#71717A]">
+                  <span className="text-xs text-[#A1A1AA]">
                     {t("contractAmount")}: {lot.contract_amount.toLocaleString("fr-CH")} CHF
                   </span>
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <div>
-                    <label className="text-xs text-[#71717A]">{t("finalAmount")}</label>
+                    <label className="text-xs text-[#A1A1AA]">{t("finalAmount")}</label>
                     <input
                       type="number"
                       value={lot.final_amount}
@@ -411,7 +441,7 @@ export default function ReceptionFormPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#71717A]">{t("lotStatus")}</label>
+                    <label className="text-xs text-[#A1A1AA]">{t("lotStatus")}</label>
                     <select
                       value={lot.status}
                       onChange={(e) => updateLot(lotIndex, "status", e.target.value)}
@@ -499,11 +529,79 @@ export default function ReceptionFormPage() {
 
             {lots.length === 0 && (
               <div className="rounded-md border border-dashed border-[#27272A] bg-[#27272A] p-6 text-center">
-                <AlertTriangle className="mx-auto h-6 w-6 text-[#71717A]" />
-                <p className="mt-2 text-sm text-[#71717A]">
+                <AlertTriangle className="mx-auto h-6 w-6 text-[#A1A1AA]" />
+                <p className="mt-2 text-sm text-[#A1A1AA]">
                   Aucun lot CFC enregistré pour ce projet.
                 </p>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Réserves du projet (persistées + tâche automatique) */}
+        <div>
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-semibold text-[#FAFAFA]">{t("reserves")}</label>
+              <p className="mt-0.5 text-xs text-[#A1A1AA]">
+                Chaque réserve crée une tâche « Lever la réserve » assignable, avec son délai.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowReserveModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-[#F97316]/40 bg-[#F97316]/10 px-3 py-1.5 text-xs font-medium text-[#F97316] hover:bg-[#F97316]/20"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Ajouter une réserve
+            </button>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {projectReserves.length === 0 ? (
+              <div className="rounded-md border border-dashed border-[#27272A] bg-[#27272A]/40 p-6 text-center">
+                <ClipboardList className="mx-auto h-6 w-6 text-[#52525B]" />
+                <p className="mt-2 text-sm text-[#A1A1AA]">Aucune réserve enregistrée.</p>
+              </div>
+            ) : (
+              projectReserves.map((r, i) => (
+                <div
+                  key={r.id}
+                  className="flex items-start justify-between gap-3 rounded-md border border-[#27272A] bg-[#0F0F11] px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-[#FAFAFA]">
+                      <span className="mr-2 font-mono text-xs text-[#A1A1AA]">
+                        R-{String(i + 1).padStart(3, "0")}
+                      </span>
+                      {r.description}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#A1A1AA]">
+                      {t(r.severity)}
+                      {r.deadline ? ` — échéance ${r.deadline}` : ""}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      r.status === "verified"
+                        ? "bg-green-500/10 text-green-400"
+                        : "bg-amber-500/10 text-amber-400"
+                    }`}
+                  >
+                    {r.status === "verified" ? t("reserveVerified") : t("reserveOpen")}
+                  </span>
+                </div>
+              ))
+            )}
+
+            {projectReserves.length > 0 && (
+              <Link
+                href={`/projects/${project.id}/reserves`}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#F97316] hover:text-[#EA580C]"
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                {t("viewReserves")} ({projectReserves.length})
+              </Link>
             )}
           </div>
         </div>
@@ -550,6 +648,14 @@ export default function ReceptionFormPage() {
           </button>
         </div>
       </div>
+
+      {showReserveModal && (
+        <ReserveFormModal
+          projectId={projectId}
+          onClose={() => setShowReserveModal(false)}
+          onCreated={() => loadProjectReserves()}
+        />
+      )}
     </div>
   );
 }

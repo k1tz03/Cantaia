@@ -163,7 +163,7 @@ export default function NewProjectPage() {
       <div className="flex items-center gap-4">
         <Link
           href="/projects"
-          className="rounded-lg p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+          className="rounded-lg p-2 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
@@ -171,7 +171,7 @@ export default function NewProjectPage() {
           <h1 className="text-2xl font-bold text-[#FAFAFA]">
             {t("newProject")}
           </h1>
-          <p className="mt-1 text-sm text-[#71717A]">{t("newProjectDesc")}</p>
+          <p className="mt-1 text-sm text-[#A1A1AA]">{t("newProjectDesc")}</p>
         </div>
       </div>
 
@@ -194,7 +194,7 @@ export default function NewProjectPage() {
                 value={form.name}
                 onChange={(e) => updateField("name", e.target.value)}
                 placeholder="Résidence Les Cèdres"
-                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
@@ -208,7 +208,7 @@ export default function NewProjectPage() {
                 value={form.code}
                 onChange={(e) => updateField("code", e.target.value)}
                 placeholder="CED-2026"
-                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
@@ -240,7 +240,7 @@ export default function NewProjectPage() {
                 value={form.client_name}
                 onChange={(e) => updateField("client_name", e.target.value)}
                 placeholder="Edifea SA"
-                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
@@ -253,7 +253,7 @@ export default function NewProjectPage() {
                 type="text"
                 value={form.city}
                 onChange={(e) => updateField("city", e.target.value)}
-                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
@@ -267,7 +267,7 @@ export default function NewProjectPage() {
                 value={form.address}
                 onChange={(e) => updateField("address", e.target.value)}
                 placeholder="Chemin des Cèdres 12"
-                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
@@ -305,7 +305,7 @@ export default function NewProjectPage() {
                 value={form.budget_total}
                 onChange={(e) => updateField("budget_total", e.target.value)}
                 placeholder="28500000"
-                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
             <div>
@@ -357,7 +357,7 @@ export default function NewProjectPage() {
                 onChange={(e) => updateField("description", e.target.value)}
                 rows={3}
                 placeholder={t("descriptionPlaceholder")}
-                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
           </div>
@@ -374,9 +374,9 @@ export default function NewProjectPage() {
             <label className="mb-1.5 block text-sm font-medium text-[#FAFAFA]">
               {t("emailKeywords")}
             </label>
-            <p className="mb-2 text-xs text-[#71717A]">{t("emailKeywordsHelp")}</p>
+            <p className="mb-2 text-xs text-[#A1A1AA]">{t("emailKeywordsHelp")}</p>
             {form.email_keywords.length > 0 && (
-              <div className="mb-2 flex items-center gap-1.5 text-[10px] text-[#71717A]">
+              <div className="mb-2 flex items-center gap-1.5 text-[10px] text-[#A1A1AA]">
                 <Sparkles className="h-3 w-3" />
                 {t("emailKeywordsAuto")}
               </div>
@@ -410,9 +410,9 @@ export default function NewProjectPage() {
                 onChange={(e) => setKeywordInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKeyword())}
                 placeholder="campus rts, ecublens..."
-                className="flex-1 rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="flex-1 rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
-              <button
+              <button aria-label="Ajouter"
                 type="button"
                 onClick={addKeyword}
                 className="rounded-lg bg-[#27272A] px-3 py-2.5 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
@@ -427,7 +427,7 @@ export default function NewProjectPage() {
             <label className="mb-1.5 block text-sm font-medium text-[#FAFAFA]">
               {t("emailSenders")}
             </label>
-            <p className="mb-2 text-xs text-[#71717A]">{t("emailSendersHelp")}</p>
+            <p className="mb-2 text-xs text-[#A1A1AA]">{t("emailSendersHelp")}</p>
             <div className="flex gap-2">
               <input
                 type="email"
@@ -435,9 +435,9 @@ export default function NewProjectPage() {
                 onChange={(e) => setSenderInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSender())}
                 placeholder="j.martin@edifea.ch"
-                className="flex-1 rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="flex-1 rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
-              <button
+              <button aria-label="Ajouter"
                 type="button"
                 onClick={addSender}
                 className="rounded-lg bg-[#27272A] px-3 py-2.5 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
@@ -482,7 +482,7 @@ export default function NewProjectPage() {
           </button>
           <Link
             href="/projects"
-            className="rounded-lg px-6 py-2.5 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
+            className="rounded-lg px-6 py-2.5 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A]"
           >
             {tc("cancel")}
           </Link>

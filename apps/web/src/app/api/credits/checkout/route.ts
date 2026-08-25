@@ -31,6 +31,20 @@ function getStripe() {
 
 const SUPPORTED_LOCALES = ["fr", "en", "de"];
 
+/**
+ * `return_to` is echoed into the Stripe success URL, so it must be a plain
+ * same-origin path — never a scheme, a protocol-relative `//host`, or a
+ * backslash variant. Anything else is dropped (open-redirect guard).
+ */
+function sanitizeReturnPath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const path = value.trim();
+  if (!path.startsWith("/")) return null;
+  if (path.startsWith("//") || path.startsWith("/\\")) return null;
+  if (path.length > 512) return null;
+  return path;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const check = await requireOrgAdmin();
@@ -105,9 +119,24 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient();
     const { data: org } = await (admin as any)
       .from("organizations")
-      .select("stripe_customer_id, name")
+      .select("stripe_customer_id, stripe_subscription_id, name")
       .eq("id", profile.organization_id)
       .maybeSingle();
+
+    // Guard against a second subscription: an org that is already subscribed
+    // must CHANGE plan (via /api/stripe/update-subscription), not open a new
+    // Checkout — otherwise Stripe bills two subscriptions and the webhook
+    // overwrites stripe_subscription_id, orphaning the first one.
+    if (type === "subscription" && org?.stripe_subscription_id) {
+      return NextResponse.json(
+        {
+          error: "already_subscribed",
+          message:
+            "This organization already has an active subscription — change your plan instead of subscribing again.",
+        },
+        { status: 409 }
+      );
+    }
 
     const stripe = getStripe();
     let customerId: string | null = org?.stripe_customer_id ?? null;
@@ -131,17 +160,27 @@ export async function POST(request: NextRequest) {
       ? profile.preferred_language
       : "fr";
 
+    // Where the user was when they hit the paywall. Carried through Stripe so
+    // the settings page can offer "Reprendre" instead of stranding them on the
+    // billing tab (see CreditCheckoutResume).
+    const returnTo = sanitizeReturnPath(body?.return_to);
+    const returnSuffix = returnTo ? `&return=${encodeURIComponent(returnTo)}` : "";
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode,
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: profile.organization_id,
-      success_url: `${getAppUrl()}/${locale}/settings?tab=subscription&credits=success`,
-      cancel_url: `${getAppUrl()}/${locale}/settings?tab=subscription&credits=canceled`,
+      success_url: `${getAppUrl()}/${locale}/settings?tab=subscription&credits=success${returnSuffix}`,
+      cancel_url: `${getAppUrl()}/${locale}/settings?tab=subscription&credits=canceled${returnSuffix}`,
       metadata,
       // Propagate metadata onto the subscription itself so renewal invoices
       // can resolve the org + plan without the checkout session.
       ...(mode === "subscription" ? { subscription_data: { metadata } } : {}),
+      // Propagate metadata onto the PaymentIntent (→ Charge) so a later
+      // charge.refunded / charge.dispute event can resolve the pack and org
+      // and claw back the corresponding credits (see the Stripe webhook).
+      ...(mode === "payment" ? { payment_intent_data: { metadata } } : {}),
     });
 
     return NextResponse.json({ url: session.url });

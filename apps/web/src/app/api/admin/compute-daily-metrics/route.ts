@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireSuperadmin } from "@/lib/admin/require-superadmin";
+import { isAuthorizedCron } from "@/lib/cron-auth";
+import { subscriptionRevenueFor } from "@cantaia/config/credit-costs";
 
 /**
  * POST /api/admin/compute-daily-metrics
@@ -10,11 +12,14 @@ import { requireSuperadmin } from "@/lib/admin/require-superadmin";
  * Can also be called via cron (with CRON_SECRET header).
  */
 export async function POST(request: NextRequest) {
-  // Auth: either superadmin or cron secret
-  const cronSecret = request.headers.get("x-cron-secret");
-  const isCron = cronSecret && cronSecret === process.env.CRON_SECRET;
-
-  if (!isCron) {
+  // Auth: either a superadmin session or a valid CRON credential. Uses the
+  // shared isAuthorizedCron() (timing-safe, accepts both the Vercel Cron
+  // `Authorization: Bearer` header and the legacy `x-cron-secret`) instead of
+  // a hand-rolled, non-constant-time comparison.
+  // NOTE: scheduling this route still requires an entry in apps/web/vercel.json
+  // (out of scope for this change) — the GET handler already serves the
+  // superadmin metrics reader, so no GET cron delegate is added here.
+  if (!isAuthorizedCron(request)) {
     const check = await requireSuperadmin();
     if (!check.authorized) {
       return NextResponse.json({ error: check.error }, { status: 403 });
@@ -112,14 +117,10 @@ export async function POST(request: NextRequest) {
       .select("plan")
       .in("plan", ["starter", "pro", "enterprise"]);
 
-    const PLAN_MRR: Record<string, number> = {
-      starter: 149,
-      pro: 349,
-      enterprise: 790,
-    };
-
+    // Prices come from the single pricing source (CREDIT_PLANS) — this used to
+    // carry a hardcoded 149/349/790 map that had silently gone stale.
     const totalMrr = (orgPlans || []).reduce(
-      (sum: number, o: { plan: string }) => sum + (PLAN_MRR[o.plan] || 0),
+      (sum: number, o: { plan: string }) => sum + subscriptionRevenueFor(o.plan),
       0
     );
     // Daily revenue = monthly MRR / 30

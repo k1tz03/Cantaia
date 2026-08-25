@@ -1,8 +1,9 @@
 import React from 'react';
 import {
-  Document, Page, View, Text, StyleSheet, renderToBuffer,
+  Document, Page, View, Text, Image, StyleSheet, renderToBuffer,
 } from '@react-pdf/renderer';
 import { C, FONT, SIZE } from './theme';
+import { DEFAULT_PDF_BRANDING, type PdfBranding } from './pdf-branding';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -82,15 +83,34 @@ const s = StyleSheet.create({
     backgroundColor: C.white,
     paddingBottom: SIZE.footerH + 20,
   },
+  // Colour applied inline from the org accent
   topBar: {
     height: 4,
-    backgroundColor: C.orange,
+  },
+
+  // Letterhead — org logo or name
+  letterhead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZE.pagePad,
+    paddingTop: 18,
+    paddingBottom: 2,
+  },
+  letterheadLogo: {
+    maxHeight: 34,
+    maxWidth: 150,
+    objectFit: 'contain',
+  },
+  letterheadName: {
+    fontFamily: FONT.bold,
+    fontSize: 12,
+    color: C.black,
   },
 
   // Hero
   hero: {
     padding: SIZE.pagePad,
-    paddingTop: 28,
+    paddingTop: 16,
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
@@ -98,7 +118,6 @@ const s = StyleSheet.create({
   heroType: {
     fontFamily: FONT.bold,
     fontSize: 7,
-    color: C.orange,
     letterSpacing: 2,
     textTransform: 'uppercase',
     marginBottom: 8,
@@ -361,7 +380,16 @@ const SENTIMENT_LABELS: Record<string, string> = { positive: '😊 Positif', neu
 
 // ─── Document component ───────────────────────────────────────────────────────
 
-function VisiteDocumentComponent({ data }: { data: VisiteData }) {
+function VisiteDocumentComponent({
+  data,
+  branding = DEFAULT_PDF_BRANDING,
+}: {
+  data: VisiteData;
+  branding?: PdfBranding;
+}) {
+  const accent = branding.primaryColor || DEFAULT_PDF_BRANDING.primaryColor;
+  // `data.orgName` predates the branding resolver — keep honouring it when set.
+  const orgName = data.orgName || branding.name;
   const report = data.report ?? {};
   const requests = report.client_requests ?? [];
   const measurements = report.measurements ?? [];
@@ -382,14 +410,26 @@ function VisiteDocumentComponent({ data }: { data: VisiteData }) {
   const footerLeft = `Visite du ${formatDate(data.visit_date)} · ${data.client_name}`;
 
   return (
-    <Document title={`Rapport-Visite-${data.client_name}`} author="Cantaia" creator="cantaia.io">
+    <Document title={`Rapport-Visite-${data.client_name}`} author={orgName} creator={orgName}>
       <Page size="A4" style={s.page}>
-        {/* Orange top bar */}
-        <View style={s.topBar} />
+        {/* Accent top bar — the org's colour */}
+        <View style={[s.topBar, { backgroundColor: accent }]} />
+
+        {/* Letterhead */}
+        <View style={s.letterhead}>
+          {branding.logoData ? (
+            // @react-pdf's <Image> is not an <img> and has no `alt` prop; the
+            // org name is repeated in the footer text layer.
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image style={s.letterheadLogo} src={branding.logoData} />
+          ) : (
+            <Text style={s.letterheadName}>{orgName}</Text>
+          )}
+        </View>
 
         {/* Hero */}
         <View style={s.hero}>
-          <Text style={s.heroType}>Rapport de visite client</Text>
+          <Text style={[s.heroType, { color: accent }]}>Rapport de visite client</Text>
           <Text style={s.heroTitle}>{data.client_name}</Text>
           <Text style={s.heroSub}>
             {[clientAddr, formatDate(data.visit_date)].filter(Boolean).join(' · ')}
@@ -404,7 +444,7 @@ function VisiteDocumentComponent({ data }: { data: VisiteData }) {
             <Text style={s.kpiKey}>Prob. de clôture</Text>
           </View>
           <View style={s.kpiBox}>
-            <Text style={[s.kpiVal, { color: C.orange, fontSize: 16 }]}>{budgetStr}</Text>
+            <Text style={[s.kpiVal, { color: accent, fontSize: 16 }]}>{budgetStr}</Text>
             <Text style={s.kpiKey}>Budget estimé</Text>
           </View>
           <View style={[s.kpiBox, { borderRightWidth: 0 }]}>
@@ -469,7 +509,7 @@ function VisiteDocumentComponent({ data }: { data: VisiteData }) {
               {measurements.map((m, i) => (
                 <View key={i} style={[s.measureRow, i === measurements.length - 1 ? { borderBottomWidth: 0 } : {}]}>
                   <Text style={s.measureZone}>{m.zone ?? '—'}</Text>
-                  <Text style={s.measureDim}>{m.dimensions ?? '—'}</Text>
+                  <Text style={[s.measureDim, { color: accent }]}>{m.dimensions ?? '—'}</Text>
                   <Text style={s.measureNote}>{m.notes ?? ''}</Text>
                 </View>
               ))}
@@ -495,7 +535,7 @@ function VisiteDocumentComponent({ data }: { data: VisiteData }) {
               <Text style={s.secLabel}>Prochaines étapes</Text>
               {nextSteps.map((step, i) => (
                 <View key={i} style={s.stepItem}>
-                  <Text style={s.stepArrow}>→</Text>
+                  <Text style={[s.stepArrow, { color: accent }]}>→</Text>
                   <Text style={s.stepText}>{step}</Text>
                 </View>
               ))}
@@ -543,7 +583,7 @@ function VisiteDocumentComponent({ data }: { data: VisiteData }) {
               <View style={s.summaryBox}>
                 <Text style={[s.summaryText, { marginBottom: report.budget.notes ? 6 : 0 }]}>
                   {'Fourchette : '}
-                  <Text style={{ fontFamily: FONT.bold, color: C.orange }}>{budgetStr}</Text>
+                  <Text style={{ fontFamily: FONT.bold, color: accent }}>{budgetStr}</Text>
                 </Text>
                 {report.budget.notes && (
                   <Text style={[s.summaryText, { color: C.medGray, fontFamily: FONT.oblique }]}>
@@ -559,7 +599,7 @@ function VisiteDocumentComponent({ data }: { data: VisiteData }) {
         {/* Fixed footer */}
         <View style={s.footer} fixed>
           <Text style={s.footerSide}>{footerLeft}</Text>
-          <Text style={s.footerCenter}>cantaia.io</Text>
+          <Text style={s.footerCenter}>{orgName}</Text>
           <Text
             style={s.footerRight}
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} / ${totalPages}`}
@@ -572,8 +612,11 @@ function VisiteDocumentComponent({ data }: { data: VisiteData }) {
 
 // ─── Public helper ────────────────────────────────────────────────────────────
 
-export async function generateVisitePdf(data: VisiteData): Promise<Buffer> {
-  const element = React.createElement(VisiteDocumentComponent, { data });
+export async function generateVisitePdf(
+  data: VisiteData,
+  branding: PdfBranding = DEFAULT_PDF_BRANDING,
+): Promise<Buffer> {
+  const element = React.createElement(VisiteDocumentComponent, { data, branding });
   // renderToBuffer is the stable server-side API (pdf().toBuffer() returns undefined in serverless)
   const buf = await (renderToBuffer as any)(element);
   if (!buf || buf.length === 0) {

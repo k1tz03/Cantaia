@@ -5,7 +5,12 @@
 // Claude Haiku for fast, low-cost parsing.
 
 import type { AICommandResult } from "./types";
-import { AI_MODELS } from "../ai/ai-utils";
+import {
+  AI_MODELS,
+  callAnthropicWithRetry,
+  parseAIJson,
+  classifyAIError,
+} from "../ai/ai-utils";
 import { graphDateTimeToUtcIso } from "./calendar-sync";
 
 // ── Parse Natural Language Command ─────────────────────────
@@ -37,7 +42,9 @@ export async function parseCalendarCommand(
   }
 ): Promise<AICommandResult> {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
-  const client = new Anthropic();
+  // maxRetries:0 — retries are owned by callAnthropicWithRetry below, so the
+  // SDK's own retry loop must be disabled to avoid a double retry (§8).
+  const client = new Anthropic({ maxRetries: 0 });
 
   const systemPrompt = `Tu es un assistant calendrier pour Cantaia, un logiciel de gestion de chantier suisse.
 Tu interpretes des commandes en langage naturel pour creer des evenements, trouver des creneaux, ou resumer la journee.
@@ -70,36 +77,47 @@ Regles:
 - Fais correspondre les prenoms aux membres de l'equipe
 - Fais correspondre les mots-cles (CVC, electricite, etc.) aux noms de projets
 - Les jours de la semaine sont relatifs a aujourd'hui
-- Timezone: Europe/Zurich`;
+- Timezone: Europe/Zurich
+
+Reponds UNIQUEMENT avec le JSON, sans texte avant ou apres.`;
 
   try {
-    const response = await client.messages.create({
-      model: AI_MODELS.HAIKU,
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: "user", content: command }],
-    });
+    const response = await callAnthropicWithRetry(
+      () =>
+        client.messages.create({
+          model: AI_MODELS.HAIKU,
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: [{ role: "user", content: command }],
+        }),
+      { maxRetries: 2 }
+    );
 
     const text = response.content
       .filter(b => b.type === "text")
       .map((b) => (b as { type: "text"; text: string }).text)
       .join("");
 
-    // Extract JSON from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // Tolerant JSON parse (handles fences / stray prose) — no assistant prefill.
+    const usage = {
+      input_tokens: response.usage?.input_tokens || 0,
+      output_tokens: response.usage?.output_tokens || 0,
+    };
+
+    const parsed = parseAIJson<any>(text);
+    if (!parsed) {
       return {
         action: "unknown",
         message: "Je n'ai pas compris la commande. Essayez: 'reunion CVC mardi 14h avec Sophie'",
+        usage,
       };
     }
-
-    const parsed = JSON.parse(jsonMatch[0]);
 
     // Map project name hint to actual project ID if available
     const result: AICommandResult = {
       action: parsed.action || "unknown",
       message: parsed.message || "Commande traitee.",
+      usage,
     };
 
     if (parsed.action === "create_event" && parsed.event) {
@@ -125,15 +143,12 @@ Regles:
     }
 
     return result;
-  } catch (error: any) {
-    console.error("[ai-scheduler] Error parsing command:", error?.message || error?.status || error);
-    const statusCode = error?.status || error?.statusCode;
-    const isModelError = statusCode === 404 || statusCode === 400;
+  } catch (error: unknown) {
+    const classified = classifyAIError(error, context.locale);
+    console.error("[ai-scheduler] Error parsing command:", classified.message);
     return {
       action: "unknown",
-      message: isModelError
-        ? "Erreur de configuration IA. Contactez le support."
-        : "Erreur lors de l'analyse de la commande. Reessayez.",
+      message: classified.message,
     };
   }
 }

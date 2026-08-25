@@ -39,10 +39,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { Box, Loader2, AlertTriangle, Lock, FileText } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { SceneViewer } from "@/components/scene3d";
 import { buildingSceneToViewModel } from "@/components/scene3d/adapter";
+import {
+  exportSceneToGltf,
+  exportViewerToPdf,
+  exportViewerToPng,
+} from "@/components/scene3d/scene-export";
 import { MOCK_BUILDING_SCENE } from "@/components/scene3d/mock-scene";
 import type {
   BuildingScene as UiScene,
@@ -50,6 +56,11 @@ import type {
 } from "@/components/scene3d/types";
 import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
 import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
+import { creditCostFor } from "@cantaia/config/credit-costs";
+import { PLAN_3D_EXTRACT_ACTION } from "@cantaia/config/plan-features";
+
+/** Coût affiché sur les boutons d'extraction — jamais découvert au débit. */
+const EXTRACT_COST = creditCostFor(PLAN_3D_EXTRACT_ACTION);
 
 /** Intervalle de polling pendant l'extraction (Passe 5 ≈ 15-90 s). */
 const POLL_INTERVAL_MS = 4000;
@@ -64,7 +75,17 @@ type ViewState =
   | { kind: "no-scene" }
   | { kind: "extracting" }
   | { kind: "ready" }
-  | { kind: "error"; message: string; retryable: boolean };
+  | {
+      kind: "error";
+      message: string;
+      retryable: boolean;
+      /**
+       * `reload` : re-charger la scène (erreur de GET/réseau) — un re-fetch
+       * suffit, NE PAS refacturer 40 crédits. `extract` : relancer une
+       * extraction (scène en échec/illisible). `plan_gate` : gate Pro+.
+       */
+      reason?: "reload" | "extract" | "plan_gate";
+    };
 
 interface CorrectionTarget {
   elementId: string;
@@ -73,15 +94,32 @@ interface CorrectionTarget {
 }
 
 const CORRECTION_TYPES = [
-  { value: "geometry", label: "Géométrie / dimensions" },
-  { value: "material", label: "Matériau" },
-  { value: "opening_type", label: "Type d'ouverture" },
-  { value: "level_assignment", label: "Niveau d'appartenance" },
-  { value: "delete", label: "Élément inexistant (à supprimer)" },
-  { value: "add", label: "Élément manquant (à ajouter)" },
+  { value: "geometry", labelKey: "correction.typeGeometry" },
+  { value: "material", labelKey: "correction.typeMaterial" },
+  { value: "opening_type", labelKey: "correction.typeOpening" },
+  { value: "level_assignment", labelKey: "correction.typeLevel" },
+  { value: "delete", labelKey: "correction.typeDelete" },
+  { value: "add", labelKey: "correction.typeAdd" },
+] as const;
+
+/**
+ * Dimensions ré-applicables automatiquement.
+ *
+ * `GET /api/plans/[id]/scene` rejoue les corrections dont le
+ * `corrected_value` porte `{ dimension, value }` ou `{ remove: true }`. Une
+ * correction en texte libre reste un signalement : consignée, affichée, sans
+ * effet géométrique. Le formulaire dit lequel des deux il est en train de
+ * produire, plutôt que de laisser croire à une boucle qui n'existerait pas.
+ */
+const CORRECTABLE_DIMENSIONS = [
+  { value: "", labelKey: "correction.dimensionNone" },
+  { value: "thickness", labelKey: "correction.dimensionThickness" },
+  { value: "height", labelKey: "correction.dimensionHeight" },
 ] as const;
 
 export default function Scene3dPage() {
+  const t = useTranslations("scene3d");
+  const router = useRouter();
   const params = useParams<{ locale: string; id: string }>();
   const searchParams = useSearchParams();
   const projectId = params.id;
@@ -94,6 +132,14 @@ export default function Scene3dPage() {
   const [extraction, setExtraction] = useState<ExtractionProgressState | null>(null);
   const [starting, setStarting] = useState(false);
   const [correctionTarget, setCorrectionTarget] = useState<CorrectionTarget | null>(null);
+  /**
+   * Acceptation du disclaimer déjà consignée au registre pour cet utilisateur
+   * et cette scène. Sans cette information, le gate SIA se ré-affichait à
+   * chaque rafraîchissement alors que l'acceptation était bien enregistrée.
+   */
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+  /** Message d'export (échec silencieux → message visible). */
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const mountedRef = useRef(true);
   const pollStartedAtRef = useRef<number | null>(null);
@@ -146,15 +192,17 @@ export default function Scene3dPage() {
       }
 
       if (res.status === 401) {
-        setView({ kind: "error", message: "Session expirée — reconnectez-vous.", retryable: false });
+        // Convention : 401 → redirection login (pas de message statique).
+        router.replace("/login");
         return false;
       }
 
       if (!res.ok) {
         setView({
           kind: "error",
-          message: `Impossible de charger la scène (erreur ${res.status}).`,
+          message: t("error.loadFailed", { status: res.status }),
           retryable: true,
+          reason: "reload",
         });
         return false;
       }
@@ -167,6 +215,7 @@ export default function Scene3dPage() {
       }
 
       setSceneId(row.id ?? null);
+      setDisclaimerAccepted(row.disclaimer_accepted === true);
 
       if (row.extraction_status === "completed") {
         const adapted = adapt(row.scene_data);
@@ -174,9 +223,9 @@ export default function Scene3dPage() {
           setExtraction(null);
           setView({
             kind: "error",
-            message:
-              "La scène extraite est illisible (structure inattendue). Relancez une extraction.",
+            message: t("error.unreadableScene"),
             retryable: true,
+            reason: "extract",
           });
           return false;
         }
@@ -190,8 +239,9 @@ export default function Scene3dPage() {
         setExtraction(null);
         setView({
           kind: "error",
-          message: row.error_message || "L'extraction 3D a échoué.",
+          message: row.error_message || t("error.extractionFailed"),
           retryable: true,
+          reason: "extract",
         });
         return false;
       }
@@ -214,11 +264,11 @@ export default function Scene3dPage() {
     } catch (err) {
       console.error("[scene3d] Chargement de la scène échoué:", err);
       if (mountedRef.current) {
-        setView({ kind: "error", message: "Erreur réseau lors du chargement de la scène.", retryable: true });
+        setView({ kind: "error", message: t("error.network"), retryable: true, reason: "reload" });
       }
       return false;
     }
-  }, [planId, adapt]);
+  }, [planId, adapt, router, t]);
 
   // Chargement initial
   useEffect(() => {
@@ -241,9 +291,9 @@ export default function Scene3dPage() {
         setExtraction(null);
         setView({
           kind: "error",
-          message:
-            "L'extraction dépasse la durée attendue. Rechargez la page pour vérifier son état.",
+          message: t("error.pollTimeout"),
           retryable: true,
+          reason: "reload",
         });
         return;
       }
@@ -293,11 +343,26 @@ export default function Scene3dPage() {
       if (res.status === 409 && payload?.error === "estimation_required") {
         setView({
           kind: "error",
-          message:
-            payload?.message ??
-            "Aucune estimation pour ce plan. Lancez d'abord l'estimation 4 passes depuis la fiche du plan.",
+          message: payload?.message ?? t("error.estimationRequired"),
           retryable: false,
         });
+        return;
+      }
+
+      // Une extraction est déjà en cours (concurrence) : on reprend le polling
+      // sur celle-là plutôt que d'afficher une erreur.
+      if (res.status === 409 && payload?.error === "extraction_in_progress") {
+        notifyCreditsChanged();
+        pollStartedAtRef.current = Date.now();
+        setSceneId(payload?.scene_id ?? null);
+        setExtraction({
+          currentPass: "topology",
+          passIndex: 4,
+          totalPasses: 5,
+          etaSeconds: EXPECTED_EXTRACTION_S,
+          startedAt: new Date().toISOString(),
+        });
+        setView({ kind: "extracting" });
         return;
       }
 
@@ -306,9 +371,10 @@ export default function Scene3dPage() {
           kind: "error",
           message:
             payload?.error === "feature_not_in_plan"
-              ? `La visualisation 3D nécessite le plan ${payload?.required_plan ?? "Pro"}.`
-              : "Accès refusé à ce plan.",
+              ? t("error.planGate", { plan: payload?.required_plan ?? "Pro" })
+              : t("error.accessDenied"),
           retryable: false,
+          reason: "plan_gate",
         });
         return;
       }
@@ -316,7 +382,16 @@ export default function Scene3dPage() {
       if (res.status === 429) {
         setView({
           kind: "error",
-          message: `Quota d'extractions 3D atteint (${payload?.current ?? "?"}/${payload?.limit ?? "?"} ce mois).`,
+          message: t("error.quotaReached", { current: payload?.current ?? "?", limit: payload?.limit ?? "?" }),
+          retryable: false,
+        });
+        return;
+      }
+
+      if (res.status === 503) {
+        setView({
+          kind: "error",
+          message: t("error.extractionDisabled"),
           retryable: false,
         });
         return;
@@ -324,16 +399,17 @@ export default function Scene3dPage() {
 
       setView({
         kind: "error",
-        message: payload?.message || payload?.error || `Extraction impossible (erreur ${res.status}).`,
+        message: payload?.message || payload?.error || t("error.extractGeneric", { status: res.status }),
         retryable: true,
+        reason: "extract",
       });
     } catch (err) {
       console.error("[scene3d] Lancement de l'extraction échoué:", err);
-      setView({ kind: "error", message: "Erreur réseau lors du lancement de l'extraction.", retryable: true });
+      setView({ kind: "error", message: t("error.extractNetwork"), retryable: true, reason: "extract" });
     } finally {
       if (mountedRef.current) setStarting(false);
     }
-  }, [planId, projectId, starting]);
+  }, [planId, projectId, starting, t]);
 
   /** Ouvre la modale de correction sur l'élément sélectionné. */
   const handleCorrectElement = useCallback(
@@ -350,54 +426,46 @@ export default function Scene3dPage() {
     [scene],
   );
 
+  /**
+   * Exports réels — les trois formats du menu fonctionnent.
+   *
+   * glTF et PDF se contentaient d'un `console.log("pas encore implémenté")` :
+   * l'utilisateur cliquait, il ne se passait rien, aucun message. Les échecs
+   * remontent désormais à l'écran plutôt que dans la console.
+   */
   const handleExport = useCallback(
     async (format: "png" | "gltf" | "pdf") => {
-      if (format !== "png") {
-        // glTF (GLTFExporter) et PDF (jspdf autour du PNG) arrivent en Phase 2.
-        console.log(`[scene3d] export "${format}" pas encore implémenté`);
-        return;
-      }
-
-      const root = document.getElementById("scene3d-export-root");
-      if (!root) {
-        console.error("[scene3d export] #scene3d-export-root introuvable");
-        return;
-      }
+      const filename = `scene-${planId ?? projectId}-${new Date().toISOString().slice(0, 10)}`;
+      setExportError(null);
 
       try {
-        // html2canvas ne sait normalement pas lire un canvas WebGL — le
-        // navigateur peut jeter le back buffer après compositing. SceneCanvas
-        // est configuré avec `gl={{ preserveDrawingBuffer: true }}`, ce qui
-        // garde le framebuffer lisible. Sans ce flag : PNG transparent.
-        // Import dynamique : ~45 Ko qu'on ne charge qu'au clic.
-        const html2canvas = (await import("html2canvas")).default;
-        const canvas = await html2canvas(root, {
-          backgroundColor: "#0F0F11",
-          scale: typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
-          useCORS: true,
-          allowTaint: false,
-          logging: false,
-        });
+        if (format === "gltf") {
+          const ok = await exportSceneToGltf(filename);
+          if (!ok) setExportError(t("export.sceneNotReady"));
+          return;
+        }
 
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            console.error("[scene3d export] toBlob a renvoyé null");
-            return;
-          }
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `scene-${planId ?? projectId}-${new Date().toISOString().slice(0, 10)}.png`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 0);
-        }, "image/png");
+        if (format === "pdf") {
+          const ok = await exportViewerToPdf("scene3d-export-root", filename, {
+            planLabel: planId ?? projectId,
+            confidencePct:
+              scene && Number.isFinite(scene.overall_confidence)
+                ? Math.round(scene.overall_confidence * 100)
+                : null,
+            generatedAt: new Date().toLocaleDateString("fr-CH"),
+          });
+          if (!ok) setExportError(t("export.captureFailed"));
+          return;
+        }
+
+        const ok = await exportViewerToPng("scene3d-export-root", filename);
+        if (!ok) setExportError(t("export.captureFailed"));
       } catch (err) {
-        console.error("[scene3d export] html2canvas a échoué:", err);
+        console.error(`[scene3d export] export ${format} a échoué:`, err);
+        setExportError(t("export.failed"));
       }
     },
-    [planId, projectId],
+    [planId, projectId, scene, t],
   );
 
   // ── Rendu ────────────────────────────────────────────────────────────────
@@ -406,11 +474,11 @@ export default function Scene3dPage() {
     return (
       <div id="scene3d-export-root" className="h-full flex flex-col overflow-hidden">
         <div className="border-b border-[#27272A] bg-[#18181B] px-4 py-2 text-xs text-[#A1A1AA]">
-          Mode démonstration (<code className="font-mono">?demo=1</code>) — scène fictive, aucune
-          donnée réelle.
+          {t("demo.banner")}
         </div>
         <SceneViewer
           projectId={projectId}
+          planId={null}
           sceneId={null}
           scene={demoScene}
           extraction={null}
@@ -428,14 +496,14 @@ export default function Scene3dPage() {
     return (
       <EmptyScreen
         icon={<FileText className="w-6 h-6 text-[#A1A1AA]" />}
-        title="Aucun plan sélectionné"
-        description="La visualisation 3D s'ouvre depuis un plan : une scène est rattachée à un plan, pas à un projet entier."
+        title={t("noPlan.title")}
+        description={t("noPlan.description")}
         action={
           <Link
             href={`/projects/${projectId}`}
-            className="rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C]"
+            className="rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C]"
           >
-            Choisir un plan
+            {t("noPlan.choosePlan")}
           </Link>
         }
       />
@@ -447,7 +515,7 @@ export default function Scene3dPage() {
       <div className="flex-1 flex items-center justify-center bg-[#0F0F11]">
         <div className="inline-flex items-center gap-3 text-[#A1A1AA]">
           <Loader2 className="w-4 h-4 animate-spin text-[#F97316]" aria-hidden="true" />
-          <span className="text-sm">Chargement de la scène…</span>
+          <span className="text-sm">{t("loadingScene")}</span>
         </div>
       </div>
     );
@@ -457,27 +525,27 @@ export default function Scene3dPage() {
     return (
       <EmptyScreen
         icon={<Box className="w-6 h-6 text-[#F97316]" />}
-        title="Aucune scène 3D pour ce plan"
-        description="La scène est reconstruite à partir de l'estimation existante du plan (passe 5 — topologie). Comptez une à deux minutes."
+        title={t("noScene.title")}
+        description={t("noScene.description")}
         action={
           <button
             type="button"
             onClick={startExtraction}
             disabled={starting}
-            className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50"
           >
             {starting ? (
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
               <Box className="w-4 h-4" aria-hidden="true" />
             )}
-            Extraire la scène 3D
+            {t("noScene.extractCta", { credits: EXTRACT_COST })}
           </button>
         }
         secondary={
           planId ? (
-            <Link href={`/plans/${planId}`} className="text-xs text-[#71717A] hover:text-[#A1A1AA]">
-              Retour à la fiche du plan
+            <Link href={`/plans/${planId}`} className="text-xs text-[#A1A1AA] hover:text-[#FAFAFA]">
+              {t("backToPlan")}
             </Link>
           ) : null
         }
@@ -486,7 +554,14 @@ export default function Scene3dPage() {
   }
 
   if (view.kind === "error") {
-    const isPlanGate = view.message.includes("nécessite le plan");
+    // Champ structuré plutôt qu'un match de sous-chaîne (traduction-dépendant).
+    const isPlanGate = view.reason === "plan_gate";
+    // Deux natures de retry très différentes :
+    //   - `reload` : simple erreur de lecture (GET/réseau/timeout) → re-fetch,
+    //     GRATUIT. Ne JAMAIS proposer une ré-extraction facturée ici.
+    //   - `extract` : la scène est en échec/illisible → ré-extraction (40 c),
+    //     coût affiché sur le bouton.
+    const isReloadRetry = view.reason === "reload";
     return (
       <EmptyScreen
         icon={
@@ -496,25 +571,36 @@ export default function Scene3dPage() {
             <AlertTriangle className="w-6 h-6 text-[#EF4444]" />
           )
         }
-        title={isPlanGate ? "Fonctionnalité non incluse" : "Extraction 3D indisponible"}
+        title={isPlanGate ? t("error.planGateTitle") : t("error.title")}
         description={view.message}
         action={
-          view.retryable ? (
+          view.retryable && isReloadRetry ? (
+            <button
+              type="button"
+              onClick={() => {
+                setView({ kind: "loading" });
+                loadScene();
+              }}
+              className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C]"
+            >
+              {t("error.reloadCta")}
+            </button>
+          ) : view.retryable ? (
             <button
               type="button"
               onClick={startExtraction}
               disabled={starting}
-              className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50"
             >
               {starting && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-              Relancer l&apos;extraction
+              {t("error.extractRetryCta", { credits: EXTRACT_COST })}
             </button>
           ) : planId ? (
             <Link
               href={`/plans/${planId}`}
               className="rounded-md bg-[#27272A] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#3F3F46]"
             >
-              Retour à la fiche du plan
+              {t("backToPlan")}
             </Link>
           ) : null
         }
@@ -529,21 +615,46 @@ export default function Scene3dPage() {
       <div id="scene3d-export-root" className="h-full flex flex-col overflow-hidden">
         <SceneViewer
           projectId={projectId}
+          planId={planId}
           sceneId={sceneId}
           scene={view.kind === "ready" ? scene : null}
           extraction={view.kind === "extracting" ? extraction : null}
           error={null}
+          disclaimerAccepted={disclaimerAccepted}
           onCorrectElement={handleCorrectElement}
           onExport={handleExport}
         />
       </div>
+
+      {exportError && (
+        <div
+          role="alert"
+          className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-md border border-[#EF4444]/30 bg-[#18181B] px-4 py-2 text-sm text-[#EF4444] shadow-lg shadow-black/40"
+        >
+          <span>{exportError}</span>
+          <button
+            type="button"
+            onClick={() => setExportError(null)}
+            className="ml-3 text-xs text-[#A1A1AA] hover:text-[#FAFAFA]"
+          >
+            {t("export.dismiss")}
+          </button>
+        </div>
+      )}
 
       {correctionTarget && (
         <CorrectionModal
           sceneId={sceneId}
           target={correctionTarget}
           onClose={() => setCorrectionTarget(null)}
-          onSaved={() => setCorrectionTarget(null)}
+          // Une correction qualifiée est rejouée par le GET : on recharge pour
+          // que l'utilisateur VOIE sa correction appliquée. Sans ce rechargement
+          // la boucle reste invisible et l'utilisateur croit qu'il ne s'est
+          // rien passé — c'est exactement ce qui tuait la boucle précédente.
+          onSaved={() => {
+            setCorrectionTarget(null);
+            loadScene();
+          }}
         />
       )}
     </>
@@ -582,10 +693,18 @@ function EmptyScreen({
 /**
  * Modale de correction d'un élément de scène.
  *
- * Phase 1 : signalement qualifié (type + note) écrit dans le journal
- * append-only `plan_scene_corrections`. L'édition géométrique structurée
- * (déplacer un mur, corriger une épaisseur) arrive en Phase 2 — `corrected_value`
- * accepte déjà n'importe quel JSON côté API.
+ * ── Ce qui change ─────────────────────────────────────────────────────────
+ * La version précédente n'envoyait qu'un `correction_type` et un texte libre.
+ * Le journal `plan_scene_corrections` n'étant jamais relu, la correction ne
+ * modifiait rien, `human_corrected` ne passait jamais à `true`, et aucune
+ * convergence n'était possible : une boîte à idées, pas une boucle.
+ *
+ * Le formulaire produit désormais une correction STRUCTURÉE quand
+ * l'utilisateur peut en donner une — une dimension et sa valeur en mètres, ou
+ * une suppression. `GET /api/plans/[id]/scene` rejoue ces corrections sur la
+ * scène servie. Le texte libre reste possible et reste consigné, mais la
+ * modale dit clairement lequel des deux effets elle va produire, plutôt que
+ * de laisser espérer une correction qui n'arriverait jamais.
  */
 function CorrectionModal({
   sceneId,
@@ -598,19 +717,33 @@ function CorrectionModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useTranslations("scene3d");
   const [correctionType, setCorrectionType] =
     useState<(typeof CORRECTION_TYPES)[number]["value"]>("geometry");
+  const [dimension, setDimension] = useState<"" | "thickness" | "height">("");
+  const [dimensionValue, setDimensionValue] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const isDelete = correctionType === "delete";
+  const parsedValue = Number(dimensionValue.replace(",", "."));
+  const hasStructuredValue =
+    dimension !== "" && Number.isFinite(parsedValue) && parsedValue > 0;
+  /** La correction sera-t-elle appliquée à la scène, ou seulement consignée ? */
+  const willApply = isDelete || hasStructuredValue;
+
   const handleSubmit = async () => {
     if (!sceneId) {
-      setError("Cette scène n'est pas enregistrée : correction impossible.");
+      setError(t("correction.errorNoScene"));
       return;
     }
-    if (notes.trim().length < 3) {
-      setError("Décrivez brièvement le problème constaté.");
+    if (dimension !== "" && !hasStructuredValue) {
+      setError(t("correction.errorValue"));
+      return;
+    }
+    if (!willApply && notes.trim().length < 3) {
+      setError(t("correction.errorNotes"));
       return;
     }
 
@@ -618,6 +751,21 @@ function CorrectionModal({
     setError("");
 
     try {
+      // `corrected_value` est la charge utile relue par le GET. Les clés
+      // `dimension`/`value`/`remove` sont son contrat — les renommer ici sans
+      // adapter `qualifyCorrection()` désarmerait silencieusement la boucle.
+      const correctedValue: Record<string, unknown> = {
+        reported_from: "scene3d_viewer",
+        element_label: target.label,
+        correction_type: correctionType,
+        notes: notes.trim(),
+      };
+      if (isDelete) correctedValue.remove = true;
+      if (hasStructuredValue) {
+        correctedValue.dimension = dimension;
+        correctedValue.value = parsedValue;
+      }
+
       const res = await fetch(`/api/scenes/${sceneId}/corrections`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -625,13 +773,8 @@ function CorrectionModal({
           element_id: target.elementId,
           correction_type: correctionType,
           original_value: target.ir ?? null,
-          corrected_value: {
-            reported_from: "scene3d_viewer",
-            element_label: target.label,
-            correction_type: correctionType,
-            notes: notes.trim(),
-          },
-          notes: notes.trim(),
+          corrected_value: correctedValue,
+          notes: notes.trim() || undefined,
         }),
       });
 
@@ -645,10 +788,13 @@ function CorrectionModal({
       onSaved();
     } catch (err) {
       console.error("[scene3d] Enregistrement de la correction échoué:", err);
-      setError("Erreur réseau.");
+      setError(t("correction.errorNetwork"));
       setSaving(false);
     }
   };
+
+  const inputClass =
+    "mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316]";
 
   return (
     <div
@@ -659,34 +805,90 @@ function CorrectionModal({
     >
       <div className="w-full max-w-md rounded-lg border border-[#27272A] bg-[#18181B] p-6 shadow-lg shadow-black/40">
         <h2 id="scene-correction-title" className="font-display text-lg font-semibold text-[#FAFAFA]">
-          Signaler une correction
+          {t("correction.title")}
         </h2>
         <p className="mt-1 text-sm text-[#A1A1AA]">
-          Élément : <span className="text-[#FAFAFA]">{target.label}</span>
+          {t("correction.element")} <span className="text-[#FAFAFA]">{target.label}</span>
         </p>
 
-        <label className="mt-5 block text-xs font-medium text-[#A1A1AA]">Type de correction</label>
+        <label htmlFor="correction-type" className="mt-5 block text-xs font-medium text-[#A1A1AA]">
+          {t("correction.type")}
+        </label>
         <select
+          id="correction-type"
           value={correctionType}
           onChange={(e) => setCorrectionType(e.target.value as typeof correctionType)}
-          className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316]"
+          className={inputClass}
         >
           {CORRECTION_TYPES.map((c) => (
             <option key={c.value} value={c.value}>
-              {c.label}
+              {t(c.labelKey)}
             </option>
           ))}
         </select>
 
-        <label className="mt-4 block text-xs font-medium text-[#A1A1AA]">Description</label>
+        {!isDelete && (
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="correction-dimension" className="block text-xs font-medium text-[#A1A1AA]">
+                {t("correction.dimension")}
+              </label>
+              <select
+                id="correction-dimension"
+                value={dimension}
+                onChange={(e) => setDimension(e.target.value as typeof dimension)}
+                className={inputClass}
+              >
+                {CORRECTABLE_DIMENSIONS.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {t(d.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="correction-value" className="block text-xs font-medium text-[#A1A1AA]">
+                {t("correction.value")}
+              </label>
+              <input
+                id="correction-value"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                disabled={dimension === ""}
+                value={dimensionValue}
+                onChange={(e) => setDimensionValue(e.target.value)}
+                placeholder="0.25"
+                className={`${inputClass} disabled:opacity-40`}
+              />
+            </div>
+          </div>
+        )}
+
+        <label htmlFor="correction-notes" className="mt-4 block text-xs font-medium text-[#A1A1AA]">
+          {t("correction.notes")}
+        </label>
         <textarea
+          id="correction-notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
           maxLength={2000}
-          placeholder="Ex : l'épaisseur du mur est de 25 cm sur le plan, pas 18 cm."
-          className="mt-1 w-full resize-none rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316]"
+          placeholder={t("correction.notesPlaceholder")}
+          className={`${inputClass} resize-none`}
         />
+
+        {/* Dire ce qui va se passer, avant de cliquer. */}
+        <p
+          className={`mt-3 rounded-md border px-3 py-2 text-[11px] leading-relaxed ${
+            willApply
+              ? "border-[#22C55E]/30 bg-[#22C55E]/10 text-[#22C55E]"
+              : "border-[#27272A] bg-[#1C1C1F] text-[#A1A1AA]"
+          }`}
+        >
+          {willApply ? t("correction.willApply") : t("correction.willLogOnly")}
+        </p>
 
         {error && (
           <p className="mt-3 rounded-md border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2 text-xs text-[#EF4444]">
@@ -700,16 +902,16 @@ function CorrectionModal({
             onClick={onClose}
             className="rounded-md bg-[#27272A] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#3F3F46]"
           >
-            Annuler
+            {t("correction.cancel")}
           </button>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-            Envoyer
+            {t("correction.submit")}
           </button>
         </div>
       </div>

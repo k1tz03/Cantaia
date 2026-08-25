@@ -130,7 +130,7 @@ export default function SuperAdminUsersPage() {
       {/* Filters row */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A1A1AA]" />
           <input
             type="text"
             value={search}
@@ -170,110 +170,112 @@ export default function SuperAdminUsersPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-[#27272A] bg-[#18181B]">
-          <table className="w-full text-sm">
-            <thead className="bg-[#1C1C1F] text-left text-xs font-medium text-[#A1A1AA]">
-              <tr>
-                <th className="px-4 py-3">Utilisateur</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Organisation</th>
-                <th className="px-4 py-3">Rôle</th>
-                <th className="px-4 py-3 text-right">
-                  <span className="flex items-center justify-end gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    Appels IA
-                  </span>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <span className="flex items-center justify-end gap-1">
-                    <DollarSign className="h-3 w-3" />
-                    Coût IA
-                  </span>
-                </th>
-                <th className="px-4 py-3">Inscrit le</th>
-                <th className="px-4 py-3 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#27272A]">
-              {filtered.map((u) => {
-                const cost = userCosts.get(u.id);
-                return (
-                  <tr key={u.id} className="hover:bg-[#27272A]">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#27272A] text-[10px] font-semibold text-[#A1A1AA]">
-                          {(u.first_name?.[0] || "").toUpperCase()}{(u.last_name?.[0] || "").toUpperCase()}
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-[#1C1C1F] text-left text-xs font-medium text-[#A1A1AA]">
+                <tr>
+                  <th className="px-4 py-3">Utilisateur</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Organisation</th>
+                  <th className="px-4 py-3">Rôle</th>
+                  <th className="px-4 py-3 text-right">
+                    <span className="flex items-center justify-end gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      Appels IA
+                    </span>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <span className="flex items-center justify-end gap-1">
+                      <DollarSign className="h-3 w-3" />
+                      Coût IA
+                    </span>
+                  </th>
+                  <th className="px-4 py-3">Inscrit le</th>
+                  <th className="px-4 py-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#27272A]">
+                {filtered.map((u) => {
+                  const cost = userCosts.get(u.id);
+                  return (
+                    <tr key={u.id} className="hover:bg-[#27272A]">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#27272A] text-[10px] font-semibold text-[#A1A1AA]">
+                            {(u.first_name?.[0] || "").toUpperCase()}{(u.last_name?.[0] || "").toUpperCase()}
+                          </div>
+                          <span className="font-medium text-[#FAFAFA]">
+                            {u.first_name} {u.last_name}
+                          </span>
                         </div>
-                        <span className="font-medium text-[#FAFAFA]">
-                          {u.first_name} {u.last_name}
+                      </td>
+                      <td className="px-4 py-3 text-[#A1A1AA]">
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {u.email}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[#A1A1AA]">
-                      <span className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        {u.email}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-[#A1A1AA]">
-                      {u.org_name ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-400">
-                          <Building2 className="h-3 w-3" />
-                          {u.org_name}
-                        </span>
-                      ) : (
-                        <span className="inline-flex rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#A1A1AA]">
-                          Solo
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex rounded-full bg-[#27272A] px-2 py-0.5 text-[10px] font-medium text-[#A1A1AA]">
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#A1A1AA]">
-                      {cost ? cost.calls : 0}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {cost && cost.cost > 0 ? (
-                        <span className="font-medium text-[#FAFAFA]">{cost.cost.toFixed(4)} CHF</span>
-                      ) : (
-                        <span className="text-[#71717A]">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-[#A1A1AA]">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString("fr-CH") : "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleImpersonate(u.id)}
-                        disabled={impersonatingId === u.id}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-amber-400 hover:bg-[#27272A] disabled:opacity-50 transition-colors"
-                        title="Se connecter en tant que cet utilisateur"
-                      >
-                        {impersonatingId === u.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                      </td>
+                      <td className="px-4 py-3 text-[#A1A1AA]">
+                        {u.org_name ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-400">
+                            <Building2 className="h-3 w-3" />
+                            {u.org_name}
+                          </span>
                         ) : (
-                          <LogIn className="h-3 w-3" />
+                          <span className="inline-flex rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#A1A1AA]">
+                            Solo
+                          </span>
                         )}
-                        Impersonner
-                      </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex rounded-full bg-[#27272A] px-2 py-0.5 text-[10px] font-medium text-[#A1A1AA]">
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-[#A1A1AA]">
+                        {cost ? cost.calls : 0}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {cost && cost.cost > 0 ? (
+                          <span className="font-medium text-[#FAFAFA]">{cost.cost.toFixed(4)} CHF</span>
+                        ) : (
+                          <span className="text-[#A1A1AA]">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-[#A1A1AA]">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {u.created_at ? new Date(u.created_at).toLocaleDateString("fr-CH") : "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => handleImpersonate(u.id)}
+                          disabled={impersonatingId === u.id}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-amber-400 hover:bg-[#27272A] disabled:opacity-50 transition-colors"
+                          title="Se connecter en tant que cet utilisateur"
+                        >
+                          {impersonatingId === u.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <LogIn className="h-3 w-3" />
+                          )}
+                          Impersonner
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-[#A1A1AA]">
+                      Aucun utilisateur trouvé
                     </td>
                   </tr>
-                );
-              })}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-[#71717A]">
-                    Aucun utilisateur trouvé
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

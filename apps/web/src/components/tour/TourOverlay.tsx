@@ -1,14 +1,12 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTour } from "./use-tour";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export function TourOverlay() {
   const { active, currentStep, totalSteps, step, next, prev, skip } = useTour();
-  const router = useRouter();
   const t = useTranslations("tour");
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
@@ -36,25 +34,17 @@ export function TourOverlay() {
     }
   }, [step]);
 
-  // Navigate to page if needed, then update position
+  // Position against whatever is on the current page.
+  //
+  // The tour used to router.push() its way between pages, which yanked the
+  // user out of whatever they were doing. It now stays put: useTour only
+  // keeps steps whose target is actually mounted here, so every step it
+  // shows is one the user can see without being navigated away.
   useEffect(() => {
     if (!active || !step) return;
-    if (step.page) {
-      // Check if we're already on this page
-      const currentPath = window.location.pathname;
-      const locale = currentPath.split("/")[1]; // e.g. "fr"
-      const targetPath = `/${locale}${step.page}`;
-      if (!currentPath.startsWith(targetPath)) {
-        router.push(step.page);
-        // Wait for navigation + render
-        const timer = setTimeout(updatePosition, 800);
-        return () => clearTimeout(timer);
-      }
-    }
-    // Small delay to let elements render
     const timer = setTimeout(updatePosition, 100);
     return () => clearTimeout(timer);
-  }, [active, step, currentStep, router, updatePosition]);
+  }, [active, step, currentStep, updatePosition]);
 
   // Update on resize/scroll
   useEffect(() => {
@@ -152,14 +142,14 @@ export function TourOverlay() {
               {t("prev")}
             </button>
 
-            <span className="text-xs text-[#52525B]">
+            <span className="text-xs text-[#A1A1AA]">
               {currentStep + 1} / {totalSteps}
             </span>
 
             <button
               type="button"
               onClick={next}
-              className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-[#F97316] to-[#EA580C] px-4 py-1.5 text-xs font-medium text-white transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
+              className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-[#F97316] to-[#EA580C] px-4 py-1.5 text-xs font-medium text-[#0F0F11] transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
             >
               {isLast ? t("finish") : t("next")}
               {!isLast && <ChevronRight className="h-3 w-3" />}
@@ -170,7 +160,7 @@ export function TourOverlay() {
           <button
             type="button"
             onClick={skip}
-            className="mt-3 block w-full text-center text-[10px] text-[#52525B] transition-colors hover:text-[#A1A1AA]"
+            className="mt-3 block w-full text-center text-[10px] text-[#A1A1AA] transition-colors hover:text-[#A1A1AA]"
           >
             {t("skip")}
           </button>

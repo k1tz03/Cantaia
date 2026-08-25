@@ -117,7 +117,7 @@ export function SupplierPriceChart({ data }: SupplierPriceChartProps) {
                   </linearGradient>
                 )}
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
               <XAxis
                 dataKey="label"
                 tick={{ fontSize: 10, fill: "#9CA3AF" }}
@@ -135,14 +135,17 @@ export function SupplierPriceChart({ data }: SupplierPriceChartProps) {
                 contentStyle={{
                   fontSize: 11,
                   borderRadius: 6,
-                  border: "1px solid #e5e7eb",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  backgroundColor: "#18181B",
+                  border: "1px solid #27272A",
+                  color: "#FAFAFA",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
                 }}
+                itemStyle={{ color: "#FAFAFA" }}
                 formatter={(value: number) => [
                   `CHF ${new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 2 }).format(value)}`,
                   "Prix moyen",
                 ]}
-                labelStyle={{ fontWeight: 600, fontSize: 11 }}
+                labelStyle={{ fontWeight: 600, fontSize: 11, color: "#A1A1AA" }}
               />
               {showMultipleLines ? (
                 <>

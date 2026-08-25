@@ -100,14 +100,14 @@ export function CreateProjectFromEmailModal({
             <h2 className="text-sm font-semibold text-[#FAFAFA]">
               {t("createProjectTitle")}
             </h2>
-            <p className="text-[11px] text-[#71717A] truncate max-w-[360px]">
+            <p className="text-[11px] text-[#A1A1AA] truncate max-w-[360px]">
               {email.sender_name || email.sender_email} — &laquo;{email.subject}&raquo;
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA] transition-colors"
+            className="rounded-md p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA] transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -119,7 +119,7 @@ export function CreateProjectFromEmailModal({
             {/* Project name */}
             <div>
               <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
-                <Building2 className="h-3.5 w-3.5 text-[#71717A]" />
+                <Building2 className="h-3.5 w-3.5 text-[#A1A1AA]" />
                 {t("projectName")}
               </label>
               <input
@@ -135,7 +135,7 @@ export function CreateProjectFromEmailModal({
             {/* Code / Reference */}
             <div>
               <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
-                <FileText className="h-3.5 w-3.5 text-[#71717A]" />
+                <FileText className="h-3.5 w-3.5 text-[#A1A1AA]" />
                 {t("codeReference")}
               </label>
               <input
@@ -150,7 +150,7 @@ export function CreateProjectFromEmailModal({
             {/* Client */}
             <div>
               <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
-                <User className="h-3.5 w-3.5 text-[#71717A]" />
+                <User className="h-3.5 w-3.5 text-[#A1A1AA]" />
                 {t("client")}
               </label>
               <input
@@ -165,7 +165,7 @@ export function CreateProjectFromEmailModal({
             {/* City */}
             <div>
               <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
-                <MapPin className="h-3.5 w-3.5 text-[#71717A]" />
+                <MapPin className="h-3.5 w-3.5 text-[#A1A1AA]" />
                 {t("city")}
               </label>
               <input
@@ -181,7 +181,7 @@ export function CreateProjectFromEmailModal({
             {contacts.length > 0 && (
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
-                  <Users className="h-3.5 w-3.5 text-[#71717A]" />
+                  <Users className="h-3.5 w-3.5 text-[#A1A1AA]" />
                   {t("extractedContacts")}
                 </label>
                 <div className="rounded-md border border-[#27272A] bg-[#27272A] divide-y divide-border">
@@ -204,12 +204,12 @@ export function CreateProjectFromEmailModal({
                         <p className="text-xs font-medium text-[#FAFAFA] truncate">
                           {contact.name}
                           {contact.role && (
-                            <span className="ml-1.5 text-[10px] font-normal text-[#71717A]">
+                            <span className="ml-1.5 text-[10px] font-normal text-[#A1A1AA]">
                               ({contact.role})
                             </span>
                           )}
                         </p>
-                        <p className="text-[10px] text-[#71717A] truncate">
+                        <p className="text-[10px] text-[#A1A1AA] truncate">
                           {contact.company && `${contact.company} · `}
                           {contact.email}
                         </p>
@@ -217,7 +217,7 @@ export function CreateProjectFromEmailModal({
                     </div>
                   ))}
                 </div>
-                <p className="mt-1 text-[10px] text-[#71717A]">
+                <p className="mt-1 text-[10px] text-[#A1A1AA]">
                   {t("contactsInfo")}
                 </p>
               </div>
@@ -236,7 +236,7 @@ export function CreateProjectFromEmailModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A] transition-colors"
+              className="rounded-md px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A] transition-colors"
             >
               {t("cancel")}
             </button>

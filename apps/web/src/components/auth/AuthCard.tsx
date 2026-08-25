@@ -19,7 +19,7 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
       <div className="w-full rounded-[20px] border border-[#27272A] bg-[#18181B] px-9 py-10 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_4px_24px_rgba(0,0,0,0.4),0_12px_48px_rgba(0,0,0,0.25)]">
         {/* Logo */}
         <div className="mb-8 flex items-center justify-center gap-3">
-          <div className="flex h-[42px] w-[42px] items-center justify-center rounded-[10px] bg-gradient-to-br from-[#F97316] to-[#EA580C] font-display text-[22px] font-extrabold text-white shadow-[0_2px_12px_rgba(249,115,22,0.3)]">
+          <div className="flex h-[42px] w-[42px] items-center justify-center rounded-[10px] bg-gradient-to-br from-[#F97316] to-[#EA580C] font-display text-[22px] font-extrabold text-[#0F0F11] shadow-[0_2px_12px_rgba(249,115,22,0.3)]">
             C
           </div>
           <span className="font-display text-[26px] font-bold tracking-[-0.5px] text-[#FAFAFA]">
@@ -46,15 +46,15 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
 
       {/* Trust badges */}
       <div className="mt-8 flex flex-wrap items-center justify-center gap-1.5">
-        <span className="flex items-center gap-1 text-xs text-[#71717A]">
+        <span className="flex items-center gap-1 text-xs text-[#A1A1AA]">
           🔒 {t("trustAes")}
         </span>
-        <span className="mx-1 text-[10px] text-[#52525B]">&middot;</span>
-        <span className="flex items-center gap-1 text-xs text-[#71717A]">
+        <span className="mx-1 text-[10px] text-[#A1A1AA]">&middot;</span>
+        <span className="flex items-center gap-1 text-xs text-[#A1A1AA]">
           🇨🇭 {t("trustSwiss")}
         </span>
-        <span className="mx-1 text-[10px] text-[#52525B]">&middot;</span>
-        <span className="flex items-center gap-1 text-xs text-[#71717A]">
+        <span className="mx-1 text-[10px] text-[#A1A1AA]">&middot;</span>
+        <span className="flex items-center gap-1 text-xs text-[#A1A1AA]">
           🇪🇺 {t("trustEurope")}
         </span>
       </div>

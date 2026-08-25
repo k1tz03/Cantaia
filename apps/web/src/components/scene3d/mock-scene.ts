@@ -10,12 +10,14 @@
  * `response.scene.scene_data`. Feed it through `buildingSceneToViewModel()`
  * before handing it to `SceneViewer`.
  *
- * Confidence design:
- *   - Most elements score 0.7–0.9 (healthy extraction).
- *   - One wall at 0.65 and the central column at 0.45 exercise the
- *     medium/low confidence tints (amber/red) in the canvas.
- *   - Overall low-confidence ratio ≈ 0.22, below the 0.3 gate so the
- *     SIA disclaimer modal is NOT forced on mount.
+ * Confidence design (bornes : `CONFIDENCE_THRESHOLDS`, high 0.85 / mid 0.50) :
+ *   - La plupart des éléments sont entre 0.7 et 0.9.
+ *   - Un mur à 0.65 tombe dans la bande « moyenne » (ambre) et le poteau
+ *     central à 0.45 dans la bande « faible » (rouge) : les trois teintes du
+ *     canvas sont exercées.
+ *   - Seul le poteau compte dans le ratio faible-confiance, qui reste donc
+ *     très en dessous du seuil de 0.3 : la modale SIA ne s'ouvre PAS au
+ *     montage, ce qui est le comportement voulu pour la démo.
  */
 
 import type { BuildingScene } from "@cantaia/core/plans/scene/types";

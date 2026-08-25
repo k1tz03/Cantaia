@@ -64,6 +64,19 @@ function warnMissingProductionEnv() {
       "[env] MICROSOFT_TOKEN_ENCRYPTION_KEY is not set — Microsoft OAuth tokens are being stored in PLAINTEXT."
     );
   }
+
+  // Actually run the full server schema at boot (including the superRefine that
+  // requires MICROSOFT_TOKEN_ENCRYPTION_KEY in production). Reported NON-fatally:
+  // `env` is a lazy Proxy that no server module imports, so a hard throw here
+  // would crash every module that pulls in getAppUrl(). Log the issues instead so
+  // misconfiguration is visible in the deploy logs.
+  const parsed = serverSchema.safeParse(process.env);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+      .join("; ");
+    console.error(`[env] Invalid server environment configuration — ${issues}`);
+  }
 }
 
 if (typeof window === "undefined") {

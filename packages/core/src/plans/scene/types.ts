@@ -23,9 +23,18 @@
  * `plan_scenes` (or tags them with a lower `schema_version` for lazy upgrade).
  */
 
-/** Current IR schema version. Bump major on breaking changes. */
-export const SCENE_SCHEMA_VERSION = "1.0.0" as const;
-export type SceneSchemaVersion = typeof SCENE_SCHEMA_VERSION;
+/**
+ * Current IR schema version. Bump major on breaking changes.
+ *
+ * 1.1.0 — ajout ADDITIF de `quality_checks`, `validation_issues` et
+ * `scale_calibration` (tous optionnels). Les scènes 1.0.0 restent lisibles
+ * telles quelles : aucune migration de données nécessaire, d'où
+ * `SUPPORTED_SCENE_SCHEMA_VERSIONS`.
+ */
+export const SCENE_SCHEMA_VERSION = "1.1.0" as const;
+/** Versions acceptées en lecture. Une scène 1.0.0 se rend sans dégradation. */
+export const SUPPORTED_SCENE_SCHEMA_VERSIONS = ["1.0.0", "1.1.0"] as const;
+export type SceneSchemaVersion = (typeof SUPPORTED_SCENE_SCHEMA_VERSIONS)[number];
 
 // ---------------------------------------------------------------------------
 // Geometry primitives
@@ -315,6 +324,79 @@ export interface SourcePassReferences {
   passe3_id: string;
 }
 
+// ---------------------------------------------------------------------------
+// Qualité, validation, calibration d'échelle (schéma 1.1.0 — additif)
+// ---------------------------------------------------------------------------
+
+export type ValidationSeverity = "error" | "warning" | "info";
+
+/**
+ * Défaut relevé par le validator déterministe (`validator.ts`).
+ *
+ * `error` sur un élément ⇒ l'élément est REJETÉ (absent de la scène finale).
+ * `warning` ⇒ l'élément est conservé mais sa confiance est plafonnée à
+ * `DEGRADED_CONFIDENCE`. Les deux sont persistés et affichés dans l'inspecteur.
+ */
+export interface ValidationIssue {
+  /** Élément concerné. `null` = défaut au niveau de la scène. */
+  element_id: string | null;
+  /** Niveau concerné, quand l'information est disponible. */
+  level_id?: string | null;
+  severity: ValidationSeverity;
+  /** Code stable, utilisable comme clé i18n ou pour agréger des stats. */
+  code: string;
+  /** Message lisible (français) décrivant le défaut et l'action appliquée. */
+  message: string;
+}
+
+export type QualityCheckStatus = "pass" | "warn" | "fail" | "skipped";
+
+/** Un contrôle global, avec sa mesure et le seuil qui l'a jugé. */
+export interface QualityCheck {
+  /** `slab_area_vs_sbp` | `slab_area_vs_envelope` | `footprint_vs_scale` | … */
+  code: string;
+  status: QualityCheckStatus;
+  /** Valeur mesurée (m², ratio, …). `null` quand le contrôle est sauté. */
+  measured: number | null;
+  /** Valeur attendue / référence utilisée pour juger. */
+  expected: number | null;
+  message: string;
+}
+
+/** Une cote lue sur le plan par le modèle, vérifiée géométriquement en code. */
+export interface DimensionCheck {
+  /** Texte de la cote tel que lu sur le plan ("3.50", "12.80 m"). */
+  label: string;
+  /** Valeur annoncée par la cote, en mètres. */
+  declared_m: number;
+  /** Extrémités de la cote dans le CRS de la scène. */
+  from: Vec2;
+  to: Vec2;
+  /** Distance géométrique effective entre `from` et `to` (calculée en code). */
+  measured_m: number;
+  /** `declared_m / measured_m`. > 1 = la scène est trop petite. */
+  ratio: number;
+}
+
+/**
+ * Résultat de la calibration d'échelle. `applied_factor` a DÉJÀ été appliqué
+ * à la géométrie quand il diffère de 1.
+ */
+export interface ScaleCalibration {
+  /** Cotes citées par le modèle et re-mesurées en code. */
+  checks: DimensionCheck[];
+  /** Comment le facteur a été obtenu. */
+  method: "dimension_checks" | "plausibility" | "none";
+  /** Facteur multiplicatif appliqué à toute la géométrie (1 = aucun). */
+  applied_factor: number;
+  /** Largeur médiane des portes APRÈS correction (contrôle de vraisemblance). */
+  median_door_width_m: number | null;
+  /** Hauteur d'étage médiane APRÈS correction. */
+  median_storey_height_m: number | null;
+  /** Note explicative persistée et affichée. */
+  notes: string;
+}
+
 /**
  * Top-level BuildingScene IR. Persisted JSON-encoded in
  * `plan_scenes.scene_data`.
@@ -333,6 +415,15 @@ export interface BuildingScene {
   provenance: SceneProvenance;
   /** ISO-8601 timestamp of extraction. */
   extracted_at: string;
+
+  // ── Additif 1.1.0 — toujours écrit par Passe 5, absent des scènes 1.0.0 ──
+
+  /** Contrôles globaux (dalles vs SBP, dalles vs enveloppe, emprise vs échelle). */
+  quality_checks?: QualityCheck[];
+  /** Défauts relevés par le validator déterministe. */
+  validation_issues?: ValidationIssue[];
+  /** Calibration d'échelle : cotes vérifiées + facteur appliqué. */
+  scale_calibration?: ScaleCalibration;
 }
 
 // ---------------------------------------------------------------------------

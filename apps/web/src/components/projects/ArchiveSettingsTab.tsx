@@ -97,7 +97,7 @@ function RadioOption({
           </span>
         )}
         {description && (
-          <span className="ml-2 text-xs text-[#71717A]">{description}</span>
+          <span className="ml-2 text-xs text-[#A1A1AA]">{description}</span>
         )}
       </div>
     </label>
@@ -874,7 +874,7 @@ export function ArchiveSettingsTab({
             {enabled ? (
               <CheckSquare className="h-5 w-5 text-[#F97316]" />
             ) : (
-              <Square className="h-5 w-5 text-[#71717A]" />
+              <Square className="h-5 w-5 text-[#A1A1AA]" />
             )}
           </button>
           <span
@@ -884,7 +884,7 @@ export function ArchiveSettingsTab({
             {t("enableAutoArchive")}
           </span>
         </label>
-        <p className="mt-2 ml-8 text-xs text-[#71717A]">
+        <p className="mt-2 ml-8 text-xs text-[#A1A1AA]">
           Les emails classes dans ce projet seront automatiquement archives lors de la synchronisation.
         </p>
       </div>
@@ -892,11 +892,11 @@ export function ArchiveSettingsTab({
       {/* ─── Archive Path (for reference / future desktop) ─── */}
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-3 flex items-center gap-2">
-          <FolderOpen className="h-4 w-4 text-[#71717A]" />
+          <FolderOpen className="h-4 w-4 text-[#A1A1AA]" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {t("rootFolder")}
           </h3>
-          <span className="text-xs text-[#52525B]">(optionnel)</span>
+          <span className="text-xs text-[#A1A1AA]">(optionnel)</span>
         </div>
 
         <input
@@ -904,10 +904,10 @@ export function ArchiveSettingsTab({
           value={path}
           onChange={(e) => setPath(e.target.value)}
           placeholder={`Projet / ${projectName}`}
-          className="w-full rounded-md border border-[#27272A] bg-[#18181B] px-3 py-2 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+          className="w-full rounded-md border border-[#27272A] bg-[#18181B] px-3 py-2 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
         />
 
-        <p className="mt-2 text-xs text-[#71717A]">
+        <p className="mt-2 text-xs text-[#A1A1AA]">
           Nom de reference pour l'arborescence. Les fichiers sont stockes dans le cloud Cantaia.
         </p>
       </div>
@@ -915,7 +915,7 @@ export function ArchiveSettingsTab({
       {/* ─── Folder Structure ─── */}
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-3 flex items-center gap-2">
-          <FolderOpen className="h-4 w-4 text-[#71717A]" />
+          <FolderOpen className="h-4 w-4 text-[#A1A1AA]" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {t("folderStructure")}
           </h3>
@@ -940,7 +940,7 @@ export function ArchiveSettingsTab({
       {/* ─── Filename Format ─── */}
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-3 flex items-center gap-2">
-          <FileText className="h-4 w-4 text-[#71717A]" />
+          <FileText className="h-4 w-4 text-[#A1A1AA]" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {t("filenameFormat")}
           </h3>
@@ -963,7 +963,7 @@ export function ArchiveSettingsTab({
       {/* ─── Attachments Mode ─── */}
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-3 flex items-center gap-2">
-          <Paperclip className="h-4 w-4 text-[#71717A]" />
+          <Paperclip className="h-4 w-4 text-[#A1A1AA]" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {t("attachments")}
           </h3>
@@ -988,7 +988,7 @@ export function ArchiveSettingsTab({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-5 py-2.5 text-sm font-medium text-[#0F0F11] transition-colors hover:bg-[#EA580C] disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
           {saving ? t("saving") : t("save")}
@@ -1004,10 +1004,10 @@ export function ArchiveSettingsTab({
       <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-[#FAFAFA]">Etat de l'archivage</h3>
-          <button
+          <button aria-label="Actualiser"
             type="button"
             onClick={fetchStats}
-            className="text-[#71717A] hover:text-[#A1A1AA] transition-colors"
+            className="text-[#A1A1AA] hover:text-[#A1A1AA] transition-colors"
             title={t("refresh")}
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -1015,7 +1015,7 @@ export function ArchiveSettingsTab({
         </div>
 
         {statsLoading ? (
-          <div className="flex items-center gap-2 text-sm text-[#71717A]">
+          <div className="flex items-center gap-2 text-sm text-[#A1A1AA]">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t("loadingStats")}
           </div>
@@ -1060,7 +1060,7 @@ export function ArchiveSettingsTab({
                 </div>
               )}
               <div className="flex items-center gap-1.5">
-                <Archive className="h-3.5 w-3.5 text-[#52525B]" />
+                <Archive className="h-3.5 w-3.5 text-[#A1A1AA]" />
                 <span className="text-[#A1A1AA]">
                   <span className="font-medium text-[#FAFAFA]">{archiveStats.total}</span> {t("total")}
                 </span>
@@ -1133,7 +1133,7 @@ export function ArchiveSettingsTab({
 
         {/* Hint for browsers without File System Access API */}
         {!supportsFileSystemAccess && (
-          <p className="mt-3 text-xs text-[#52525B]">
+          <p className="mt-3 text-xs text-[#A1A1AA]">
             💡 Pour enregistrer les fichiers directement sur votre disque (sans ZIP), utilisez Chrome ou Edge.
           </p>
         )}
@@ -1143,13 +1143,13 @@ export function ArchiveSettingsTab({
       {supportsFileSystemAccess && (
         <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <div className="mb-3 flex items-center gap-2">
-            <HardDrive className="h-4 w-4 text-[#71717A]" />
+            <HardDrive className="h-4 w-4 text-[#A1A1AA]" />
             <h3 className="text-sm font-semibold text-[#FAFAFA]">
               Enregistrement local automatique
             </h3>
           </div>
 
-          <p className="mb-4 text-xs text-[#71717A]">
+          <p className="mb-4 text-xs text-[#A1A1AA]">
             Les emails archives seront automatiquement enregistres sur votre disque a chaque synchronisation.
           </p>
 
@@ -1188,7 +1188,7 @@ export function ArchiveSettingsTab({
           )}
 
           {!enabled && !autoLocalEnabled && (
-            <p className="mt-3 text-xs text-[#52525B]">
+            <p className="mt-3 text-xs text-[#A1A1AA]">
               Activez l&apos;archivage automatique ci-dessus pour utiliser cette fonctionnalite.
             </p>
           )}

@@ -5,22 +5,28 @@ import type { AgentType } from "@cantaia/core/agents";
 import { executeCustomTool } from "../../agents/[type]/stream/tool-handlers";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { isAuthorizedCron } from "@/lib/cron-auth";
+import {
+  nextAgentBudgetMs,
+  isSuccessfulToolResult,
+  canRunNightlyAgents,
+} from "../agent-cron-utils";
 
-export const maxDuration = 300; // 5 min per org
+export const maxDuration = 300; // 5 min for the whole run (see agent-cron-utils)
 
 // ============================================================
-// TODO (AGT.C1) — DISABLED SCHEDULE, DO NOT RE-ADD TO vercel.json
+// AGT.C1 — RESOLVED. This route is schedulable again.
 //
-// The "project-memory" agent declares 7 custom tools
-// (fetch_org_projects, save_project_memory, …) that have NO handler in
+// It was disabled because the "project-memory" agent declared three custom
+// tools (fetch_org_projects, fetch_project_full_state, save_project_memory)
+// that had NO handler: every call returned "Unknown custom tool", the loop
+// burned its Sonnet iterations per org per run, and `project_memory` was
+// never written.
+//
+// The handlers now exist in
 // apps/web/src/app/api/agents/[type]/stream/tool-handlers.ts.
-// Every tool call therefore returns "Unknown custom tool", the loop burns
-// its 25 Sonnet iterations per org per run, and project_memory is never
-// written. The schedule was removed from apps/web/vercel.json.
 //
-// Before re-scheduling: implement the missing tool handlers, then add
-// { "path": "/api/cron/project-memory", "schedule": "0 5 * * *" } back.
-// The route is kept so it can still be triggered manually for testing.
+// SCHEDULE TO ADD to apps/web/vercel.json (owned by another agent):
+//   { "path": "/api/cron/project-memory", "schedule": "0 5 * * *" }
 // ============================================================
 
 /** Vercel Cron invokes scheduled paths with GET — delegate to POST. */
@@ -30,9 +36,9 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/cron/project-memory
- * CRON every 4 hours — Scans all organizations with active projects
- * and builds/updates the project_memory table for each.
- * Runs the "project-memory" agent once per org.
+ * Nightly CRON — Scans all organizations with active projects and
+ * builds/updates the `project_memory` snapshot used by meeting-prep,
+ * briefings and the calendar intelligence panel.
  * Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
@@ -40,6 +46,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const cronStart = Date.now();
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
@@ -53,40 +60,70 @@ export async function POST(request: NextRequest) {
   const { data: orgProjects } = await (admin as any)
     .from("projects")
     .select("organization_id")
-    .in("status", ["planning", "active", "paused", "on_hold"]);
+    .in("status", ["planning", "active", "paused", "on_hold"])
+    .not("organization_id", "is", null);
 
   if (!orgProjects || orgProjects.length === 0) {
     return NextResponse.json({ message: "No organizations with active projects", count: 0 });
   }
 
-  // Deduplicate by organization — pick one user per org as context
-  const orgIds = [...new Set<string>(orgProjects.map((p: { organization_id: string }) => p.organization_id))];
+  const orgIds = Array.from(
+    new Set<string>(orgProjects.map((p: { organization_id: string }) => p.organization_id))
+  );
 
-  // For each org, find one user to use as context
+  // Attribute the run to a stable admin/director of the org (ordered, so the
+  // same person owns the session run after run instead of "whoever came
+  // first"). Any org member is a fallback for orgs with no admin yet.
   const orgMap = new Map<string, string>();
   for (const orgId of orgIds) {
-    const { data: users } = await (admin as any)
+    const { data: leads } = await (admin as any)
+      .from("users")
+      .select("id, role, created_at")
+      .eq("organization_id", orgId)
+      .in("role", ["admin", "director", "project_manager"])
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    if (leads?.length) {
+      orgMap.set(orgId, leads[0].id);
+      continue;
+    }
+
+    const { data: anyone } = await (admin as any)
       .from("users")
       .select("id")
       .eq("organization_id", orgId)
+      .order("created_at", { ascending: true })
       .limit(1);
-
-    if (users && users.length > 0) {
-      orgMap.set(orgId, users[0].id);
-    }
+    if (anyone?.length) orgMap.set(orgId, anyone[0].id);
   }
 
   console.log(`[cron/project-memory] Processing ${orgMap.size} organizations`);
 
   const results: { orgId: string; projectsUpdated: number; status: string; error?: string }[] = [];
+  const skippedOrgs: string[] = [];
+  const gatedOrgs: Array<{ orgId: string; reason: string }> = [];
 
   for (const [orgId, userId] of orgMap) {
+    // Nightly agents are a Pro+ feature and can be switched off per org.
+    const gate = await canRunNightlyAgents(admin, orgId);
+    if (!gate.allowed) {
+      gatedOrgs.push({ orgId, reason: gate.reason || "plan" });
+      continue;
+    }
+
+    // AGT.H4 — stop cleanly before Vercel kills the function mid-org.
+    const orgBudgetMs = nextAgentBudgetMs(cronStart, agentConfig.maxDurationMs);
+    if (orgBudgetMs === null) {
+      skippedOrgs.push(orgId);
+      continue;
+    }
+
     try {
-      // Create an agent session record
       const sessionId = crypto.randomUUID();
       const dbSessionId = crypto.randomUUID();
 
-      await (admin as any).from("agent_sessions").insert({
+      const { error: sessErr } = await (admin as any).from("agent_sessions").insert({
         id: dbSessionId,
         organization_id: orgId,
         user_id: userId,
@@ -96,15 +133,26 @@ export async function POST(request: NextRequest) {
         input_payload: { _initial_message: "Scan and update project memory", trigger: "cron" },
         status: "running",
         started_at: now,
+        last_event_at: now,
         model: agentConfig.model,
       });
+      if (sessErr) {
+        console.error(`[cron/project-memory] Session insert failed for org ${orgId}:`, sessErr.message);
+        continue;
+      }
 
       const startTime = Date.now();
       let projectsUpdated = 0;
 
-      // onEvent: log-only (no SSE in CRON context)
+      // AGT.M2 — count what the handler actually persisted. Counting
+      // `agent.tool_use` counted attempts, including calls that returned
+      // `{ error: true }` (access denied, insert failed).
       const onEvent = (eventType: string, data: Record<string, unknown>) => {
-        if (eventType === "agent.tool_use" && data.tool_name === "save_project_memory") {
+        if (
+          eventType === "custom_tool_result" &&
+          data.tool_name === "save_project_memory" &&
+          isSuccessfulToolResult(data)
+        ) {
           projectsUpdated++;
         }
       };
@@ -131,12 +179,11 @@ export async function POST(request: NextRequest) {
             admin,
           }),
         onEvent,
-        maxDurationMs: agentConfig.maxDurationMs,
+        maxDurationMs: orgBudgetMs,
       });
 
       const durationMs = Date.now() - startTime;
 
-      // Update session record
       await (admin as any)
         .from("agent_sessions")
         .update({
@@ -149,12 +196,16 @@ export async function POST(request: NextRequest) {
           custom_tool_calls_count: result.customToolCallsCount,
           events_count: result.eventsCount,
           tools_used: result.toolsUsed,
+          // Surfaced by the /agents page.
+          result_payload: {
+            projects_updated: projectsUpdated,
+            trigger: "cron",
+          },
           last_event_type: `cron.${result.status}`,
           last_event_at: new Date().toISOString(),
         })
         .eq("id", dbSessionId);
 
-      // Track API usage
       try {
         await trackApiUsage({
           supabase: admin as any,
@@ -177,11 +228,23 @@ export async function POST(request: NextRequest) {
   }
 
   const totalUpdated = results.reduce((sum, r) => sum + r.projectsUpdated, 0);
-  console.log(`[cron/project-memory] Done. ${totalUpdated} projects updated across ${results.length} orgs`);
+  console.log(
+    `[cron/project-memory] Done in ${Math.round((Date.now() - cronStart) / 1000)}s. ` +
+      `${totalUpdated} projects updated across ${results.length} orgs`
+  );
+
+  if (skippedOrgs.length > 0) {
+    console.warn(
+      `[cron/project-memory] Time budget exhausted — ${skippedOrgs.length} org(s) not processed: ${skippedOrgs.join(", ")}`
+    );
+  }
 
   return NextResponse.json({
     total_orgs: results.length,
     total_projects_updated: totalUpdated,
+    skipped_orgs: skippedOrgs,
+    gated_orgs: gatedOrgs,
+    duration_ms: Date.now() - cronStart,
     results,
   });
 }

@@ -79,13 +79,13 @@ export default function SupportPage() {
           <h1 className="font-display text-2xl font-extrabold text-[#FAFAFA] m-0">
             {t("title")}
           </h1>
-          <p className="text-[13px] text-[#71717A] mt-0.5">
+          <p className="text-[13px] text-[#A1A1AA] mt-0.5">
             {t("myTickets")}
           </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="text-xs px-4 py-2 rounded-lg border-none bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white cursor-pointer font-medium flex items-center gap-1.5"
+          className="text-xs px-4 py-2 rounded-lg border-none bg-gradient-to-br from-[#F97316] to-[#EA580C] text-[#0F0F11] cursor-pointer font-medium flex items-center gap-1.5"
         >
           + {t("newTicket")}
         </button>
@@ -98,7 +98,7 @@ export default function SupportPage() {
           onChange={(e) => setFilterStatus(e.target.value)}
           className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-[7px] text-xs text-[#D4D4D8] outline-none"
         >
-          <option value="">Tous les statuts</option>
+          <option value="">{t("allStatuses")}</option>
           <option value="open">{t("statusOpen")}</option>
           <option value="in_progress">{t("statusInProgress")}</option>
           <option value="resolved">{t("statusResolved")}</option>
@@ -109,7 +109,7 @@ export default function SupportPage() {
           onChange={(e) => setFilterCategory(e.target.value)}
           className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-[7px] text-xs text-[#D4D4D8] outline-none"
         >
-          <option value="">Toutes cat{"\u00E9"}gories</option>
+          <option value="">{t("allCategories")}</option>
           <option value="bug">{t("categoryBug")}</option>
           <option value="question">{t("categoryQuestion")}</option>
           <option value="feature_request">{t("categoryFeature")}</option>
@@ -119,78 +119,80 @@ export default function SupportPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="flex items-center justify-center px-5 py-20 text-[#71717A] text-[13px]">
-          Chargement...
+        <div className="flex items-center justify-center px-5 py-20 text-[#A1A1AA] text-[13px]">
+          {t("loading")}
         </div>
       ) : tickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center px-5 py-[60px] text-center">
           <div className="text-[48px] mb-3 opacity-30">🎫</div>
-          <div className="text-sm text-[#71717A] mb-4">
+          <div className="text-sm text-[#A1A1AA] mb-4">
             {t("emptyState")}
           </div>
           <button
             onClick={() => setShowCreate(true)}
-            className="text-xs px-4 py-2 rounded-lg border-none bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white cursor-pointer font-medium"
+            className="text-xs px-4 py-2 rounded-lg border-none bg-gradient-to-br from-[#F97316] to-[#EA580C] text-[#0F0F11] cursor-pointer font-medium"
           >
             + {t("newTicket")}
           </button>
         </div>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-          <thead>
-            <tr>
-              {["Sujet", "Cat\u00E9gorie", "Priorit\u00E9", "Statut", "Date", ""].map((h, i) => (
-                <th
-                  key={i}
-                  className="text-[10px] uppercase tracking-[0.06em] text-[#52525B] font-semibold px-3.5 py-2 text-left border-b border-[#27272A]"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {tickets.map((ticket) => (
-              <tr
-                key={ticket.id}
-                onClick={() => router.push(`/support/${ticket.id}`)}
-                className="cursor-pointer transition-colors hover:bg-[#18181B]"
-              >
-                <td className="px-3.5 py-3 border-b border-[#1C1C1F] text-xs text-[#D4D4D8] align-middle">
-                  <span className="text-[13px] font-medium text-[#FAFAFA]">
-                    {ticket.subject}
-                  </span>
-                  <span className="text-[10px] text-[#71717A] ml-1.5">
-                    ({ticket.message_count})
-                  </span>
-                  {hasUnread(ticket) && (
-                    <span className="w-[7px] h-[7px] rounded-full bg-[#3B82F6] inline-block ml-1.5" />
-                  )}
-                </td>
-                <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
-                  <TicketCategoryBadge category={ticket.category} />
-                </td>
-                <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
-                  <span
-                    className="w-[7px] h-[7px] rounded-full inline-block"
-                    style={{ background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium }}
-                  />
-                </td>
-                <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
-                  <TicketStatusBadge status={ticket.status} />
-                </td>
-                <td className="px-3.5 py-3 border-b border-[#1C1C1F] text-xs text-[#71717A] align-middle">
-                  {formatDate(ticket.created_at)}
-                </td>
-                <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
-                  {hasUnread(ticket) && (
-                    <span className="w-[7px] h-[7px] rounded-full bg-[#3B82F6] inline-block" />
-                  )}
-                </td>
+        <div className="w-full overflow-x-auto">
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+            <thead>
+              <tr>
+                {[t("subject"), t("category"), t("priority"), t("thStatus"), t("thDate"), ""].map((h, i) => (
+                  <th
+                    key={i}
+                    className="text-[10px] uppercase tracking-[0.06em] text-[#A1A1AA] font-semibold px-3.5 py-2 text-left border-b border-[#27272A]"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {tickets.map((ticket) => (
+                <tr
+                  key={ticket.id}
+                  onClick={() => router.push(`/support/${ticket.id}`)}
+                  className="cursor-pointer transition-colors hover:bg-[#18181B]"
+                >
+                  <td className="px-3.5 py-3 border-b border-[#1C1C1F] text-xs text-[#D4D4D8] align-middle">
+                    <span className="text-[13px] font-medium text-[#FAFAFA]">
+                      {ticket.subject}
+                    </span>
+                    <span className="text-[10px] text-[#A1A1AA] ml-1.5">
+                      ({ticket.message_count})
+                    </span>
+                    {hasUnread(ticket) && (
+                      <span className="w-[7px] h-[7px] rounded-full bg-[#3B82F6] inline-block ml-1.5" />
+                    )}
+                  </td>
+                  <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
+                    <TicketCategoryBadge category={ticket.category} />
+                  </td>
+                  <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
+                    <span
+                      className="w-[7px] h-[7px] rounded-full inline-block"
+                      style={{ background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium }}
+                    />
+                  </td>
+                  <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
+                    <TicketStatusBadge status={ticket.status} />
+                  </td>
+                  <td className="px-3.5 py-3 border-b border-[#1C1C1F] text-xs text-[#A1A1AA] align-middle">
+                    {formatDate(ticket.created_at)}
+                  </td>
+                  <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
+                    {hasUnread(ticket) && (
+                      <span className="w-[7px] h-[7px] rounded-full bg-[#3B82F6] inline-block" />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <TicketCreateModal

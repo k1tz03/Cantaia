@@ -5,6 +5,7 @@ import {
   collectIntelligenceFeed,
   fetchConstructionWeather,
   buildTeamAvailability,
+  computeFreeSlots,
 } from "@cantaia/core/calendar";
 
 export const maxDuration = 60;
@@ -44,10 +45,23 @@ export async function GET(request: NextRequest) {
     const lon = parseFloat(searchParams.get("lon") || "6.1432");
     const cityName = searchParams.get("city") || "Genève";
 
-    const today = new Date().toISOString().split("T")[0];
+    // CAL — the client has always sent ?date= (it follows the selected day),
+    // but the route ignored it and always answered for "now". Navigating to
+    // another day showed today's availability and today's free slots.
+    const requestedDate = searchParams.get("date");
+    const isValidDay = !!requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate);
+    const today = isValidDay
+      ? requestedDate!
+      : // Default to the Europe/Zurich day, not the server's UTC day.
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Europe/Zurich",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date());
 
     // Run all three data sources in parallel for speed
-    const [feedItems, weather, teamAvailability] = await Promise.all([
+    const [feedItems, weather, teamAvailability, freeSlots] = await Promise.all([
       collectIntelligenceFeed({
         userId: user.id,
         orgId: profile.organization_id,
@@ -74,6 +88,17 @@ export async function GET(request: NextRequest) {
         );
         return [];
       }),
+
+      // Free slots for the SELECTED day, computed in Europe/Zurich.
+      computeFreeSlots(
+        admin as any,
+        profile.organization_id,
+        user.id,
+        today
+      ).catch((err) => {
+        console.error("[calendar/intelligence] Free slots error:", err);
+        return [];
+      }),
     ]);
 
     // Filter feed by project_id if requested
@@ -85,9 +110,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      date: today,
       feed: filteredFeed,
       weather,
       teamAvailability,
+      freeSlots,
     });
   } catch (error) {
     console.error("[calendar/intelligence] Error:", error);

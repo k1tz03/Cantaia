@@ -55,8 +55,24 @@ export async function POST(
     bodyHtml || bodyText,
   ].filter(Boolean).join("\r\n");
 
-  // Build storage path
-  const orgId = email.projects?.organization_id || "unknown";
+  // Resolve the org for the Storage path. Emails without a project were being
+  // dumped under a shared `unknown/` prefix, breaking org-scoped Storage
+  // policies and org-level exports. Prefer the email's own org, then its
+  // project's, then the caller's users row. Refuse if none can be resolved.
+  let orgId: string | null = email.organization_id || email.projects?.organization_id || null;
+  if (!orgId) {
+    const { data: callerOrg } = await admin
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    orgId = callerOrg?.organization_id || null;
+  }
+  if (!orgId) {
+    return NextResponse.json({ error: "Organization could not be resolved for this email" }, { status: 400 });
+  }
+
+  // Build storage path (always org-scoped)
   const projectRef = email.projects?.code || email.projects?.name || "unclassified";
   const yearMonth = receivedAt.substring(0, 7); // YYYY-MM
   const sanitizedSubject = subject
@@ -66,6 +82,7 @@ export async function POST(
   const storagePath = `${orgId}/${projectRef}/${yearMonth}/${sanitizedSubject}_${id.substring(0, 8)}.eml`;
 
   // Upload to Supabase Storage
+  const fileSize = Buffer.byteLength(emlContent, "utf8");
   const { error: uploadErr } = await admin.storage
     .from("email-archives")
     .upload(storagePath, emlContent, {
@@ -79,10 +96,34 @@ export async function POST(
   }
 
   // Update email record
-  await (admin as any)
+  const { error: updateErr } = await (admin as any)
     .from("email_records")
     .update({ archived_path: storagePath })
     .eq("id", id);
+  if (updateErr) {
+    console.warn("[email/archive] archived_path update failed:", updateErr.message);
+  }
+
+  // Record the archive in email_archives so it appears alongside pipeline
+  // archives (exports / downloads read this table, not just the Storage path).
+  const { error: archiveInsertErr } = await (admin as any)
+    .from("email_archives")
+    .insert({
+      email_id: id,
+      project_id: email.project_id || null,
+      organization_id: orgId,
+      local_path: storagePath,
+      folder_name: projectRef,
+      file_name: `${sanitizedSubject}_${id.substring(0, 8)}.eml`,
+      storage_path: storagePath,
+      storage_bucket: "email-archives",
+      file_size: fileSize,
+      status: "saved",
+      archived_at: new Date().toISOString(),
+    });
+  if (archiveInsertErr) {
+    console.warn("[email/archive] email_archives insert failed:", archiveInsertErr.message);
+  }
 
   return NextResponse.json({ success: true, path: storagePath });
 }

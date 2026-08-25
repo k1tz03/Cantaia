@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
@@ -19,8 +19,9 @@ import { AgendaStream } from "@/components/calendar/AgendaStream";
 import { TimelineView } from "@/components/calendar/TimelineView";
 import { IntelligencePanel, getStoredCity } from "@/components/calendar/IntelligencePanel";
 import { CreateEventModal } from "@/components/calendar/CreateEventModal";
-import { TeamCalendarsPanel } from "@/components/calendar/TeamCalendarsPanel";
+import { TeamCalendarsPanel, getStoredVisibility } from "@/components/calendar/TeamCalendarsPanel";
 import { EventDetailPanel } from "@/components/calendar/EventDetailPanel";
+import { externalEventToCalendarEvent } from "@/components/calendar/event-source";
 import type { WeatherCity } from "@/components/calendar/IntelligencePanel";
 import type {
   CalendarEvent,
@@ -212,6 +213,80 @@ export default function CalendarPage() {
     }
   }, [selectedDate, viewMode, router]);
 
+  /**
+   * External calendars (non-Cantaia members registered in the team panel).
+   * Read live from Microsoft Graph and never stored, so they are kept in
+   * their own state and merged read-only into the views.
+   *
+   * Until this existed, the team panel could register a calendar but nothing
+   * ever read it — the rows had no effect on the agenda.
+   */
+  const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
+  const [externalLoading, setExternalLoading] = useState(false);
+  const [externalIssues, setExternalIssues] = useState<number>(0);
+  /**
+   * Ids hidden via the team panel — org member user ids AND external calendar
+   * keys ("ext_<uuid>"). Restored from the persisted visibility map at mount
+   * so a hidden calendar/member stays hidden across reloads.
+   */
+  const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => {
+    const stored = getStoredVisibility();
+    return new Set(
+      Object.entries(stored)
+        .filter(([, visible]) => visible === false)
+        .map(([id]) => id)
+    );
+  });
+
+  const fetchExternalEvents = useCallback(async () => {
+    setExternalLoading(true);
+    try {
+      const { start, end } = getDateRange(selectedDate, viewMode);
+      const res = await fetch(
+        `/api/calendar/external/events?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
+      );
+      if (!res.ok) {
+        setExternalEvents([]);
+        return;
+      }
+      const data = await res.json();
+      setExternalEvents(
+        (data.events || []).map((e: any) => externalEventToCalendarEvent(e))
+      );
+      setExternalIssues((data.errors?.length || 0) + (data.unsupported?.length || 0));
+    } catch (err) {
+      console.error("Calendar: failed to fetch external calendars", err);
+      setExternalEvents([]);
+    } finally {
+      setExternalLoading(false);
+    }
+  }, [selectedDate, viewMode]);
+
+  // Merged list handed to the three views. External rows carry the id
+  // "ext:<calendarId>:<graphEventId>", so the hidden-calendar filter is a
+  // prefix test.
+  const allEvents = useMemo(() => {
+    // Org events hidden by member visibility: the panel toggles a member by
+    // their user id, so a hidden member's own events (user_id) drop out.
+    // Virtual/derived rows have no user_id and are never hidden this way.
+    const visibleOrg =
+      hiddenCalendars.size === 0
+        ? events
+        : events.filter(
+            (e) => !(e as any).user_id || !hiddenCalendars.has((e as any).user_id)
+          );
+    const visibleExternal =
+      hiddenCalendars.size === 0
+        ? externalEvents
+        : externalEvents.filter((e) => {
+            const calendarId = e.id.split(":")[1];
+            return !hiddenCalendars.has(`ext_${calendarId}`);
+          });
+    return [...visibleOrg, ...visibleExternal].sort(
+      (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
+    );
+  }, [events, externalEvents, hiddenCalendars]);
+
   const [weatherCity, setWeatherCity] = useState<WeatherCity>(() => getStoredCity());
 
   const fetchIntelligence = useCallback(async () => {
@@ -243,6 +318,21 @@ export default function CalendarPage() {
 
     return () => { cancelled = true; };
   }, [fetchEvents, fetchIntelligence]);
+
+  /* ---- External calendars ----
+     Fetched lazily: reading colleagues' mailboxes through Graph is slow and
+     needs admin consent, so it only runs once the user opens the team panel,
+     then follows the visible range. */
+  const [externalRequested, setExternalRequested] = useState(false);
+
+  useEffect(() => {
+    if (showTeamPanel) setExternalRequested(true);
+  }, [showTeamPanel]);
+
+  useEffect(() => {
+    if (!externalRequested) return;
+    fetchExternalEvents();
+  }, [externalRequested, fetchExternalEvents]);
 
   /* ---- Sync ---- */
 
@@ -386,7 +476,7 @@ export default function CalendarPage() {
                 <h1 className="text-[15px] font-semibold text-[#FAFAFA] font-display leading-tight">
                   {t("title")}
                 </h1>
-                <p className="text-[12px] text-[#71717A] leading-tight mt-0.5">
+                <p className="text-[12px] text-[#A1A1AA] leading-tight mt-0.5">
                   {displayDate}
                 </p>
               </div>
@@ -394,14 +484,14 @@ export default function CalendarPage() {
 
             {/* Prev / Next arrows */}
             <div className="flex items-center gap-1 ml-2">
-              <button
+              <button aria-label={t("prev")}
                 onClick={goPrev}
                 className="flex items-center justify-center w-7 h-7 rounded-md border border-[#27272A] bg-[#18181B] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors"
                 title={t("prev")}
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-              <button
+              <button aria-label={t("next")}
                 onClick={goNext}
                 className="flex items-center justify-center w-7 h-7 rounded-md border border-[#27272A] bg-[#18181B] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors"
                 title={t("next")}
@@ -432,8 +522,8 @@ export default function CalendarPage() {
                   onClick={() => setViewMode(vm.key)}
                   className={`px-3 py-1 text-[12px] font-medium rounded-md transition-all ${
                     viewMode === vm.key
-                      ? "bg-[#F97316] text-white shadow-sm"
-                      : "text-[#71717A] hover:text-[#A1A1AA]"
+                      ? "bg-[#F97316] text-[#0F0F11] shadow-sm"
+                      : "text-[#A1A1AA] hover:text-[#FAFAFA]"
                   }`}
                 >
                   {t(vm.labelKey)}
@@ -468,7 +558,7 @@ export default function CalendarPage() {
 
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] font-semibold rounded-md bg-[#F97316] text-white hover:bg-[#EA580C] transition-colors shadow-sm shadow-[#F97316]/20"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] font-semibold rounded-md bg-[#F97316] text-[#0F0F11] hover:bg-[#EA580C] transition-colors shadow-sm shadow-[#F97316]/20"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{t("newEvent")}</span>
@@ -516,7 +606,7 @@ export default function CalendarPage() {
                 }
               }}
               placeholder={t("aiPlaceholder")}
-              className="flex-1 bg-transparent text-[13px] text-[#FAFAFA] placeholder-[#52525B] outline-none font-sans"
+              className="flex-1 bg-transparent text-[13px] text-[#FAFAFA] placeholder-[#71717A] outline-none font-sans"
               disabled={aiProcessing}
             />
 
@@ -535,7 +625,7 @@ export default function CalendarPage() {
                     }
                   }}
                   disabled={aiProcessing}
-                  className="px-2.5 py-1 text-[11px] font-medium rounded-md border border-[#27272A] bg-[#1C1C1F] text-[#71717A] hover:text-[#A1A1AA] hover:border-[#3F3F46] transition-colors whitespace-nowrap disabled:opacity-50"
+                  className="px-2.5 py-1 text-[11px] font-medium rounded-md border border-[#27272A] bg-[#1C1C1F] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors whitespace-nowrap disabled:opacity-50"
                 >
                   {t(chip.labelKey)}
                 </button>
@@ -547,7 +637,7 @@ export default function CalendarPage() {
               <button
                 onClick={() => handleAICommand()}
                 disabled={aiProcessing}
-                className="flex items-center justify-center w-7 h-7 rounded-md bg-[#F97316] text-white hover:bg-[#EA580C] transition-colors flex-shrink-0 disabled:opacity-50"
+                className="flex items-center justify-center w-7 h-7 rounded-md bg-[#F97316] text-[#0F0F11] hover:bg-[#EA580C] transition-colors flex-shrink-0 disabled:opacity-50"
               >
                 <Zap className="w-3.5 h-3.5" />
               </button>
@@ -561,7 +651,7 @@ export default function CalendarPage() {
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="w-6 h-6 text-[#F97316] animate-spin" />
-            <span className="text-[13px] text-[#52525B]">{t("loading")}</span>
+            <span className="text-[13px] text-[#A1A1AA]">{t("loading")}</span>
           </div>
         </div>
       ) : (
@@ -570,7 +660,7 @@ export default function CalendarPage() {
           {/* ──── Left: Agenda Stream ──── */}
           <div className="border-r border-[#27272A] overflow-y-auto">
             <AgendaStream
-              events={events}
+              events={allEvents}
               selectedDate={selectedDate}
               selectedEvent={selectedEvent}
               onSelectEvent={setSelectedEvent}
@@ -581,7 +671,7 @@ export default function CalendarPage() {
           {/* ──── Center: Timeline ──── */}
           <div className="overflow-y-auto overflow-x-hidden">
             <TimelineView
-              events={events}
+              events={allEvents}
               selectedDate={selectedDate}
               selectedEvent={selectedEvent}
               viewMode={viewMode}
@@ -619,9 +709,20 @@ export default function CalendarPage() {
       <TeamCalendarsPanel
         open={showTeamPanel}
         onClose={() => setShowTeamPanel(false)}
+        externalLoading={externalLoading}
+        externalEventCount={externalEvents.length}
+        externalIssues={externalIssues}
+        onRefreshExternal={fetchExternalEvents}
         onVisibilityChange={(visibility) => {
-          // TODO: filter displayed events by visibility state
-          console.log("[Calendar] Team visibility changed:", visibility);
+          // Hidden calendars are filtered out of the overlay client-side; the
+          // fetch stays org-wide so toggling is instant.
+          setHiddenCalendars(
+            new Set(
+              Object.entries(visibility)
+                .filter(([, visible]) => visible === false)
+                .map(([id]) => id)
+            )
+          );
         }}
       />
 

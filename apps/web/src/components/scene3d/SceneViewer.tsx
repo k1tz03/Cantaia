@@ -1,17 +1,21 @@
 /**
- * SceneViewer — top-level orchestrator for the 3D scene page.
- * Owns: scene_data, loading/error state, extraction progress, gate acceptance,
- * level/layer/filter/selection state, tool modes. Composes LeftPanel,
- * SceneCanvas, RightPanel, Toolbar, MeasureTool, SectionCutTool, and the two
- * modals (LowConfidenceGate, ExtractionProgress).
- * Used at: app/[locale]/(app)/projects/[id]/3d/page.tsx
+ * SceneViewer — orchestrateur de la page de scène 3D.
+ *
+ * Détient : scene_data, états de chargement/erreur, progression d'extraction,
+ * acceptation du disclaimer, niveau/calques/filtres/sélection, modes d'outils.
+ * Compose LeftPanel, SceneCanvas, RightPanel, Toolbar, MeasureTool,
+ * SectionCutTool, et les deux modales (LowConfidenceGate, ExtractionProgress).
+ *
+ * Utilisé par : app/[locale]/(app)/projects/[id]/3d/page.tsx
  */
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { CONFIDENCE_THRESHOLDS } from "@cantaia/core/plans/scene/constants";
 import type {
   BuildingScene,
   ConfidenceLevel,
@@ -30,22 +34,15 @@ import { MeasureTool } from "./MeasureTool";
 import { SectionCutTool } from "./SectionCutTool";
 import { ExtractionProgress } from "./ExtractionProgress";
 import { LowConfidenceGate } from "./LowConfidenceGate";
-
-// Mock reference for type shape during wireframing:
-// const MOCK: BuildingScene = {
-//   project_id: "proj_123",
-//   generated_at: "2026-04-23T08:00:00Z",
-//   levels: [
-//     { id: "L0", name: "RDC", elevation_m: 0, element_count: 42 },
-//     { id: "L1", name: "Étage 1", elevation_m: 3.1, element_count: 38 },
-//   ],
-//   elements: [],
-//   overall_confidence: 0.78,
-//   low_confidence_ratio: 0.32,
-// };
+import { QualityBanner } from "./QualityBanner";
 
 interface SceneViewerProps {
   projectId: string;
+  /**
+   * Id du plan affiché (`?plan=`). Sert au retour depuis le gate SIA vers la
+   * fiche du plan. `null` en mode démo.
+   */
+  planId?: string | null;
   /**
    * Id de la ligne `plan_scenes` affichée. Requis pour tracer l'acceptation
    * du disclaimer SIA et pour poster les corrections d'éléments.
@@ -58,30 +55,65 @@ interface SceneViewerProps {
   extraction: ExtractionProgressState | null;
   /** Fatal error preventing viewer init. */
   error: string | null;
+  /**
+   * L'utilisateur a-t-il DÉJÀ accepté le disclaimer pour cette scène ?
+   * Renseigné par `GET /api/plans/[id]/scene` : sans ça, le gate se
+   * ré-affichait à chaque rafraîchissement, alors même que l'acceptation
+   * était bien consignée au registre.
+   */
+  disclaimerAccepted?: boolean;
   /** Fired when the user clicks "Corriger" on an element. */
   onCorrectElement: (elementId: string) => void;
   /** Fired when user exports a snapshot. */
   onExport: (format: "png" | "gltf" | "pdf") => void;
 }
 
+/**
+ * Part d'éléments sous le seuil au-delà de laquelle le disclaimer devient
+ * bloquant. Même valeur que le critère de refus serveur
+ * (`REFUSAL.maxLowConfidenceRatio`) : entre 30 % de refus côté serveur et un
+ * gate qui s'ouvrirait à un autre seuil, l'utilisateur ne comprendrait plus
+ * rien à ce qui déclenche quoi.
+ */
 const LOW_CONFIDENCE_GATE_THRESHOLD = 0.3;
 
 export function SceneViewer({
   projectId,
+  planId,
   sceneId,
   scene,
   extraction,
   error,
+  disclaimerAccepted = false,
   onCorrectElement,
   onExport,
 }: SceneViewerProps) {
   const t = useTranslations("scene3d");
+  const router = useRouter();
 
   // UI state
-  const [gateAccepted, setGateAccepted] = useState(false);
+  const [gateAccepted, setGateAccepted] = useState(disclaimerAccepted);
   const [activeLevelId, setActiveLevelId] = useState<string | null>(
     scene?.levels[0]?.id ?? null,
   );
+
+  // Re-synchronise le niveau actif quand la scène arrive APRÈS le montage
+  // (extraction in-place : SceneViewer est monté pendant `extracting` avec
+  // scene=null, puis reçoit la scène au même emplacement d'arbre). Sans ça,
+  // activeLevelId restait null : tous les niveaux se superposaient et les
+  // boutons haut/bas restaient désactivés.
+  useEffect(() => {
+    const levelIds = scene?.levels?.map((l) => l.id) ?? [];
+    if (levelIds.length === 0) return;
+    if (activeLevelId === null || !levelIds.includes(activeLevelId)) {
+      setActiveLevelId(levelIds[0]);
+    }
+  }, [scene, activeLevelId]);
+
+  // Le gate suit l'acceptation persistée quand elle bascule à true côté serveur.
+  useEffect(() => {
+    if (disclaimerAccepted) setGateAccepted(true);
+  }, [disclaimerAccepted]);
   const [layers, setLayers] = useState<LayerState>({
     walls: true,
     slabs: true,
@@ -94,6 +126,7 @@ export function SceneViewer({
   >({ high: true, medium: true, low: true });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [measureMode, setMeasureMode] = useState<MeasureMode>("none");
+  const [measurePoints, setMeasurePoints] = useState<Array<[number, number, number]>>([]);
   const [sectionCutActive, setSectionCutActive] = useState(false);
   const [sectionAxis, setSectionAxis] = useState<"x" | "y" | "z">("z");
   const [sectionElevation, setSectionElevation] = useState(1.2);
@@ -113,6 +146,53 @@ export function SceneViewer({
   const levelIdx = levels.findIndex((l) => l.id === activeLevelId);
   const canLevelUp = levelIdx > 0;
   const canLevelDown = levelIdx >= 0 && levelIdx < levels.length - 1;
+
+  /**
+   * Un clic de mesure. Deux points forment une mesure ; le troisième
+   * recommence — c'est le comportement d'un décamètre, pas d'une polyligne,
+   * et c'est ce que le HUD annonce.
+   */
+  const handleMeasurePoint = useCallback((point: [number, number, number]) => {
+    setMeasurePoints((prev) => (prev.length >= 2 ? [point] : [...prev, point]));
+  }, []);
+
+  /** Distance planimétrique entre les deux points, en mètres. */
+  const measureReadout = useMemo(() => {
+    if (measurePoints.length < 2) return null;
+    const [a, b] = measurePoints;
+    const dx = b[0] - a[0];
+    const dz = b[2] - a[2];
+    const distance = Math.hypot(dx, dz);
+    return `${distance.toFixed(2)} m`;
+  }, [measurePoints]);
+
+  const handleMeasureModeChange = useCallback((mode: MeasureMode) => {
+    setMeasureMode(mode);
+    setMeasurePoints([]);
+  }, []);
+
+  // Escape : le panneau de droite PROMET « Esc pour désélectionner » — on
+  // l'honore, et on l'étend à la sortie du mode mesure / à la fermeture de la
+  // coupe (priorité : mesure → coupe → sélection).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMeasureMode((prevMode) => {
+        if (prevMode !== "none") {
+          setMeasurePoints([]);
+          return "none";
+        }
+        setSectionCutActive((prevSection) => {
+          if (prevSection) return false;
+          setSelectedId(null);
+          return prevSection;
+        });
+        return prevMode;
+      });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // ── Extraction state ───────────────────────────────────────────────────────
   if (extraction) {
@@ -164,11 +244,61 @@ export function SceneViewer({
   const handleConfFilterToggle = (key: ConfidenceLevel) =>
     setConfidenceFilters((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const minElev = Math.min(...levels.map((l) => l.elevation_m), 0);
-  const maxElev = Math.max(...levels.map((l) => l.elevation_m + 3), 10);
+  // Bornes du curseur de coupe — DÉPENDANTES DE L'AXE. bbox est plat
+  // [minX, minElev(Y↑), minY, maxX, maxElev, maxY] ; une coupe X ou Y (verticale)
+  // se compare aux coordonnées HORIZONTALES, pas à la plage d'altitudes. Une
+  // plage figée sur l'altitude empêchait le plan de coupe X/Y de traverser le
+  // bâtiment.
+  const bbox = scene.bbox;
+  let minElev: number;
+  let maxElev: number;
+  if (bbox) {
+    if (sectionAxis === "x") {
+      minElev = bbox[0];
+      maxElev = bbox[3];
+    } else if (sectionAxis === "y") {
+      minElev = bbox[2];
+      maxElev = bbox[5];
+    } else {
+      minElev = bbox[1];
+      maxElev = bbox[4];
+    }
+  } else {
+    minElev = Math.min(...levels.map((l) => l.elevation_m), 0);
+    maxElev = Math.max(...levels.map((l) => l.elevation_m + 3), 10);
+  }
+
+  /** Change l'axe de coupe et recentre le plan sur la nouvelle plage. */
+  const handleSectionAxisChange = (axis: "x" | "y" | "z") => {
+    setSectionAxis(axis);
+    let lo: number;
+    let hi: number;
+    if (bbox && axis === "x") {
+      lo = bbox[0];
+      hi = bbox[3];
+    } else if (bbox && axis === "y") {
+      lo = bbox[2];
+      hi = bbox[5];
+    } else if (bbox) {
+      lo = bbox[1];
+      hi = bbox[4];
+    } else {
+      lo = 0;
+      hi = 10;
+    }
+    setSectionElevation((lo + hi) / 2);
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-[#0F0F11] overflow-hidden">
+      {/* Contrôles globaux + défauts de validation, au-dessus de la scène. */}
+      <QualityBanner
+        qualityChecks={scene.quality_checks}
+        validationIssues={scene.validation_issues}
+        scaleCalibration={scene.scale_calibration}
+        overallConfidence={scene.overall_confidence}
+      />
+
       {/* 3-panel layout: 280 | flex-1 | 360 */}
       <div className="flex-1 flex overflow-hidden" data-project-id={projectId}>
         <LeftPanel
@@ -186,19 +316,31 @@ export function SceneViewer({
             scene={scene}
             activeLevelId={activeLevelId}
             layers={layers}
+            confidenceFilters={confidenceFilters}
             viewMode={viewMode}
             selectedId={selectedId}
             onSelect={(el) => setSelectedId(el?.id ?? null)}
+            measureActive={measureMode === "distance"}
+            measurePoints={measurePoints}
+            onMeasurePoint={handleMeasurePoint}
+            section={{
+              active: sectionCutActive,
+              axis: sectionAxis,
+              elevation: sectionElevation,
+            }}
           >
             <MeasureTool
               mode={measureMode}
-              onCancel={() => setMeasureMode("none")}
+              pointCount={measurePoints.length}
+              readout={measureReadout}
+              onReset={() => setMeasurePoints([])}
+              onCancel={() => handleMeasureModeChange("none")}
             />
             <SectionCutTool
               active={sectionCutActive}
               axis={sectionAxis}
               elevation={sectionElevation}
-              onAxisChange={setSectionAxis}
+              onAxisChange={handleSectionAxisChange}
               onElevationChange={setSectionElevation}
               onClose={() => setSectionCutActive(false)}
               minElevation={minElev}
@@ -208,12 +350,9 @@ export function SceneViewer({
 
           <Toolbar
             measureMode={measureMode}
-            onMeasureModeChange={setMeasureMode}
+            onMeasureModeChange={handleMeasureModeChange}
             sectionCutActive={sectionCutActive}
             onSectionCutToggle={() => setSectionCutActive((v) => !v)}
-            onLayersClick={() => {
-              /* TODO: Dev B logic — open layers popover or focus LeftPanel */
-            }}
             onLevelUp={() => {
               if (canLevelUp) setActiveLevelId(levels[levelIdx - 1].id);
             }}
@@ -226,7 +365,11 @@ export function SceneViewer({
           />
         </main>
 
-        <RightPanel selected={selected} onCorrect={onCorrectElement} />
+        <RightPanel
+          selected={selected}
+          validationIssues={scene.validation_issues}
+          onCorrect={onCorrectElement}
+        />
       </div>
 
       {/* First-load disclaimer gate */}
@@ -235,9 +378,13 @@ export function SceneViewer({
         lowConfidenceRatio={scene.low_confidence_ratio}
         overallConfidence={scene.overall_confidence}
         elementCount={scene.elements.length}
+        threshold={CONFIDENCE_THRESHOLDS.mid}
         sceneId={sceneId ?? null}
         onAccept={() => setGateAccepted(true)}
-        onCancel={() => setGateAccepted(false)}
+        // « Annuler » / croix : `gateAccepted` est DÉJÀ false quand le gate est
+        // ouvert — le remettre à false ne faisait rien (utilisateur piégé). On
+        // quitte le viewer vers la fiche du plan (ou l'écran précédent).
+        onCancel={() => (planId ? router.push(`/plans/${planId}`) : router.back())}
       />
     </div>
   );

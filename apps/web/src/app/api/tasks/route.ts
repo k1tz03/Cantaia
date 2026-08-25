@@ -1,6 +1,55 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { computeTaskCounts } from "@cantaia/core/projects/counters";
+import { notifyTaskAssigned } from "@cantaia/core/notifications";
+
+/** Reminder lead times the cron actually understands (REMINDER_LEAD_DAYS). */
+const VALID_REMINDERS = ["none", "1_day", "3_days", "1_week"];
+
+/**
+ * Resolves `assigned_to` from a request body against the caller's organization.
+ *
+ * `tasks.assigned_to` (UUID FK, migration 001) existed since day one but was
+ * never written by a human path — which made "Mes taches", per-member team
+ * health and any assignment notification structurally impossible. It is now
+ * accepted, and validated: a task can only be assigned to a member of the same
+ * organization (anti-IDOR / anti cross-tenant leak).
+ *
+ * Returns `{ value }` on success, `{ error }` with a message on rejection.
+ * `undefined` means "field absent from the body" (leave untouched).
+ */
+async function resolveAssignedTo(
+  admin: ReturnType<typeof createAdminClient>,
+  body: Record<string, unknown>,
+  organizationId: string
+): Promise<{ value?: string | null; error?: string }> {
+  if (!("assigned_to" in body)) return {};
+
+  const raw = body.assigned_to;
+  if (raw === null || raw === "") return { value: null };
+
+  if (typeof raw !== "string") {
+    return { error: "assigned_to must be a user id or null" };
+  }
+
+  const { data: member, error } = await (admin as any)
+    .from("users")
+    .select("id, organization_id")
+    .eq("id", raw)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[Tasks] assigned_to lookup failed:", error.message);
+    return { error: "Failed to validate assignee" };
+  }
+
+  if (!member || member.organization_id !== organizationId) {
+    return { error: "Assignee is not a member of your organization" };
+  }
+
+  return { value: member.id };
+}
 
 // POST — create a new task
 export async function POST(request: NextRequest) {
@@ -38,6 +87,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A reminder value the cron doesn't recognise would be stored but never
+    // fire — reject it rather than silently accepting a dead reminder.
+    if (reminder !== undefined && reminder !== null && !VALID_REMINDERS.includes(reminder)) {
+      return NextResponse.json({ error: "Invalid reminder value" }, { status: 400 });
+    }
+
     const admin = createAdminClient();
 
     // Verify project belongs to user's organization
@@ -53,12 +108,17 @@ export async function POST(request: NextRequest) {
 
     const { data: projectCheck } = await (admin as any)
       .from("projects")
-      .select("organization_id")
+      .select("organization_id, name")
       .eq("id", project_id)
       .maybeSingle();
 
     if (!projectCheck || projectCheck.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: "Project not found or forbidden" }, { status: 403 });
+    }
+
+    const assignee = await resolveAssignedTo(admin, body, userProfile.organization_id);
+    if (assignee.error) {
+      return NextResponse.json({ error: assignee.error }, { status: 400 });
     }
 
     // Build insert object with only base columns first
@@ -72,6 +132,7 @@ export async function POST(request: NextRequest) {
       source_id: source_id || null,
       source_reference: source_reference || null,
       due_date: due_date || null,
+      assigned_to: assignee.value ?? null,
       assigned_to_name: assigned_to_name || null,
       assigned_to_company: assigned_to_company || null,
       lot_code: lot_code || null,
@@ -80,7 +141,7 @@ export async function POST(request: NextRequest) {
     // Only include optional columns if values provided
     if (status) insertData.status = status;
 
-    const BASE_SELECT = "id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, created_at, updated_at";
+    const BASE_SELECT = "id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to, assigned_to_name, assigned_to_company, lot_code, created_at, updated_at";
 
     // Try insert with reminder column first (if migration 006 applied)
     if (reminder && reminder !== "none") insertData.reminder = reminder;
@@ -123,6 +184,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // task_assigned notification — run after the response so the Resend
+    // round-trip (up to 10s) never delays task creation.
+    if (task?.assigned_to) {
+      after(async () => {
+        try {
+          await notifyTaskAssigned(admin, {
+            task,
+            actorId: user.id,
+            projectName: projectCheck.name || null,
+          });
+        } catch (err) {
+          console.error("[Tasks] task_assigned notification failed:", err);
+        }
+      });
+    }
+
     return NextResponse.json({ success: true, task });
   } catch (error) {
     console.error("[Tasks Create] Error:", error);
@@ -138,6 +215,16 @@ export async function POST(request: NextRequest) {
 // truncating at 50.
 const DEFAULT_TASKS_LIMIT = 500;
 const MAX_TASKS_LIMIT = 1000;
+/**
+ * `?count_only=true` never returns rows, so it can afford a much wider scan
+ * than a paginated list — the point of the flag is that a counter must count
+ * ALL the tasks, not the first page (the old client-side tiles silently
+ * truncated at the list limit, dropping the oldest = the overdue ones first).
+ */
+const COUNT_SCAN_LIMIT = 20000;
+
+const LIST_SELECT =
+  "id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to, assigned_to_name, assigned_to_company, lot_code, created_at, updated_at";
 
 // GET — list tasks for the current user's organization
 export async function GET(request: NextRequest) {
@@ -162,8 +249,15 @@ export async function GET(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
+    const countOnly = request.nextUrl.searchParams.get("count_only") === "true";
+
     if (!userProfile?.organization_id) {
-      return NextResponse.json({ success: true, tasks: [], projects: [] });
+      return countOnly
+        ? NextResponse.json({
+            success: true,
+            counts: { total: 0, open: 0, overdue: 0, today: 0, week: 0, later: 0, done: 0 },
+          })
+        : NextResponse.json({ success: true, tasks: [], projects: [] });
     }
 
     const { data: orgProjects } = await admin
@@ -174,7 +268,43 @@ export async function GET(request: NextRequest) {
     const projectIds = (orgProjects || []).map((p: any) => p.id);
 
     if (projectIds.length === 0) {
-      return NextResponse.json({ success: true, tasks: [], projects: [] });
+      return countOnly
+        ? NextResponse.json({
+            success: true,
+            counts: { total: 0, open: 0, overdue: 0, today: 0, week: 0, later: 0, done: 0 },
+          })
+        : NextResponse.json({ success: true, tasks: [], projects: [] });
+    }
+
+    const projectId = request.nextUrl.searchParams.get("project_id");
+    // `assigned_to=me` powers the "Mes taches" filter; a raw UUID is also
+    // accepted (team views), always inside the caller's org projects.
+    const assignedToParam = request.nextUrl.searchParams.get("assigned_to");
+    const assignedTo =
+      assignedToParam === "me" ? user.id : assignedToParam || null;
+
+    function applyFilters(q: any) {
+      let query = q.in("project_id", projectIds);
+      if (projectId) query = query.eq("project_id", projectId);
+      if (assignedTo) query = query.eq("assigned_to", assignedTo);
+      return query;
+    }
+
+    // ── Counters path: server-side truth, shared definitions ────────────────
+    if (countOnly) {
+      const { data: rows, error: countError } = await applyFilters(
+        admin.from("tasks").select("status, due_date")
+      ).limit(COUNT_SCAN_LIMIT);
+
+      if (countError) {
+        console.error("[Tasks Counts] Error:", countError);
+        return NextResponse.json({ error: "Failed to count tasks" }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        counts: computeTaskCounts((rows || []) as { status: string; due_date: string | null }[]),
+      });
     }
 
     // Pagination
@@ -187,19 +317,11 @@ export async function GET(request: NextRequest) {
     );
     const offset = (page - 1) * limit;
 
-    // Fetch tasks for the org's projects
-    const projectId = request.nextUrl.searchParams.get("project_id");
-
-    let query = admin
-      .from("tasks")
-      .select("id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, created_at, updated_at", { count: "exact" })
-      .in("project_id", projectIds)
+    const query = applyFilters(
+      admin.from("tasks").select(LIST_SELECT, { count: "exact" })
+    )
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
-
-    if (projectId) {
-      query = query.eq("project_id", projectId);
-    }
 
     const { data: tasks, error, count } = await query;
 

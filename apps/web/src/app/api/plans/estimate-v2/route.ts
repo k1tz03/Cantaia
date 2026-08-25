@@ -9,8 +9,18 @@ import {
   getPriceCalibration,
 } from "@cantaia/core/plans/estimation/calibration-engine";
 import { verifyCrossPlan } from "@cantaia/core/plans/estimation";
+import { MIN_SAMPLES_FOR_WEIGHTING } from "@cantaia/core/learning";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
-import { insufficientCreditsResponse } from "@/lib/credits";
+import { insufficientCreditsResponse, grantCredits } from "@/lib/credits";
+import { trackApiUsage } from "@cantaia/core/tracking";
+import { AI_MODELS } from "@cantaia/core/ai";
+
+// Attribution des tokens par provider au bon fournisseur/modèle pour trackApiUsage.
+const PROVIDER_TRACKING: Record<string, { apiProvider: string; model: string }> = {
+  claude: { apiProvider: "anthropic", model: AI_MODELS.SONNET },
+  gpt4o: { apiProvider: "openai", model: "gpt-4o" },
+  gemini: { apiProvider: "google", model: "gemini-2.5-flash" },
+};
 
 // Multi-model 4-pass pipeline can take several minutes
 export const maxDuration = 300;
@@ -154,24 +164,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
     }
 
-    // Check AI usage limit
-    const { data: orgData } = await adminClient
-      .from("organizations")
-      .select("subscription_plan")
-      .eq("id", userOrg.organization_id)
-      .single();
-
-    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, orgData?.subscription_plan || "trial", "estimate_v2");
-    if (!usageCheck.allowed) {
-      if (usageCheck.insufficient_credits) {
-        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
-      }
-      return NextResponse.json(
-        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
-        { status: 429 }
-      );
-    }
-
     const body = await request.json();
     const { plan_id, project_id, region, type_batiment, acces_chantier, periode_travaux } = body;
 
@@ -221,45 +213,85 @@ export async function POST(request: NextRequest) {
     else if (ext.endsWith('.webp')) mediaType = 'image/webp';
     else if (ext.endsWith('.pdf')) mediaType = 'application/pdf';
 
+    // Vérifier / débiter les crédits SEULEMENT une fois toute la validation
+    // passée (body, org-check du plan, version, téléchargement du fichier).
+    // AUDIT 08/2026 — checkUsageLimit débite (side effect) : le placer avant la
+    // validation faisait perdre 30 crédits sur un 400/403/404/500 sans refund.
+    const { data: orgData } = await adminClient
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", userOrg.organization_id)
+      .single();
+
+    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, orgData?.subscription_plan || "trial", "estimate_v2");
+    if (!usageCheck.allowed) {
+      if (usageCheck.insufficient_credits) {
+        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+      }
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
+    }
+    // Montant réellement débité (pour un éventuel refund si le pipeline échoue).
+    const debitedCredits = usageCheck.required_credits ?? 0;
+
     const regionResolved = region || 'vaud';
 
-    // Calculer les poids des modèles depuis les profils d'erreur C2 (cross-org)
+    // Calculer les poids des modèles depuis les profils d'erreur de l'ORG.
     //
-    // B7 — La colonne s'appelle `nb_corrections` (migration 043), pas
-    // `nombre_corrections`. PostgREST renvoyait une 400 sur le SELECT, le
-    // catch l'avalait, et les poids adaptatifs n'ont donc JAMAIS été actifs.
+    // AUDIT 08/2026 — refonte complète de ce bloc :
+    //   * la lecture était SANS filtre org (table C2 cross-tenant) → désormais
+    //     scopée org_id (migration 102, writer unique dans
+    //     @cantaia/core/learning) ;
+    //   * bug d'unité : le fallback `0.15` était une FRACTION alors que
+    //     `ecart_moyen_pct` est en POURCENTS → un provider sans données pesait
+    //     ~2,4× un provider mesuré ;
+    //   * poids ÉGAUX tant qu'un provider a moins de MIN_SAMPLES_FOR_WEIGHTING
+    //     corrections : on ne pondère que sur de la donnée significative.
     const modelWeights: Record<string, number> = {};
     try {
       const { data: profiles, error: profilesError } = await (adminClient as any)
         .from("model_error_profiles")
-        .select("provider, discipline, ecart_moyen_pct, nb_corrections");
+        .select("provider, discipline, ecart_median_pct, nb_corrections")
+        .eq("org_id", userOrg.organization_id);
 
       if (profilesError) {
         console.warn("[estimate-v2] model_error_profiles SELECT error:", profilesError.message);
       }
 
       if (profiles?.length) {
-        // Moyenne pondérée par le nombre de corrections : un profil bâti sur
-        // 50 corrections doit peser plus qu'un profil bâti sur 1.
+        // Moyenne (pondérée par nb_corrections) des erreurs médianes SIGNÉES,
+        // convertie en magnitude — uniquement sur les profils significatifs.
         const byProvider: Record<string, { sum: number; weight: number }> = {};
         for (const p of profiles) {
-          const samples = Math.max(Number(p.nb_corrections) || 0, 1);
-          const err = Number(p.ecart_moyen_pct ?? 0.15);
+          const samples = Number(p.nb_corrections) || 0;
+          if (samples < MIN_SAMPLES_FOR_WEIGHTING) continue;
+          const errAbsPct = Math.abs(Number(p.ecart_median_pct) || 0);
           if (!byProvider[p.provider]) byProvider[p.provider] = { sum: 0, weight: 0 };
-          byProvider[p.provider].sum += err * samples;
+          byProvider[p.provider].sum += errAbsPct * samples;
           byProvider[p.provider].weight += samples;
         }
-        for (const [provider, agg] of Object.entries(byProvider)) {
-          const avgError = agg.weight > 0 ? agg.sum / agg.weight : 0.15;
-          modelWeights[provider] = 1 / (1 + avgError / 10);
-        }
-        // Normaliser so que la somme des poids ≈ 3.0 (un poids neutre de 1 par modèle)
-        const sum = Object.values(modelWeights).reduce((a, b) => a + b, 0);
-        if (sum > 0) {
-          const factor = 3.0 / sum;
-          for (const k of Object.keys(modelWeights)) modelWeights[k] *= factor;
-        }
-        if (Object.keys(modelWeights).length > 0) {
+
+        if (Object.keys(byProvider).length > 0) {
+          // Chaque provider CONNU part d'un poids neutre de 1 ; seuls les
+          // providers mesurés (≥ MIN_SAMPLES_FOR_WEIGHTING corrections) sont
+          // ajustés. Un provider sans données garde exactement 1.
+          for (const provider of ["claude", "gpt4o", "gemini"]) {
+            const agg = byProvider[provider];
+            if (agg && agg.weight > 0) {
+              const avgErrorPct = agg.sum / agg.weight; // en %
+              modelWeights[provider] = 1 / (1 + avgErrorPct / 100);
+            } else {
+              modelWeights[provider] = 1;
+            }
+          }
+          // Normaliser pour que la somme ≈ 3.0 (poids neutre de 1 par modèle)
+          const sum = Object.values(modelWeights).reduce((a, b) => a + b, 0);
+          if (sum > 0) {
+            const factor = 3.0 / sum;
+            for (const k of Object.keys(modelWeights)) modelWeights[k] *= factor;
+          }
           console.log("[estimate-v2] Model weights from error profiles:", JSON.stringify(modelWeights));
         }
       }
@@ -387,24 +419,90 @@ export async function POST(request: NextRequest) {
       console.warn("[estimate-v2] Could not load bureau profile for enrichment:", bureauErr);
     }
 
-    // Lancer le pipeline
-    const result = await runEstimationPipeline({
+    // Lancer le pipeline — si le pipeline échoue APRÈS le débit, on rembourse
+    // les crédits (kind:"refund") avant de propager l'erreur.
+    let result;
+    try {
+      result = await runEstimationPipeline({
+        plan_id,
+        project_id,
+        org_id: userOrg.organization_id,
+        image_base64: imageBase64,
+        media_type: mediaType,
+        region: regionResolved,
+        type_batiment: type_batiment || 'logement_collectif_standard',
+        acces_chantier: acces_chantier || 'normal',
+        periode_travaux: periode_travaux || `${new Date().getFullYear()}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
+        supabase: adminClient,
+        user_id: user.id,
+        modelWeights: Object.keys(modelWeights).length > 0 ? (modelWeights as any) : undefined,
+        bureauEnrichment,
+        qtyCalibrations: qtyCalibrations.size > 0 ? qtyCalibrations : undefined,
+        priceCalibrations: priceCalibrations.size > 0 ? priceCalibrations : undefined,
+      });
+    } catch (pipelineErr) {
+      if (debitedCredits > 0) {
+        await grantCredits(
+          userOrg.organization_id,
+          debitedCredits,
+          "refund",
+          `estimate_v2 pipeline failure plan=${plan_id}`,
+          user.id
+        ).catch(() => {});
+      }
+      throw pipelineErr;
+    }
+
+    // ── Cost tracking ──────────────────────────────────────
+    // AUDIT 08/2026 — le pipeline appelle 3 providers en parallèle (Claude +
+    // GPT-4o + Gemini). L'ancien tracking agrégeait TOUT sous une seule ligne
+    // `anthropic` avec un split 80/20 arbitraire — les tokens GPT-4o/Gemini
+    // (tarifs différents, pourtant couverts par la table de prix du tracker)
+    // étaient mal facturés. On émet désormais une ligne PAR provider avec ses
+    // tokens réels (`tokens_by_provider`), et on retombe sur l'agrégat Anthropic
+    // uniquement si la ventilation n'est pas disponible.
+    const stats = result.pipeline_stats;
+    const commonMeta = {
       plan_id,
       project_id,
-      org_id: userOrg.organization_id,
-      image_base64: imageBase64,
-      media_type: mediaType,
-      region: regionResolved,
-      type_batiment: type_batiment || 'logement_collectif_standard',
-      acces_chantier: acces_chantier || 'normal',
-      periode_travaux: periode_travaux || `${new Date().getFullYear()}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
-      supabase: adminClient,
-      user_id: user.id,
-      modelWeights: Object.keys(modelWeights).length > 0 ? (modelWeights as any) : undefined,
-      bureauEnrichment,
-      qtyCalibrations: qtyCalibrations.size > 0 ? qtyCalibrations : undefined,
-      priceCalibrations: priceCalibrations.size > 0 ? priceCalibrations : undefined,
-    });
+      estimate_id: result.estimate_id ?? null,
+      models_used: stats?.models_used,
+      total_tokens: stats?.total_tokens,
+      pipeline_cost_usd: stats?.total_cost_usd,
+      total_duration_ms: stats?.total_duration_ms,
+    };
+
+    const byProvider = stats?.tokens_by_provider;
+    if (byProvider && Object.values(byProvider).some((t) => t > 0)) {
+      for (const [provider, tokens] of Object.entries(byProvider)) {
+        if (!tokens || tokens <= 0) continue;
+        const mapping = PROVIDER_TRACKING[provider] ?? PROVIDER_TRACKING.claude;
+        trackApiUsage({
+          supabase: adminClient as any,
+          userId: user.id,
+          organizationId: userOrg.organization_id,
+          actionType: "estimate_v2" as any,
+          apiProvider: mapping.apiProvider as any,
+          model: mapping.model,
+          // Split input/output identique à l'heuristique du job handwritten-notes.
+          inputTokens: Math.round(tokens * 0.8),
+          outputTokens: Math.round(tokens * 0.2),
+          metadata: { ...commonMeta, provider, provider_tokens: tokens },
+        }).catch(() => {});
+      }
+    } else if (stats?.total_tokens) {
+      trackApiUsage({
+        supabase: adminClient as any,
+        userId: user.id,
+        organizationId: userOrg.organization_id,
+        actionType: "estimate_v2" as any,
+        apiProvider: "anthropic",
+        model: AI_MODELS.SONNET,
+        inputTokens: Math.round(stats.total_tokens * 0.8),
+        outputTokens: Math.round(stats.total_tokens * 0.2),
+        metadata: commonMeta,
+      }).catch(() => {});
+    }
 
     if (!result.estimate_id) {
       // La sauvegarde a échoué (détails dans les logs du pipeline). On renvoie

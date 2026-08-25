@@ -51,10 +51,10 @@ export function EstimateResultsSection({
       {estimating && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-[#27272A] bg-[#0F0F11] py-12">
           <Loader2 className="h-8 w-8 animate-spin text-brand" />
-          <p className="mt-3 text-sm font-medium text-[#71717A]">
+          <p className="mt-3 text-sm font-medium text-[#A1A1AA]">
             Analyse et estimation en cours...
           </p>
-          <p className="mt-1 text-xs text-[#71717A]">
+          <p className="mt-1 text-xs text-[#A1A1AA]">
             Cela peut prendre 15 à 30 secondes
           </p>
         </div>
@@ -66,33 +66,33 @@ export function EstimateResultsSection({
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3">
-              <p className="text-[11px] font-medium uppercase text-[#71717A]">
+              <p className="text-[11px] font-medium uppercase text-[#A1A1AA]">
                 Sous-total
               </p>
               <p className="mt-1 text-lg font-bold text-[#FAFAFA]">
                 {formatCHF(estimateResult.subtotal)}
               </p>
-              <p className="text-[10px] text-[#71717A]">CHF</p>
+              <p className="text-[10px] text-[#A1A1AA]">CHF</p>
             </div>
             <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3">
-              <p className="text-[11px] font-medium uppercase text-[#71717A]">
+              <p className="text-[11px] font-medium uppercase text-[#A1A1AA]">
                 Marge
               </p>
               <p className="mt-1 text-lg font-bold text-[#FAFAFA]">
                 {formatCHF(estimateResult.margin_total)}
               </p>
-              <p className="text-[10px] text-[#71717A]">
+              <p className="text-[10px] text-[#A1A1AA]">
                 {MARGIN_OPTIONS.find((m) => m.value === config.margin_level)?.label || ""}
               </p>
             </div>
             <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3">
-              <p className="text-[11px] font-medium uppercase text-[#71717A]">
+              <p className="text-[11px] font-medium uppercase text-[#A1A1AA]">
                 Transport
               </p>
               <p className="mt-1 text-lg font-bold text-[#FAFAFA]">
                 {formatCHF(estimateResult.transport_cost)}
               </p>
-              <p className="text-[10px] text-[#71717A]">CHF</p>
+              <p className="text-[10px] text-[#A1A1AA]">CHF</p>
             </div>
             <div className="rounded-lg border border-brand/30 bg-brand/5 p-3">
               <p className="text-[11px] font-medium uppercase text-brand">
@@ -124,8 +124,8 @@ export function EstimateResultsSection({
                 />
               </div>
             </div>
-            <span className="text-[#71717A]">|</span>
-            <div className="flex items-center gap-3 text-xs text-[#71717A]">
+            <span className="text-[#A1A1AA]">|</span>
+            <div className="flex items-center gap-3 text-xs text-[#A1A1AA]">
               <span className="flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-green-500" />
                 Élevée: {estimateResult.confidence_summary?.high || 0}
@@ -153,7 +153,7 @@ export function EstimateResultsSection({
                   grand: estimateResult.grand_total,
                 })
               }
-              className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm font-medium text-[#71717A] transition-colors hover:bg-[#27272A]"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm font-medium text-[#A1A1AA] transition-colors hover:bg-[#27272A]"
             >
               <Download className="h-4 w-4" />
               Exporter CSV
@@ -165,25 +165,25 @@ export function EstimateResultsSection({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#27272A] bg-[#27272A]/50">
-                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
                     Poste
                   </th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
                     Qté
                   </th>
-                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
                     Unité
                   </th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
                     PU (CHF)
                   </th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
                     Total (CHF)
                   </th>
-                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
                     Confiance
                   </th>
-                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
                     Source
                   </th>
                 </tr>
@@ -199,7 +199,7 @@ export function EstimateResultsSection({
                         {item.item}
                       </p>
                       {item.cfc_code && (
-                        <span className="mt-0.5 inline-block rounded bg-[#27272A] px-1.5 py-0.5 font-mono text-[10px] text-[#71717A]">
+                        <span className="mt-0.5 inline-block rounded bg-[#27272A] px-1.5 py-0.5 font-mono text-[10px] text-[#A1A1AA]">
                           {item.cfc_code}
                         </span>
                       )}
@@ -207,7 +207,7 @@ export function EstimateResultsSection({
                     <td className="px-3 py-2.5 text-right font-mono text-[#FAFAFA]">
                       {item.quantity}
                     </td>
-                    <td className="px-3 py-2.5 text-center text-xs text-[#71717A]">
+                    <td className="px-3 py-2.5 text-center text-xs text-[#A1A1AA]">
                       {item.unit}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-[#FAFAFA]">
@@ -224,7 +224,7 @@ export function EstimateResultsSection({
                             confidenceColor(item.confidence)
                           )}
                         />
-                        <span className="text-xs text-[#71717A]">
+                        <span className="text-xs text-[#A1A1AA]">
                           {confidenceLabel(item.confidence)}
                         </span>
                       </span>
@@ -249,7 +249,7 @@ export function EstimateResultsSection({
                 <tr className="border-t-2 border-[#27272A] bg-[#27272A]/80">
                   <td
                     colSpan={4}
-                    className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-[#71717A]"
+                    className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-[#A1A1AA]"
                   >
                     Sous-total
                   </td>
@@ -261,7 +261,7 @@ export function EstimateResultsSection({
                 <tr className="bg-[#27272A]/80">
                   <td
                     colSpan={4}
-                    className="px-3 py-2 text-right text-xs text-[#71717A]"
+                    className="px-3 py-2 text-right text-xs text-[#A1A1AA]"
                   >
                     Marge ({MARGIN_OPTIONS.find((m) => m.value === config.margin_level)?.label})
                   </td>
@@ -273,7 +273,7 @@ export function EstimateResultsSection({
                 <tr className="bg-[#27272A]/80">
                   <td
                     colSpan={4}
-                    className="px-3 py-2 text-right text-xs text-[#71717A]"
+                    className="px-3 py-2 text-right text-xs text-[#A1A1AA]"
                   >
                     Transport
                   </td>

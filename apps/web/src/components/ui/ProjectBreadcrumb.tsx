@@ -20,7 +20,7 @@ export function ProjectBreadcrumb({ section }: ProjectBreadcrumbProps) {
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex items-center gap-1.5 text-sm text-[#71717A] mb-2"
+      className="flex items-center gap-1.5 text-sm text-[#A1A1AA] mb-2"
     >
       <Link
         href={`/projects/${activeProject.id}`}

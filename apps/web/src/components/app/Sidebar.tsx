@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ThemeToggle } from "./ThemeToggle";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
+import { useSidebarBadges } from "@/lib/hooks/use-badges";
 import { ActiveProjectSection } from "./ActiveProjectSection";
 import { cn } from "@cantaia/ui";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,6 +30,7 @@ import {
   LifeBuoy,
   ClipboardList,
   FileSpreadsheet,
+  Map,
 } from "lucide-react";
 
 type NavItemStatus = "active" | "coming_soon" | "locked";
@@ -56,12 +58,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const { user, signOut } = useAuth();
-  const [mailUnprocessed, setMailUnprocessed] = useState(0);
 
   const [profileSuperAdmin, setProfileSuperAdmin] = useState(false);
-  const [supportUnread, setSupportUnread] = useState(0);
-  const [draftCount, setDraftCount] = useState(0);
-  const [supplierAlertCount, setSupplierAlertCount] = useState(0);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -74,61 +72,14 @@ export function Sidebar() {
       .catch(() => {});
   }, [user?.id]);
 
-  // Poll mail unprocessed count (same metric as mail page)
-  useEffect(() => {
-    if (!user?.id) return;
-    function fetchMailCount() {
-      fetch("/api/mail/decisions?counts_only=true")
-        .then((r) => r.json())
-        .then((d) => setMailUnprocessed(d.totalUnprocessed || 0))
-        .catch(() => {});
-    }
-    fetchMailCount();
-    const interval = setInterval(fetchMailCount, 60000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
-
-  // Poll support unread count
-  useEffect(() => {
-    if (!user?.id) return;
-    function fetchUnread() {
-      fetch("/api/support/tickets/unread-count")
-        .then((r) => r.json())
-        .then((d) => setSupportUnread(d.count || 0))
-        .catch(() => {});
-    }
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 60000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
-
-  // Poll agent draft count (for Mail badge)
-  useEffect(() => {
-    if (!user?.id) return;
-    function fetchDraftCount() {
-      fetch("/api/agents/drafts/counts")
-        .then((r) => r.json())
-        .then((d) => setDraftCount(d.count || 0))
-        .catch(() => {});
-    }
-    fetchDraftCount();
-    const interval = setInterval(fetchDraftCount, 60000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
-
-  // Poll supplier alert count (for Fournisseurs badge)
-  useEffect(() => {
-    if (!user?.id) return;
-    function fetchAlertCount() {
-      fetch("/api/agents/supplier-alerts/counts")
-        .then((r) => r.json())
-        .then((d) => setSupplierAlertCount(d.total || 0))
-        .catch(() => {});
-    }
-    fetchAlertCount();
-    const interval = setInterval(fetchAlertCount, 60000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
+  // One aggregated badge poll instead of four, with an automatic fallback
+  // to the legacy endpoints while /api/badges is not deployed.
+  const {
+    mail: mailUnprocessed,
+    drafts: draftCount,
+    support: supportUnread,
+    supplierAlerts: supplierAlertCount,
+  } = useSidebarBadges(!!user?.id);
 
   // /admin est désormais gardé serveur par requireOrgAdmin (admin/director) — le lien suit la même règle
   const isOrgAdmin = ["director", "admin"].includes(userRole || "");
@@ -145,7 +96,11 @@ export function Sidebar() {
 
   // Section: RÉFÉRENTIELS
   const referenceItems: NavItem[] = [
+    // /projects and /plans were only reachable from the mobile sheet or a
+    // deep link — they belong in the desktop rail like everything else.
+    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active", dataTour: "nav-projects" },
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", dataTour: "nav-submissions" },
+    { href: "/plans", labelKey: "plans", icon: Map, status: "active", dataTour: "nav-plans" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", badge: supplierAlertCount > 0 ? String(supplierAlertCount) : undefined, badgeColor: "red", dataTour: "nav-suppliers" },
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
     { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active", dataTour: "nav-chat" },
@@ -196,12 +151,12 @@ export function Sidebar() {
             )}
             title={collapsed ? t(item.labelKey) : undefined}
           >
-            <Icon className="h-[14px] w-[18px] shrink-0 text-[#52525B]" />
+            <Icon className="h-[14px] w-[18px] shrink-0 text-[#A1A1AA]" />
             {!collapsed && (
               <>
-                <span className="flex-1 text-[#52525B]">{t(item.labelKey)}</span>
+                <span className="flex-1 text-[#A1A1AA]">{t(item.labelKey)}</span>
                 {badgeText && (
-                  <span className="text-[10px] font-medium bg-[#27272A] text-[#71717A] px-[7px] py-[2px] rounded-full">
+                  <span className="text-[10px] font-medium bg-[#27272A] text-[#A1A1AA] px-[7px] py-[2px] rounded-full">
                     {badgeText}
                   </span>
                 )}
@@ -230,8 +185,10 @@ export function Sidebar() {
             <Icon className={cn("h-[14px] w-[18px]", active ? "text-[#F97316]" : "text-[#A1A1AA]")} />
             {collapsed && badgeText && (
               <span className={cn(
-                "absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[8px] font-bold text-white",
-                item.badgeColor === "red" ? "bg-[#EF4444]" : "bg-[#F97316]"
+                "absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[8px] font-bold",
+                item.badgeColor === "red"
+                  ? "bg-[#EF4444] text-white"
+                  : "bg-[#F97316] text-[#0F0F11]"
               )}>
                 {badgeText}
               </span>
@@ -242,8 +199,10 @@ export function Sidebar() {
               <span className="flex-1">{t(item.labelKey)}</span>
               {badgeText && (
                 <span className={cn(
-                  "text-[10px] font-semibold text-white px-[7px] py-[2px] rounded-full min-w-[20px] text-center",
-                  item.badgeColor === "red" ? "bg-[#EF4444]" : "bg-[#F97316]"
+                  "text-[10px] font-semibold px-[7px] py-[2px] rounded-full min-w-[20px] text-center",
+                  item.badgeColor === "red"
+                    ? "bg-[#EF4444] text-white"
+                    : "bg-[#F97316] text-[#0F0F11]"
                 )}>
                   {badgeText}
                 </span>
@@ -268,7 +227,10 @@ export function Sidebar() {
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active" },
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
-    { href: "/submissions", labelKey: "submissions", icon: ClipboardList, status: "active", dataTour: "nav-submissions" },
+    // Same icon as the desktop rail — Soumissions used to be a spreadsheet
+    // on desktop and a clipboard here.
+    { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
+    { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
     ...((isOrgAdmin || isSuperAdmin) ? [
@@ -296,11 +258,13 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-[8px_6px]">
+        {/* flex-col is what makes the `mt-auto` on the bottom group actually
+            push it down — without it the bottom links just floated mid-list. */}
+        <nav className="flex flex-1 flex-col overflow-y-auto p-[8px_6px]">
           {/* QUOTIDIEN */}
           <div className="mb-1">
             {!collapsed && (
-              <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-wider px-[10px] pt-[8px] pb-[2px]">
+              <p className="text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider px-[10px] pt-[8px] pb-[2px]">
                 {t("sections.daily")}
               </p>
             )}
@@ -315,7 +279,7 @@ export function Sidebar() {
           {/* RÉFÉRENTIELS */}
           <div className="mb-1">
             {!collapsed && (
-              <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-wider px-[10px] pt-[8px] pb-[2px]">
+              <p className="text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider px-[10px] pt-[8px] pb-[2px]">
                 {t("sections.references")}
               </p>
             )}
@@ -384,7 +348,7 @@ export function Sidebar() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-[#D4D4D8]">{userName}</p>
               </div>
-              <button
+              <button aria-label="Déconnexion"
                 onClick={signOut}
                 className="rounded-md p-1 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8] transition-colors"
                 title={t("logout")}
@@ -397,7 +361,7 @@ export function Sidebar() {
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-[7px] px-3 py-2 text-xs font-medium transition-colors",
-              "text-[#71717A] hover:bg-[#27272A] hover:text-[#D4D4D8]"
+              "text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#D4D4D8]"
             )}
             title={collapsed ? `${t("expand")} (Ctrl+B)` : `${t("collapse")} (Ctrl+B)`}
           >
@@ -430,14 +394,14 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
-                  active ? "text-[#F97316]" : "text-[#71717A] hover:text-[#FAFAFA]"
+                  active ? "text-[#F97316]" : "text-[#A1A1AA] hover:text-[#FAFAFA]"
                 )}
                 aria-current={active ? "page" : undefined}
               >
                 <span className="relative">
                   <Icon className="h-6 w-6" />
                   {item.badge && (
-                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#F97316] px-1 text-[9px] font-bold text-white">
+                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#F97316] px-1 text-[9px] font-bold text-[#0F0F11]">
                       {item.badge}
                     </span>
                   )}
@@ -446,12 +410,16 @@ export function Sidebar() {
               </Link>
             );
           })}
-          {/* Active Project button */}
-          <button
-            onClick={() => { setMobileMoreOpen(!mobileMoreOpen); }}
+          {/* Active project — opens the project itself (or the project list
+              when none is selected). This used to just toggle the "More"
+              sheet, so two adjacent buttons did the exact same thing. */}
+          <Link
+            href={activeProject ? `/projects/${activeProject.id}` : "/projects"}
+            onClick={() => setMobileMoreOpen(false)}
+            aria-label={activeProject ? activeProject.name : t("selectProject")}
             className={cn(
               "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors",
-              "text-[#71717A] hover:text-[#FAFAFA]"
+              isActive("/projects") ? "text-[#F97316]" : "text-[#A1A1AA] hover:text-[#FAFAFA]"
             )}
           >
             {activeProject ? (
@@ -467,12 +435,12 @@ export function Sidebar() {
             <span className="truncate max-w-[56px]">
               {activeProject ? activeProject.name.substring(0, 6) : t("selectProject").substring(0, 6)}
             </span>
-          </button>
+          </Link>
           <button
             onClick={() => { setMobileMoreOpen(!mobileMoreOpen); }}
             className={cn(
               "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
-              mobileMoreOpen ? "text-[#F97316]" : "text-[#71717A] hover:text-[#FAFAFA]"
+              mobileMoreOpen ? "text-[#F97316]" : "text-[#A1A1AA] hover:text-[#FAFAFA]"
             )}
             aria-expanded={mobileMoreOpen}
             aria-label={t("more")}
@@ -514,7 +482,7 @@ export function Sidebar() {
                       onClick={() => setMobileMoreOpen(false)}
                       className={cn(
                         "flex flex-col items-center gap-1.5 rounded-xl p-3 text-[11px] font-medium transition-colors",
-                        active ? "bg-[#F97316]/10 text-[#F97316]" : "text-[#71717A] hover:bg-[#27272A]"
+                        active ? "bg-[#F97316]/10 text-[#F97316]" : "text-[#A1A1AA] hover:bg-[#27272A]"
                       )}
                       aria-current={active ? "page" : undefined}
                     >

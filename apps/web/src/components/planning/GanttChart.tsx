@@ -22,6 +22,7 @@ import {
   PenLine,
   ArrowUp,
   ArrowDown,
+  Smartphone,
 } from "lucide-react";
 import type {
   Planning,
@@ -29,8 +30,10 @@ import type {
   PlanningTask,
   PlanningDependency,
   ZoomLevel,
+  BaselineSnapshot,
 } from "./planning-types";
 import { PHASE_COLORS } from "./planning-types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import GanttHeader from "./GanttHeader";
 import GanttToolbar from "./GanttToolbar";
 import GanttContextMenu, { ColorPickerRow } from "./GanttContextMenu";
@@ -39,6 +42,7 @@ import GanttTaskList from "./GanttTaskList";
 import GanttTimeline from "./GanttTimeline";
 import GanttSidePanel from "./GanttSidePanel";
 import useUndoRedo from "./useUndoRedo";
+import { toIsoDateLocal, addIsoDays } from "./date-utils";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -49,7 +53,6 @@ interface GanttChartProps {
   zoom?: ZoomLevel;
   onTaskUpdate?: (taskId: string, updates: Partial<PlanningTask>) => void;
   onPhaseUpdate?: (phaseId: string, updates: { name?: string }) => void;
-  onTaskAdd?: (phaseId: string, task: Partial<PlanningTask>) => void;
   onTaskDelete?: (taskId: string) => void;
   onDependencyCreate?: (
     predecessorId: string,
@@ -93,9 +96,7 @@ function daysBetween(a: Date, b: Date): number {
 }
 
 function addDaysToDateStr(dateStr: string, days: number): string {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
+  return addIsoDays(dateStr, days);
 }
 
 /** Calculate the best zoom level for a given date range */
@@ -116,7 +117,6 @@ export default function GanttChart({
   zoom: initialZoom,
   onTaskUpdate,
   onPhaseUpdate,
-  onTaskAdd: _onTaskAdd, // eslint-disable-line @typescript-eslint/no-unused-vars
   onTaskDelete,
   onDependencyCreate,
   onDependencyDelete,
@@ -452,6 +452,19 @@ export default function GanttChart({
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
+  // ── Destructive confirmations (replaces the native confirm() dialogs) ──
+  const [pendingDelete, setPendingDelete] = useState<
+    | { kind: "phase"; id: string; name: string }
+    | { kind: "task"; id: string; name: string }
+    | null
+  >(null);
+
+  // Phase rename — replaces the native window.prompt().
+  const [renamingPhase, setRenamingPhase] = useState<
+    { id: string; name: string } | null
+  >(null);
+  const [renameValue, setRenameValue] = useState("");
+
   // ── CRUD handlers ──────────────────────────────────────────────────
 
   const handleAddPhase = useCallback(async () => {
@@ -468,11 +481,12 @@ export default function GanttChart({
 
   const handleAddMilestone = useCallback(async (date?: string) => {
     if (onAddTaskProp) {
+      const today = toIsoDateLocal(new Date());
       await onAddTaskProp({
         is_milestone: true,
         name: t("defaults.newMilestone"),
-        start_date: date || new Date().toISOString().split("T")[0],
-        end_date: date || new Date().toISOString().split("T")[0],
+        start_date: date || today,
+        end_date: date || today,
         duration_days: 0,
       } as any);
     }
@@ -514,15 +528,11 @@ export default function GanttChart({
         },
         {
           label: t("contextMenu.rename"),
-          icon: <PenLine className="h-4 w-4 text-[#71717A]" />,
+          icon: <PenLine className="h-4 w-4 text-[#A1A1AA]" />,
           onClick: () => {
-            // Trigger inline rename — handled by task list
-            if (onPhaseUpdate) {
-              const newName = prompt(t("contextMenu.rename"), phase.name);
-              if (newName && newName.trim()) {
-                onPhaseUpdate(phase.id, { name: newName.trim() });
-              }
-            }
+            if (!onPhaseUpdate) return;
+            setRenamingPhase({ id: phase.id, name: phase.name });
+            setRenameValue(phase.name);
           },
         },
         {
@@ -531,7 +541,7 @@ export default function GanttChart({
           onClick: () => {},
           render: () => (
             <div key="color-picker">
-              <div className="px-3 py-1.5 text-xs font-medium text-[#71717A]">
+              <div className="px-3 py-1.5 text-xs font-medium text-[#A1A1AA]">
                 {t("contextMenu.changeColor")}
               </div>
               <ColorPickerRow
@@ -545,13 +555,13 @@ export default function GanttChart({
         },
         {
           label: t("contextMenu.duplicate"),
-          icon: <Copy className="h-4 w-4 text-[#71717A]" />,
+          icon: <Copy className="h-4 w-4 text-[#A1A1AA]" />,
           onClick: () => handleDuplicatePhase(phase.id),
           separator: true,
         },
         {
           label: t("contextMenu.insertBefore"),
-          icon: <ArrowUp className="h-4 w-4 text-[#71717A]" />,
+          icon: <ArrowUp className="h-4 w-4 text-[#A1A1AA]" />,
           onClick: () => {
             if (onAddPhaseProp) {
               onAddPhaseProp({ sort_order: phase.sort_order } as any);
@@ -560,7 +570,7 @@ export default function GanttChart({
         },
         {
           label: t("contextMenu.insertAfter"),
-          icon: <ArrowDown className="h-4 w-4 text-[#71717A]" />,
+          icon: <ArrowDown className="h-4 w-4 text-[#A1A1AA]" />,
           onClick: () => {
             if (onAddPhaseProp) {
               onAddPhaseProp({ sort_order: phase.sort_order + 1 } as any);
@@ -574,9 +584,7 @@ export default function GanttChart({
           separator: true,
           onClick: () => {
             if (phase.tasks.length > 0) {
-              if (confirm(t("contextMenu.confirmDeletePhase"))) {
-                handleDeletePhase(phase.id);
-              }
+              setPendingDelete({ kind: "phase", id: phase.id, name: phase.name });
             } else {
               handleDeletePhase(phase.id);
             }
@@ -594,12 +602,12 @@ export default function GanttChart({
       const items: ContextMenuItem[] = [
         {
           label: t("contextMenu.edit"),
-          icon: <PenLine className="h-4 w-4 text-[#71717A]" />,
+          icon: <PenLine className="h-4 w-4 text-[#A1A1AA]" />,
           onClick: () => handleOpenSidePanel(task.id),
         },
         {
           label: t("contextMenu.duplicate"),
-          icon: <Copy className="h-4 w-4 text-[#71717A]" />,
+          icon: <Copy className="h-4 w-4 text-[#A1A1AA]" />,
           onClick: () => handleDuplicateTask(task.id),
         },
         {
@@ -622,16 +630,14 @@ export default function GanttChart({
           variant: "danger" as const,
           separator: true,
           onClick: () => {
-            if (confirm(t("contextMenu.confirmDeleteTask"))) {
-              handleDeleteTask(task.id);
-            }
+            setPendingDelete({ kind: "task", id: task.id, name: task.name });
           },
         },
       ];
 
       setContextMenu({ x, y, items });
     },
-    [t, handleOpenSidePanel, handleDuplicateTask, handleDeleteTask, onTaskUpdate],
+    [t, handleOpenSidePanel, handleDuplicateTask, onTaskUpdate],
   );
 
   const buildEmptyContextMenu = useCallback(
@@ -674,24 +680,9 @@ export default function GanttChart({
     [readOnly, buildPhaseContextMenu, buildTaskContextMenu, buildEmptyContextMenu],
   );
 
-  // ── Keyboard shortcuts (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z) ───────────
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const isCtrl = e.ctrlKey || e.metaKey;
-      if (!isCtrl) return;
-
-      if (e.key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        undoRedo.undo();
-      } else if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
-        e.preventDefault();
-        undoRedo.redo();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [undoRedo]);
+  // Undo/redo keyboard shortcuts (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z) live in a
+  // SINGLE owner — GanttToolbar — which also guards against firing while typing
+  // in an input. A second listener here made every Ctrl+Z undo twice.
 
   // ── Timeline dates ─────────────────────────────────────────────────────
 
@@ -798,20 +789,44 @@ export default function GanttChart({
   );
 
   // ── Baseline ─────────────────────────────────────────────────────────
-  const [baselineData, setBaselineData] = useState<Record<string, { start_date: string; end_date: string; duration_days: number }> | null>(null);
-  const [showBaseline, setShowBaseline] = useState(false);
+  // The stored baseline lives in `project_plannings.config.baseline`. It used
+  // to be read from a `config` field the page never forwarded, so a saved
+  // baseline silently evaporated on every reload.
+  const storedBaseline = planning.config?.baseline ?? null;
+  // `config` is a fresh object on every fetch, so compare content, not identity.
+  const storedBaselineKey = useMemo(
+    () =>
+      storedBaseline && Object.keys(storedBaseline).length > 0
+        ? JSON.stringify(storedBaseline)
+        : "",
+    [storedBaseline],
+  );
 
-  // Load baseline from planning config on mount
+  const [baselineData, setBaselineData] = useState<BaselineSnapshot | null>(
+    () => (storedBaselineKey ? storedBaseline : null),
+  );
+  const [showBaseline, setShowBaseline] = useState(() => Boolean(storedBaselineKey));
+  const [confirmResetBaseline, setConfirmResetBaseline] = useState(false);
+  const hadBaselineRef = useRef(Boolean(storedBaselineKey));
+
   useEffect(() => {
-    const config = (planning as any).config;
-    if (config?.baseline && typeof config.baseline === "object") {
-      setBaselineData(config.baseline);
+    if (!storedBaselineKey) {
+      setBaselineData(null);
+      setShowBaseline(false);
+      hadBaselineRef.current = false;
+      return;
     }
-  }, [(planning as any).config]);
+    setBaselineData(JSON.parse(storedBaselineKey) as BaselineSnapshot);
+    // Reveal it the first time one appears, but never undo a manual hide.
+    if (!hadBaselineRef.current) {
+      setShowBaseline(true);
+      hadBaselineRef.current = true;
+    }
+  }, [storedBaselineKey]);
 
   const handleSaveBaseline = useCallback(async () => {
     if (!planningId) return;
-    const snapshot: Record<string, { start_date: string; end_date: string; duration_days: number }> = {};
+    const snapshot: BaselineSnapshot = {};
     for (const task of planning.tasks) {
       if (!task.is_milestone) {
         snapshot[task.id] = {
@@ -823,46 +838,54 @@ export default function GanttChart({
     }
     setBaselineData(snapshot);
     setShowBaseline(true);
+    hadBaselineRef.current = true;
 
     try {
-      await fetch(`/api/planning/${planningId}`, {
+      const res = await fetch(`/api/planning/${planningId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "save_baseline" }),
       });
+      if (!res.ok) {
+        console.error("[planning] save baseline rejected:", res.status);
+        setBaselineData(storedBaseline);
+      }
     } catch (err) {
       console.error("[planning] save baseline error:", err);
+      setBaselineData(storedBaseline);
     }
-  }, [planningId, planning.tasks]);
+  }, [planningId, planning.tasks, storedBaseline]);
 
   const handleToggleBaseline = useCallback(() => {
     setShowBaseline((prev) => !prev);
   }, []);
 
+  /** Reset means CLEAR — the previous implementation re-saved the current dates. */
   const handleResetBaseline = useCallback(async () => {
     if (!planningId) return;
-    const snapshot: Record<string, { start_date: string; end_date: string; duration_days: number }> = {};
-    for (const task of planning.tasks) {
-      if (!task.is_milestone) {
-        snapshot[task.id] = {
-          start_date: task.start_date,
-          end_date: task.end_date,
-          duration_days: task.duration_days,
-        };
-      }
-    }
-    setBaselineData(snapshot);
+    const previous = baselineData;
+    setBaselineData(null);
+    setShowBaseline(false);
+    setConfirmResetBaseline(false);
+    hadBaselineRef.current = false;
 
     try {
-      await fetch(`/api/planning/${planningId}`, {
+      const res = await fetch(`/api/planning/${planningId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "save_baseline" }),
+        body: JSON.stringify({ action: "clear_baseline" }),
       });
+      if (!res.ok) {
+        console.error("[planning] clear baseline rejected:", res.status);
+        setBaselineData(previous);
+        setShowBaseline(Boolean(previous));
+      }
     } catch (err) {
-      console.error("[planning] reset baseline error:", err);
+      console.error("[planning] clear baseline error:", err);
+      setBaselineData(previous);
+      setShowBaseline(Boolean(previous));
     }
-  }, [planningId, planning.tasks]);
+  }, [planningId, baselineData]);
 
   return (
     <div className="flex flex-col h-full bg-[#0F0F11] rounded-lg border border-[#27272A] overflow-hidden relative">
@@ -878,7 +901,7 @@ export default function GanttChart({
         hasBaseline={baselineData !== null}
         onSaveBaseline={handleSaveBaseline}
         onToggleBaseline={handleToggleBaseline}
-        onResetBaseline={handleResetBaseline}
+        onResetBaseline={() => setConfirmResetBaseline(true)}
         readOnly={readOnly}
         totalDays={totalDays}
         projectName={projectName}
@@ -889,24 +912,26 @@ export default function GanttChart({
             <button
               onClick={undoRedo.undo}
               disabled={!undoRedo.canUndo}
+              aria-label={t("toolbar.undo")}
               title={
                 undoRedo.undoDescription
                   ? `${t("toolbar.undo")}: ${undoRedo.undoDescription}`
                   : t("toolbar.undo")
               }
-              className="p-1.5 text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#27272A] rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <Undo2 className="h-4 w-4" />
             </button>
             <button
               onClick={undoRedo.redo}
               disabled={!undoRedo.canRedo}
+              aria-label={t("toolbar.redo")}
               title={
                 undoRedo.redoDescription
                   ? `${t("toolbar.redo")}: ${undoRedo.redoDescription}`
                   : t("toolbar.redo")
               }
-              className="p-1.5 text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#27272A] rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <Redo2 className="h-4 w-4" />
             </button>
@@ -931,11 +956,22 @@ export default function GanttChart({
         readOnly={readOnly}
       />
 
+      {/* Mobile fallback — a Gantt needs horizontal room it does not have here */}
+      <div className="lg:hidden flex-1 flex items-center justify-center p-6">
+        <div className="max-w-sm text-center">
+          <Smartphone className="h-10 w-10 text-[#52525B] mx-auto mb-3" />
+          <h3 className="text-sm font-medium text-[#FAFAFA] mb-1">
+            {t("mobile.title")}
+          </h3>
+          <p className="text-xs text-[#A1A1AA]">{t("mobile.description")}</p>
+        </div>
+      </div>
+
       {/* Main content: split panel */}
-      <div ref={containerRef} className="flex flex-1 min-h-0 relative">
-        {/* Left panel: task list (hidden on mobile) */}
+      <div ref={containerRef} className="hidden lg:flex flex-1 min-h-0 relative">
+        {/* Left panel: task list */}
         <div
-          className="hidden md:flex flex-col border-r border-[#27272A] overflow-hidden"
+          className="flex flex-col border-r border-[#27272A] overflow-hidden"
           style={{ width: `${splitPercent}%` }}
         >
           <GanttTaskList
@@ -958,7 +994,7 @@ export default function GanttChart({
 
         {/* Drag handle */}
         <div
-          className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize hover:bg-blue-100 active:bg-blue-200 transition-colors z-20 shrink-0"
+          className="flex items-center justify-center w-1.5 cursor-col-resize hover:bg-[#27272A] active:bg-[#3F3F46] transition-colors z-20 shrink-0"
           onPointerDown={handleSplitPointerDown}
         >
           <div className="w-0.5 h-8 bg-[#27272A]-foreground/30 rounded-full" />
@@ -996,17 +1032,17 @@ export default function GanttChart({
 
       {/* ── Selection action bar (when 2+ tasks selected) ──────────────── */}
       {selectedCount >= 2 && !readOnly && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-2.5 bg-gray-900 text-white rounded-xl shadow-2xl">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-2.5 bg-[#18181B] border border-[#27272A] text-[#FAFAFA] rounded-xl shadow-2xl">
           <span className="text-sm font-medium">
             {t("selection.selected", { count: selectedCount })}
           </span>
 
-          <div className="w-px h-5 bg-gray-600" />
+          <div className="w-px h-5 bg-[#27272A]" />
 
           {onBulkMove && (
             <button
               onClick={() => setShowBulkMoveModal(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-[#27272A] hover:bg-[#3F3F46] transition-colors"
             >
               <ArrowRightLeft className="h-3.5 w-3.5" />
               {t("selection.move")}
@@ -1016,7 +1052,7 @@ export default function GanttChart({
           {onBulkDuplicate && (
             <button
               onClick={handleBulkDuplicate}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-[#27272A] hover:bg-[#3F3F46] transition-colors"
             >
               <Copy className="h-3.5 w-3.5" />
               {t("contextMenu.duplicate")}
@@ -1026,7 +1062,7 @@ export default function GanttChart({
           {onBulkDelete && (
             <button
               onClick={handleBulkDelete}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-red-600 hover:bg-red-500 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
               {t("contextMenu.delete")}
@@ -1035,7 +1071,7 @@ export default function GanttChart({
 
           <button
             onClick={clearSelection}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-[#27272A] hover:bg-[#3F3F46] transition-colors"
           >
             <XCircle className="h-3.5 w-3.5" />
             {t("selection.deselect")}
@@ -1050,7 +1086,7 @@ export default function GanttChart({
             <h3 className="text-base font-semibold text-[#FAFAFA] mb-3">
               {t("selection.move")}
             </h3>
-            <p className="text-sm text-[#71717A] mb-4">
+            <p className="text-sm text-[#A1A1AA] mb-4">
               {t("selection.moveDays")}
             </p>
             <input
@@ -1069,7 +1105,7 @@ export default function GanttChart({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowBulkMoveModal(false)}
-                className="px-3 py-1.5 text-sm text-[#71717A] hover:text-[#FAFAFA]"
+                className="px-3 py-1.5 text-sm text-[#A1A1AA] hover:text-[#FAFAFA]"
               >
                 {t("config.cancel")}
               </button>
@@ -1105,8 +1141,65 @@ export default function GanttChart({
         onAddDependency={handleAddDependency}
         onRemoveDependency={handleRemoveDependency}
         onDelete={handleDeleteTask}
+        onDuplicate={onDuplicateTaskProp ? handleDuplicateTask : undefined}
         onClose={handleCloseSidePanel}
         readOnly={readOnly}
+      />
+
+      {/* ── Destructive confirmations ───────────────────────────────────── */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          if (pendingDelete.kind === "phase") {
+            handleDeletePhase(pendingDelete.id);
+          } else {
+            handleDeleteTask(pendingDelete.id);
+          }
+          setPendingDelete(null);
+        }}
+        variant="danger"
+        title={
+          pendingDelete?.kind === "phase"
+            ? t("contextMenu.confirmDeletePhase")
+            : t("contextMenu.confirmDeleteTask")
+        }
+        description={pendingDelete?.name ?? ""}
+        confirmLabel={t("contextMenu.delete")}
+      />
+
+      <ConfirmDialog
+        open={renamingPhase !== null}
+        onClose={() => setRenamingPhase(null)}
+        onConfirm={() => {
+          const next = renameValue.trim();
+          if (renamingPhase && next && next !== renamingPhase.name) {
+            handlePhaseUpdate(renamingPhase.id, { name: next });
+          }
+          setRenamingPhase(null);
+        }}
+        title={t("contextMenu.rename")}
+        description=""
+        confirmLabel={t("contextMenu.rename")}
+      >
+        <input
+          type="text"
+          value={renameValue}
+          autoFocus
+          onChange={(e) => setRenameValue(e.target.value)}
+          className="w-full rounded-lg border border-[#27272A] bg-[#18181B] text-[#FAFAFA] px-3 py-2 text-sm focus:ring-1 focus:ring-[#F97316] focus:border-[#F97316]"
+        />
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmResetBaseline}
+        onClose={() => setConfirmResetBaseline(false)}
+        onConfirm={handleResetBaseline}
+        variant="danger"
+        title={t("baseline.reset")}
+        description={t("baseline.resetConfirm")}
+        confirmLabel={t("baseline.reset")}
       />
     </div>
   );

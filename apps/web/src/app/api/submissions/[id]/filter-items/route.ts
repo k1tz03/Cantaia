@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { trackApiUsage } from "@cantaia/core/tracking";
 
 /**
  * POST /api/submissions/[id]/filter-items
@@ -105,6 +106,10 @@ export async function POST(
       {
         excluded: [],
         usage_limit_reached: true,
+        // Surfaced (not a 402) so the tab keeps working: the client can show a
+        // "top up to get AI filtering" hint without the paywall interrupting a
+        // flow the user did not explicitly ask for.
+        insufficient_credits: usageCheck.insufficient_credits,
         current: usageCheck.current,
         limit: usageCheck.limit,
         required_plan: usageCheck.requiredPlan,
@@ -150,6 +155,20 @@ Réponds UNIQUEMENT en JSON. Pour chaque poste à exclure, donne l'id et la rais
       system: JSON_ONLY_SYSTEM,
       messages: [{ role: "user", content: prompt }],
     });
+
+    // The route debits `submission_filter_items` but wrote no api_usage_logs
+    // row, so its Haiku spend was invisible in every cost dashboard.
+    trackApiUsage({
+      supabase: admin,
+      userId: user.id,
+      organizationId: userProfile.organization_id,
+      actionType: "submission_filter_items" as any,
+      apiProvider: "anthropic",
+      model: MODEL_FOR_TASK.task_extraction,
+      inputTokens: response.usage?.input_tokens || 0,
+      outputTokens: response.usage?.output_tokens || 0,
+      metadata: { submission_id: submission.id, item_count: items.length },
+    }).catch(() => {});
 
     const rawText = response.content[0].type === "text" ? response.content[0].text : "";
 

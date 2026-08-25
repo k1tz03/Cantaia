@@ -206,7 +206,7 @@ export function GuaranteeAlerts({ compact = false, projectId }: GuaranteeAlertsP
   if (compact) {
     return (
       <div className="space-y-2">
-        <h4 className="text-xs font-semibold text-[#71717A]">{t("guaranteeAlerts")}</h4>
+        <h4 className="text-xs font-semibold text-[#A1A1AA]">{t("guaranteeAlerts")}</h4>
         {alerts.slice(0, 3).map((alert, i) => (
           <div
             key={i}
@@ -217,7 +217,7 @@ export function GuaranteeAlerts({ compact = false, projectId }: GuaranteeAlertsP
           </div>
         ))}
         {alerts.length > 3 && (
-          <p className="text-[10px] text-[#71717A]">{t("moreAlerts", { count: alerts.length - 3 })}</p>
+          <p className="text-[10px] text-[#A1A1AA]">{t("moreAlerts", { count: alerts.length - 3 })}</p>
         )}
       </div>
     );

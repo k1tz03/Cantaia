@@ -188,6 +188,16 @@ export interface PrixUnitaire {
   min: number | null;
   median: number | null;
   max: number | null;
+  /**
+   * Prix médian BRUT, avant application du coefficient de calibration org.
+   * Renseigné par la Passe 4 uniquement quand une calibration est appliquée.
+   *
+   * AUDIT 08/2026 — anti-cliquet : les écarts de calibration
+   * (`price_calibrations.prix_estime_median`) doivent être calculés sur ce
+   * prix BRUT. Les calculer sur `median` (déjà calibré) faisait COMPOSER les
+   * coefficients à chaque adjudication (×1.1, puis ×1.1×1.1, …).
+   */
+  median_brut?: number | null;
   source: PriceSource;
   detail_source: string;
   date_reference: string;
@@ -322,6 +332,12 @@ export interface EstimationPipelineResult {
     /** Present only when Passe 5 ran. */
     passe5_duration_ms?: number;
     total_tokens: number;
+    /**
+     * Ventilation des tokens par provider (claude / gpt4o / gemini). Permet à la
+     * route d'émettre un `trackApiUsage` par modèle avec ses tokens réels plutôt
+     * qu'une seule ligne Anthropic avec un split arbitraire.
+     */
+    tokens_by_provider?: Record<ModelProvider, number>;
     total_cost_usd: number;
     models_used: ModelProvider[];
   };

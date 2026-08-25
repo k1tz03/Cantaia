@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Loader2, AlertCircle, Star } from "lucide-react";
+import { Loader2, AlertCircle, Star } from "lucide-react";
+import { Dialog } from "@cantaia/ui";
 import {
   SUPPLIER_SPECIALTIES,
   SPECIALTY_LABELS,
@@ -73,8 +74,6 @@ export function SupplierFormDialog({
       setSubmitted(false);
     }
   }, [open, supplier]);
-
-  if (!open) return null;
 
   function toggleSpecialty(sp: string) {
     setSpecialties((prev) =>
@@ -159,29 +158,39 @@ export function SupplierFormDialog({
   const fieldErrorClass = "border-red-400 ring-1 ring-red-400";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-lg bg-[#0F0F11] shadow-xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-[#FAFAFA]">
-            {isEdit ? "Modifier le fournisseur" : "Ajouter un fournisseur"}
-          </h2>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? "Modifier le fournisseur" : "Ajouter un fournisseur"}
+      size="lg"
+      dismissible={!saving}
+      footer={
+        <>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+            className="rounded-md px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A]"
           >
-            <X className="h-4 w-4" />
+            Annuler
           </button>
-        </div>
-
-        {/* Scrollable form body */}
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-5">
+          <button
+            type="submit"
+            form="supplier-form"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isEdit ? "Enregistrer" : "Ajouter"}
+          </button>
+        </>
+      }
+    >
+        <form id="supplier-form" onSubmit={handleSubmit} className="flex flex-col">
+          <div>
             <div className="space-y-4">
               {/* Error banner */}
               {error && (
-                <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-200">
+                <div className="flex items-center gap-2 rounded-md bg-[#EF4444]/10 px-3 py-2 text-sm text-[#F87171] ring-1 ring-inset ring-[#EF4444]/20">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   {error}
                 </div>
@@ -202,7 +211,7 @@ export function SupplierFormDialog({
                   placeholder="Ex: Bati-Group SA"
                 />
                 {submitted && !companyName.trim() && (
-                  <p className="mt-1 text-xs text-red-600">Champ obligatoire</p>
+                  <p className="mt-1 text-xs text-[#F87171]">Champ obligatoire</p>
                 )}
               </div>
 
@@ -219,7 +228,7 @@ export function SupplierFormDialog({
                       value="fournisseur"
                       checked={supplierType === "fournisseur"}
                       onChange={() => setSupplierType("fournisseur")}
-                      className="h-3.5 w-3.5 border-[#27272A] text-brand focus:ring-brand"
+                      className="h-3.5 w-3.5 border-[#27272A] text-[#F97316] focus:ring-[#F97316]"
                     />
                     <span className="text-sm text-[#FAFAFA]">Fournisseur (materiaux)</span>
                   </label>
@@ -230,7 +239,7 @@ export function SupplierFormDialog({
                       value="prestataire"
                       checked={supplierType === "prestataire"}
                       onChange={() => setSupplierType("prestataire")}
-                      className="h-3.5 w-3.5 border-[#27272A] text-brand focus:ring-brand"
+                      className="h-3.5 w-3.5 border-[#27272A] text-[#F97316] focus:ring-[#F97316]"
                     />
                     <span className="text-sm text-[#FAFAFA]">Prestataire (services)</span>
                   </label>
@@ -362,7 +371,7 @@ export function SupplierFormDialog({
                         type="checkbox"
                         checked={specialties.includes(sp)}
                         onChange={() => toggleSpecialty(sp)}
-                        className="h-3.5 w-3.5 rounded border-[#27272A] text-brand focus:ring-brand"
+                        className="h-3.5 w-3.5 rounded border-[#27272A] text-[#F97316] focus:ring-[#F97316]"
                       />
                       <span className="text-[#FAFAFA] text-xs">
                         {getSpecialtyLabel(sp)}
@@ -434,7 +443,7 @@ export function SupplierFormDialog({
                     {parseTags(certificationsInput).map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 text-green-700 dark:text-green-400 text-xs font-medium"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10B981]/10 text-[#34D399] text-xs font-medium"
                       >
                         {tag}
                       </span>
@@ -460,13 +469,13 @@ export function SupplierFormDialog({
                         className={`h-5 w-5 ${
                           i <= manualRating
                             ? "fill-amber-400 text-amber-400"
-                            : "text-[#71717A]"
+                            : "text-[#A1A1AA]"
                         }`}
                       />
                     </button>
                   ))}
                   {manualRating > 0 && (
-                    <span className="ml-2 text-xs text-[#71717A] self-center">
+                    <span className="ml-2 text-xs text-[#A1A1AA] self-center">
                       {manualRating}/5
                     </span>
                   )}
@@ -504,29 +513,7 @@ export function SupplierFormDialog({
               </div>
             </div>
           </div>
-
-          {/* Fixed footer */}
-          <div className="border-t border-[#27272A] px-5 py-3.5">
-            <div className="flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="rounded-md px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
-              >
-                Annuler
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isEdit ? "Enregistrer" : "Ajouter"}
-              </button>
-            </div>
-          </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

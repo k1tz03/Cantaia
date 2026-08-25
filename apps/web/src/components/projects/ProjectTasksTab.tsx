@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { StatusBadge, PriorityIndicator } from "@cantaia/ui";
 import { Clock, Plus } from "lucide-react";
 import { formatDate } from "@/lib/format";
+import { toLocalDateString } from "@/components/calendar/datetime-utils";
 import type { Task } from "@cantaia/database";
 
 export function ProjectTasksTab({
@@ -22,7 +23,7 @@ export function ProjectTasksTab({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="text-sm text-[#71717A]">
+        <p className="text-sm text-[#A1A1AA]">
           {tasks.length} {tasks.length === 1 ? "tâche" : "tâches"}
         </p>
         <button
@@ -38,7 +39,7 @@ export function ProjectTasksTab({
       {tasks.length > 0 ? (
         <div className="mt-3 space-y-2">
           {tasks.map((task) => {
-            const overdue = task.due_date && task.due_date < new Date().toISOString().split("T")[0] && task.status !== "done" && task.status !== "cancelled";
+            const overdue = task.due_date && task.due_date < toLocalDateString(new Date()) && task.status !== "done" && task.status !== "cancelled";
             const isDone = task.status === "done";
             return (
               <div
@@ -50,10 +51,10 @@ export function ProjectTasksTab({
               >
                 <PriorityIndicator priority={task.priority} />
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-medium ${isDone ? "text-[#71717A] line-through" : "text-[#FAFAFA]"}`}>
+                  <p className={`text-sm font-medium ${isDone ? "text-[#A1A1AA] line-through" : "text-[#FAFAFA]"}`}>
                     {task.title}
                   </p>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-[#71717A]">
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-[#A1A1AA]">
                     {task.assigned_to_name && <span>{task.assigned_to_name}</span>}
                     {task.due_date && (
                       <span className={`flex items-center gap-1 ${overdue ? "font-medium text-red-400" : ""}`}>
@@ -67,7 +68,7 @@ export function ProjectTasksTab({
                       </span>
                     )}
                     {task.lot_code && (
-                      <span className="text-[#71717A]">{task.lot_code}</span>
+                      <span className="text-[#A1A1AA]">{task.lot_code}</span>
                     )}
                   </div>
                 </div>
@@ -78,7 +79,7 @@ export function ProjectTasksTab({
         </div>
       ) : (
         <div className="mt-4 flex h-32 items-center justify-center rounded-md border border-dashed border-[#27272A] bg-[#0F0F11]">
-          <p className="text-sm text-[#71717A]">{t("noTasksYet")}</p>
+          <p className="text-sm text-[#A1A1AA]">{t("noTasksYet")}</p>
         </div>
       )}
     </div>

@@ -126,21 +126,23 @@ export async function PUT(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Log PV content correction if pv_content changed (fire-and-forget)
+    // Log PV content correction if pv_content changed (fire-and-forget).
+    // supabase-js does NOT throw on a PostgREST error, so a try/catch would
+    // never fire — destructure {error} and log it explicitly, otherwise the
+    // corrections learning loop dies silently if the table/policy breaks.
     if (body.pv_content && meetingCheck?.pv_content) {
       const existingJson = JSON.stringify(meetingCheck.pv_content);
       const newJson = JSON.stringify(body.pv_content);
       if (existingJson !== newJson) {
-        try {
-          await (admin as any).from("pv_corrections").insert({
-            organization_id: userOrg.organization_id,
-            meeting_id: id,
-            original_content: meetingCheck.pv_content,
-            corrected_content: body.pv_content,
-            corrected_by: user.id,
-            corrected_at: new Date().toISOString(),
-          });
-        } catch (pvLogErr) {
+        const { error: pvLogErr } = await (admin as any).from("pv_corrections").insert({
+          organization_id: userOrg.organization_id,
+          meeting_id: id,
+          original_content: meetingCheck.pv_content,
+          corrected_content: body.pv_content,
+          corrected_by: user.id,
+          corrected_at: new Date().toISOString(),
+        });
+        if (pvLogErr) {
           console.error("[PV Update] pv_corrections insert failed (non-blocking):", pvLogErr);
         }
       }
@@ -157,7 +159,47 @@ export async function PUT(
       "pv_html",
       "status",
       "audio_url",
+      "opposition_deadline_days",
     ];
+
+    // Per-meeting opposition deadline (migration 095). Stored per meeting so a
+    // later change of practice never rewrites the history of already-sent PVs.
+    if (body.opposition_deadline_days !== undefined && body.opposition_deadline_days !== null) {
+      const d = Number(body.opposition_deadline_days);
+      if (!Number.isInteger(d) || d < 0 || d > 365) {
+        return NextResponse.json(
+          { error: "opposition_deadline_days must be an integer between 0 and 365" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // `audio_url` is a Storage path in the SHARED `meeting-audio` bucket
+    // (`${user.id}/${meetingId}.ext`). Accepting an arbitrary value would let a
+    // user point their meeting at another tenant's audio and then transcribe or
+    // delete it. Pin it to this user + this meeting.
+    if (body.audio_url !== undefined && body.audio_url !== null) {
+      // The security property is the path prefix (this user + this meeting); the
+      // extension is only sanity-checked so nothing but an audio blob is pointed at.
+      const audioUrlRe = new RegExp(`^${user.id}/${id}\\.[a-zA-Z0-9]{1,6}$`);
+      if (typeof body.audio_url !== "string" || !audioUrlRe.test(body.audio_url)) {
+        return NextResponse.json(
+          { error: "Invalid audio_url for this meeting" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // `sent` / `finalized` announce a running opposition deadline and are owned
+    // by the dedicated finalize/send routes — a free-form PUT must not forge
+    // them.
+    const CLIENT_SETTABLE_STATUS = ["scheduled", "recording", "transcribing", "generating_pv", "review"];
+    if (body.status !== undefined && !CLIENT_SETTABLE_STATUS.includes(body.status)) {
+      return NextResponse.json(
+        { error: "This status cannot be set here" },
+        { status: 400 }
+      );
+    }
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {

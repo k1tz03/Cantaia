@@ -60,7 +60,7 @@ export default function SuperAdminConfigPage() {
       <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
         <div className="border-b border-[#27272A] px-5 py-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-            <Key className="h-4 w-4 text-[#71717A]" />
+            <Key className="h-4 w-4 text-[#A1A1AA]" />
             Variables d'environnement
           </h2>
         </div>
@@ -100,26 +100,26 @@ export default function SuperAdminConfigPage() {
       <div className="mt-6 rounded-lg border border-[#27272A] bg-[#18181B]">
         <div className="border-b border-[#27272A] px-5 py-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-            <Server className="h-4 w-4 text-[#71717A]" />
+            <Server className="h-4 w-4 text-[#A1A1AA]" />
             Informations système
           </h2>
         </div>
         <div className="divide-y divide-[#27272A]">
           <div className="flex items-center justify-between px-5 py-3">
             <span className="text-sm text-[#A1A1AA]">Framework</span>
-            <span className="text-xs text-[#71717A]">Next.js 15</span>
+            <span className="text-xs text-[#A1A1AA]">Next.js 15</span>
           </div>
           <div className="flex items-center justify-between px-5 py-3">
             <span className="text-sm text-[#A1A1AA]">Base de données</span>
-            <span className="text-xs text-[#71717A]">Supabase (PostgreSQL)</span>
+            <span className="text-xs text-[#A1A1AA]">Supabase (PostgreSQL)</span>
           </div>
           <div className="flex items-center justify-between px-5 py-3">
             <span className="text-sm text-[#A1A1AA]">IA</span>
-            <span className="text-xs text-[#71717A]">Anthropic Claude</span>
+            <span className="text-xs text-[#A1A1AA]">Anthropic Claude</span>
           </div>
           <div className="flex items-center justify-between px-5 py-3">
             <span className="text-sm text-[#A1A1AA]">Paiements</span>
-            <span className="text-xs text-[#71717A]">{config?.hasStripeKey ? "Stripe (actif)" : "Stripe (non configuré)"}</span>
+            <span className="text-xs text-[#A1A1AA]">{config?.hasStripeKey ? "Stripe (actif)" : "Stripe (non configuré)"}</span>
           </div>
         </div>
       </div>
@@ -128,7 +128,7 @@ export default function SuperAdminConfigPage() {
       <div className="mt-6 rounded-lg border border-[#27272A] bg-[#18181B]">
         <div className="border-b border-[#27272A] px-5 py-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-            <Shield className="h-4 w-4 text-[#71717A]" />
+            <Shield className="h-4 w-4 text-[#A1A1AA]" />
             Limites par plan
           </h2>
         </div>
@@ -152,12 +152,12 @@ export default function SuperAdminConfigPage() {
                 const limits = PLAN_FEATURES[planName];
                 const formatLimit = (v: number) => v === Infinity ? "Illimité" : String(v);
                 const boolIcon = (v: boolean | string) => {
-                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-[#52525B]" />;
+                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-[#A1A1AA]" />;
                   if (v === true || typeof v === "string") return <Check className="mx-auto h-3.5 w-3.5 text-green-500" />;
-                  return <Minus className="mx-auto h-3.5 w-3.5 text-[#52525B]" />;
+                  return <Minus className="mx-auto h-3.5 w-3.5 text-[#A1A1AA]" />;
                 };
                 const planningLabel = (v: false | "basic" | "full") => {
-                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-[#52525B]" />;
+                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-[#A1A1AA]" />;
                   return (
                     <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
                       v === "full" ? "bg-green-900/30 text-green-400" : "bg-blue-900/30 text-blue-400"

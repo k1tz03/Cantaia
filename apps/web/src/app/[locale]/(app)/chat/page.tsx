@@ -2,22 +2,33 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   Plus,
   Send,
+  Square,
   Trash2,
   Loader2,
   Paperclip,
   X,
   Search,
   ClipboardList,
+  FolderKanban,
+  Copy,
+  Check,
+  CheckSquare,
+  ThumbsUp,
+  ThumbsDown,
+  Database,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
 import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { useActiveProjectSafe } from "@/lib/contexts/active-project-context";
 
 /* ───────────────────── Typing dots animation ───────────────────── */
 const typingKeyframes = `
@@ -61,7 +72,7 @@ function getConversationIcon(title: string): { emoji: string; bg: string } {
   if (lower.includes("prix") || lower.includes("coût") || lower.includes("budget"))
     return { emoji: "\uD83D\uDCB0", bg: "bg-[#10B981]/10" }; // 💰
   if (lower.includes("email") || lower.includes("mail") || lower.includes("réponse"))
-    return { emoji: "\uD83D\uDCE7", bg: "bg-[#8B5CF6]/10" }; // 📧
+    return { emoji: "\uD83D\uDCE7", bg: "bg-[#3B82F6]/10" }; // 📧
   if (lower.includes("planning") || lower.includes("calendrier"))
     return { emoji: "\uD83D\uDCC5", bg: "bg-[#52525B]/10" }; // 📅
   return { emoji: "\u2753", bg: "bg-[#52525B]/10" }; // ❓
@@ -92,8 +103,65 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Initials from the signed-in user, falling back to a neutral glyph. */
+function userInitials(
+  meta: Record<string, unknown> | undefined,
+  email: string | undefined
+): string {
+  const first = (meta?.first_name as string) || "";
+  const last = (meta?.last_name as string) || "";
+  if (first || last) {
+    return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "?";
+  }
+  const full = (meta?.full_name as string) || "";
+  if (full.trim()) {
+    const parts = full.trim().split(/\s+/);
+    return (parts[0].charAt(0) + (parts[1]?.charAt(0) || "")).toUpperCase();
+  }
+  return email ? email.charAt(0).toUpperCase() : "?";
+}
+
+/**
+ * The last substantive paragraph of an assistant answer — used to pre-fill the
+ * "create a task" modal, since that is usually the actionable conclusion.
+ */
+function lastParagraph(markdown: string): string {
+  const blocks = markdown
+    .split(/\n{2,}/)
+    .map((b) => b.replace(/^[#>\-*\d.\s]+/, "").trim())
+    .filter((b) => b.length > 0);
+  return (blocks[blocks.length - 1] || markdown).slice(0, 500);
+}
+
+/** Human label for a tool call, shown while the assistant queries data. */
+const TOOL_LABELS: Record<string, string> = {
+  get_project_overview: "Consultation du projet…",
+  list_overdue_tasks: "Lecture des tâches en retard…",
+  get_submission_status: "Vérification de la soumission…",
+  search_data: "Recherche dans vos données…",
+  get_recent_activity: "Lecture de l'activité récente…",
+};
+
+interface ProjectOption {
+  id: string;
+  name: string;
+  code: string | null;
+  status: string;
+}
+
+interface TaskDraft {
+  title: string;
+  description: string;
+  projectId: string | null;
+  saving: boolean;
+  error: string | null;
+  createdId: string | null;
+}
+
 export default function ChatPage() {
   const t = useTranslations("chat");
+  const { user } = useAuth();
+  const { activeProject } = useActiveProjectSafe();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
@@ -103,6 +171,19 @@ export default function ChatPage() {
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ── Project context ────────────────────────────────────────
+  // The backend already accepts `project_id`; this exposes it to the user and
+  // defaults to whatever project the app-wide context is pointing at.
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const projectTouchedRef = useRef(false);
+
+  // ── Per-message affordances ────────────────────────────────
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<Record<number, "up" | "down">>({});
+  const [taskDraft, setTaskDraft] = useState<TaskDraft | null>(null);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
 
   const [deleteConvId, setDeleteConvId] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<Array<{
@@ -195,17 +276,51 @@ export default function ChatPage() {
     if (!isStreaming) scrollToBottom();
   }, [messages, isStreaming, scrollToBottom]);
 
-  // Cleanup animation frame on unmount
+  // Cleanup animation frame + in-flight stream on unmount
   useEffect(() => {
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      // Abort any streaming request so the server stops generating tokens
+      // nobody will read once the page is gone.
+      abortRef.current?.abort();
     };
   }, []);
+
+  /** Interrupt the in-flight assistant response (Stop button). */
+  function stopStreaming() {
+    abortRef.current?.abort();
+  }
 
   // Load conversations on mount
   useEffect(() => {
     loadConversations();
+    loadProjects();
   }, []);
+
+  // Default the chat scope to the app-wide active project — until the user
+  // picks something else, at which point their choice sticks.
+  useEffect(() => {
+    if (projectTouchedRef.current) return;
+    if (activeProject?.id) setSelectedProjectId(activeProject.id);
+  }, [activeProject?.id]);
+
+  async function loadProjects() {
+    try {
+      const res = await fetch("/api/projects/list");
+      if (!res.ok) return;
+      const data = await res.json();
+      setProjects(
+        (data.projects || []).map((p: ProjectOption) => ({
+          id: p.id,
+          name: p.name,
+          code: p.code,
+          status: p.status,
+        }))
+      );
+    } catch {
+      // Non-fatal — the selector simply stays empty.
+    }
+  }
 
   async function loadConversations() {
     try {
@@ -240,6 +355,12 @@ export default function ChatPage() {
     if (conv.id === activeConvId) return;
     setActiveConvId(conv.id);
     setMessages([]);
+    setFeedback({});
+    // A conversation carries its own project scope — adopt it on open.
+    if (conv.project_id) {
+      setSelectedProjectId(conv.project_id);
+      projectTouchedRef.current = true;
+    }
     loadMessages(conv.id);
   }
 
@@ -247,8 +368,109 @@ export default function ChatPage() {
     setActiveConvId(null);
     setMessages([]);
     setInput("");
+    setFeedback({});
     setQuestionSeed((s) => s + 1);
     textareaRef.current?.focus();
+  }
+
+  // ── Actionable outputs ─────────────────────────────────────
+
+  async function copyMessage(index: number, content: string) {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex((c) => (c === index ? null : c)), 1800);
+    } catch {
+      // Clipboard blocked (insecure context / permission) — fail quietly.
+    }
+  }
+
+  function openTaskDraft(content: string) {
+    const seed = lastParagraph(content);
+    setTaskDraft({
+      // The task title is a single line; the full paragraph goes in the body.
+      title: seed.split("\n")[0].slice(0, 120),
+      description: seed,
+      projectId: selectedProjectId,
+      saving: false,
+      error: null,
+      createdId: null,
+    });
+  }
+
+  async function submitTaskDraft() {
+    if (!taskDraft) return;
+    if (!taskDraft.projectId) {
+      setTaskDraft({ ...taskDraft, error: "Sélectionnez un projet." });
+      return;
+    }
+    if (!taskDraft.title.trim()) {
+      setTaskDraft({ ...taskDraft, error: "Le titre est obligatoire." });
+      return;
+    }
+
+    setTaskDraft({ ...taskDraft, saving: true, error: null });
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: taskDraft.projectId,
+          title: taskDraft.title.trim(),
+          description: taskDraft.description.trim() || null,
+          source: "manual",
+          priority: "medium",
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setTaskDraft((d) =>
+          d
+            ? {
+                ...d,
+                saving: false,
+                error: err?.error || "La création de la tâche a échoué.",
+              }
+            : d
+        );
+        return;
+      }
+      const data = await res.json();
+      setTaskDraft((d) =>
+        d ? { ...d, saving: false, createdId: data.task?.id || "ok" } : d
+      );
+    } catch {
+      setTaskDraft((d) =>
+        d ? { ...d, saving: false, error: "Erreur réseau." } : d
+      );
+    }
+  }
+
+  async function rateMessage(index: number, rating: "up" | "down") {
+    if (!activeConvId) return;
+    // Optimistic — feedback is advisory, a failed write should not block the UI.
+    setFeedback((prev) => ({ ...prev, [index]: rating }));
+    try {
+      await fetch("/api/chat/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: activeConvId,
+          message_index: index,
+          rating,
+        }),
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  function summarizeConversation() {
+    if (isStreaming || messages.length === 0) return;
+    sendMessage(
+      "Résume cette conversation : les points clés abordés, les décisions prises " +
+        "et les actions à entreprendre. Format court, en puces."
+    );
   }
 
   function deleteConversation(convId: string, e: React.MouseEvent) {
@@ -259,23 +481,55 @@ export default function ChatPage() {
   async function executeDeleteConversation() {
     if (!deleteConvId) return;
     try {
-      await fetch(`/api/chat/conversations/${deleteConvId}`, { method: "DELETE" });
+      const res = await fetch(`/api/chat/conversations/${deleteConvId}`, { method: "DELETE" });
+      if (!res.ok) {
+        // Never drop the conversation from the list on a failed delete —
+        // that would fake a success the server did not grant.
+        toast.error(t("deleteFailed"));
+        return;
+      }
       setConversations((prev) => prev.filter((c) => c.id !== deleteConvId));
       if (activeConvId === deleteConvId) {
         setActiveConvId(null);
         setMessages([]);
       }
     } catch {
-      // ignore
+      toast.error(t("deleteFailed"));
     }
   }
 
   async function sendMessage(text?: string) {
-    const msg = (text || input).trim();
-    if (!msg || isStreaming) return;
+    if (isStreaming) return;
+    const typed = (text || input).trim();
+    const hasFiles = pendingFiles.length > 0;
+    // Attachments alone are a valid message — fall back to a default prompt so
+    // the button (enabled when files are attached) is never a dead no-op.
+    const msg = typed || (hasFiles ? t("analyzeAttachmentsDefault") : "");
+    if (!msg) return;
+
+    // ── Upload BEFORE any optimistic UI ──────────────────────────
+    // A failed upload must cancel the send cleanly: never post a message that
+    // implies Claude analysed a file it never received.
+    let attachments: UploadedAttachment[] = [];
+    if (hasFiles) {
+      setUploading(true);
+      const uploadResult = await uploadFiles();
+      setUploading(false);
+      if (uploadResult.failed.length > 0) {
+        toast.error(t("uploadFailed", { names: uploadResult.failed.join(", ") }));
+        // Keep only the failed chips so the user can retry or remove them.
+        setPendingFiles((prev) =>
+          prev.filter((pf) => uploadResult.failed.includes(pf.file.name)),
+        );
+        return;
+      }
+      attachments = uploadResult.attachments;
+      setPendingFiles([]);
+    }
 
     setInput("");
     setIsStreaming(true);
+    setToolStatus(null);
 
     // Reset typewriter engine for new message
     pendingTextRef.current = "";
@@ -300,15 +554,6 @@ export default function ChatPage() {
     }
 
     try {
-      // Upload pending files before sending message
-      let attachments: Array<{ file_url: string; file_name: string; file_type: string; file_size: number; extracted_text?: string; is_image?: boolean }> = [];
-      if (pendingFiles.length > 0) {
-        setUploading(true);
-        attachments = await uploadFiles();
-        setUploading(false);
-        setPendingFiles([]);
-      }
-
       abortRef.current = new AbortController();
 
       const res = await fetch("/api/chat", {
@@ -317,6 +562,7 @@ export default function ChatPage() {
         body: JSON.stringify({
           conversation_id: activeConvId || undefined,
           message: msg,
+          project_id: selectedProjectId || undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
         }),
         signal: abortRef.current.signal,
@@ -358,6 +604,11 @@ export default function ChatPage() {
               loadConversations();
             } else if (event.type === "text") {
               appendToken(event.data);
+            } else if (event.type === "tool") {
+              // Tool round-trips are otherwise an unexplained pause.
+              setToolStatus(
+                TOOL_LABELS[event.data?.name] || "Consultation des données…"
+              );
             } else if (event.type === "error") {
               setMessages((prev) => {
                 const updated = [...prev];
@@ -401,6 +652,7 @@ export default function ChatPage() {
         animFrameRef.current = requestAnimationFrame(tickReveal);
       }
       setIsStreaming(false);
+      setToolStatus(null);
       abortRef.current = null;
     }
   }
@@ -472,10 +724,10 @@ export default function ChatPage() {
   const MAX_FILES = 3;
 
   function handleFileSelect(files: FileList | File[]) {
+    // .msg / .eml are intentionally excluded: the server has no extractor for
+    // them, so they would reach Claude empty. Reject them at selection time.
     const selected = Array.from(files).filter(
-      (f) =>
-        (ALLOWED_TYPES.includes(f.type) || f.name.endsWith(".msg") || f.name.endsWith(".eml")) &&
-        f.size <= MAX_FILE_SIZE
+      (f) => ALLOWED_TYPES.includes(f.type) && f.size <= MAX_FILE_SIZE
     );
     setPendingFiles((prev) => {
       const combined = [
@@ -497,20 +749,27 @@ export default function ChatPage() {
     });
   }
 
-  async function uploadFiles(): Promise<
-    Array<{
-      file_url: string;
-      file_name: string;
-      file_type: string;
-      file_size: number;
-      extracted_text?: string;
-      is_image?: boolean;
-    }>
-  > {
-    const results = [];
+  interface UploadedAttachment {
+    file_url: string;
+    storage_path?: string;
+    file_name: string;
+    file_type: string;
+    file_size: number;
+    extracted_text?: string;
+    is_image?: boolean;
+  }
+
+  /**
+   * Upload every pending file. Returns the successful attachments AND the names
+   * of the files that failed — the caller must surface failures rather than
+   * silently sending a message that pretends an un-uploaded file was analysed.
+   */
+  async function uploadFiles(): Promise<{ attachments: UploadedAttachment[]; failed: string[] }> {
+    const attachments: UploadedAttachment[] = [];
+    const failed: string[] = [];
     for (const pf of pendingFiles) {
       if (pf.uploaded) {
-        results.push(pf.uploaded);
+        attachments.push(pf.uploaded);
         continue;
       }
       const formData = new FormData();
@@ -519,28 +778,31 @@ export default function ChatPage() {
       try {
         const res = await fetch("/api/chat/upload", { method: "POST", body: formData });
         if (res.ok) {
-          const data = await res.json();
-          results.push(data);
+          attachments.push(await res.json());
         } else {
           const errData = await res.json().catch(() => ({}));
           console.error("[Chat] Upload failed:", res.status, errData);
+          failed.push(pf.file.name);
         }
       } catch (e) {
         console.error("[Chat] Upload error:", e);
+        failed.push(pf.file.name);
       }
     }
-    return results;
+    return { attachments, failed };
   }
 
   // Active conversation object
   const activeConv = conversations.find((c) => c.id === activeConvId);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
+  const initials = userInitials(user?.user_metadata, user?.email);
 
   return (
     <>
       {/* Inject typing animation keyframes */}
       <style dangerouslySetInnerHTML={{ __html: typingKeyframes }} />
 
-      <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen bg-[#0C0C0E]">
+      <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen bg-[#0F0F11]">
         {/* ───────── Conversation Sidebar (280px) ───────── */}
         <div className="hidden md:flex w-[280px] flex-col border-r border-[#27272A] bg-[#0F0F11] shrink-0">
           {/* Sidebar header */}
@@ -553,13 +815,13 @@ export default function ChatPage() {
               {t("newConversation")}
             </button>
             <div className="relative mt-2">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#52525B]" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#A1A1AA]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher..."
-                className="w-full rounded-md bg-[#18181B] border border-[#27272A] py-1.5 pl-7 pr-2.5 text-[11px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#3F3F46]"
+                placeholder={t("searchPlaceholder")}
+                className="w-full rounded-md bg-[#18181B] border border-[#27272A] py-1.5 pl-7 pr-2.5 text-[11px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#3F3F46]"
               />
             </div>
           </div>
@@ -568,27 +830,38 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto p-1.5">
             {loadingConvs ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
+                <Loader2 className="h-5 w-5 animate-spin text-[#A1A1AA]" />
               </div>
             ) : conversations.length === 0 ? (
-              <p className="px-3 py-8 text-center text-[11px] text-[#71717A]">
+              <p className="px-3 py-8 text-center text-[11px] text-[#A1A1AA]">
                 {t("noConversations")}
               </p>
             ) : (
               groupConversations().map((group) => (
                 <div key={group.label}>
-                  <p className="px-2 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-wider text-[#71717A]">
+                  <p className="px-2 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
                     {group.label}
                   </p>
                   {group.items.map((conv) => {
                     const icon = getConversationIcon(conv.title);
                     const isActive = activeConvId === conv.id;
                     return (
-                      <button
+                      // Row is a div (not a <button>) so the delete control can
+                      // be a real, focusable <button> child — nesting buttons is
+                      // invalid HTML and breaks keyboard / screen-reader use.
+                      <div
                         key={conv.id}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => selectConversation(conv)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            selectConversation(conv);
+                          }
+                        }}
                         className={cn(
-                          "group flex w-full items-center gap-2 rounded-[7px] px-2.5 py-2 text-left transition-all mb-px",
+                          "group flex w-full cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-left transition-all mb-px outline-none focus-visible:ring-1 focus-visible:ring-[#F97316]",
                           isActive
                             ? "bg-[#F97316]/[0.07]"
                             : "hover:bg-[#18181B]"
@@ -604,18 +877,20 @@ export default function ChatPage() {
                           )}>
                             {conv.title}
                           </div>
-                          <div className="text-[9px] text-[#71717A]">
+                          <div className="text-[9px] text-[#A1A1AA]">
                             {formatConvDate(conv.updated_at)}
                           </div>
                         </div>
                         <button
+                          type="button"
                           onClick={(e) => deleteConversation(conv.id, e)}
-                          className="hidden shrink-0 rounded p-0.5 text-[#71717A] hover:text-red-400 group-hover:block"
+                          className="shrink-0 rounded p-0.5 text-[#A1A1AA] opacity-0 transition-opacity hover:text-red-400 focus-visible:opacity-100 group-hover:opacity-100"
+                          aria-label={t("deleteConversation")}
                           title={t("deleteConversation")}
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -640,7 +915,7 @@ export default function ChatPage() {
           {/* Drag overlay */}
           {dragOver && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#F97316]/[0.06] border-2 border-dashed border-[#F97316] rounded-xl">
-              <p className="font-display text-base font-bold text-[#F97316]">Déposez vos fichiers ici</p>
+              <p className="font-display text-base font-bold text-[#F97316]">{t("dropFilesHere")}</p>
             </div>
           )}
 
@@ -648,26 +923,59 @@ export default function ChatPage() {
           <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-3">
             <div className="flex items-center gap-2">
               {/* Mobile new conversation button */}
-              <button
+              <button aria-label="Ajouter"
                 onClick={startNewConversation}
-                className="rounded-md border border-[#27272A] p-1.5 text-[#71717A] hover:bg-[#27272A] md:hidden"
+                className="rounded-md border border-[#27272A] p-1.5 text-[#A1A1AA] hover:bg-[#27272A] md:hidden"
               >
                 <Plus className="h-4 w-4" />
               </button>
               <h1 className="font-display text-sm font-bold text-[#FAFAFA]">
                 {activeConv?.title || t("title")}
               </h1>
-              {activeConv?.project_id && (
-                <span className="text-[11px] px-2 py-0.5 rounded-[5px] bg-[#3B82F6]/[0.07] text-[#60A5FA]">
-                  Projet
+
+              {/* Project scope — drives the assistant's data tools */}
+              <div className="relative flex items-center">
+                <FolderKanban className="pointer-events-none absolute left-2 h-3 w-3 text-[#A1A1AA]" />
+                <select
+                  value={selectedProjectId || ""}
+                  onChange={(e) => {
+                    projectTouchedRef.current = true;
+                    setSelectedProjectId(e.target.value || null);
+                  }}
+                  aria-label="Projet de référence pour l'assistant"
+                  className={cn(
+                    "appearance-none rounded-[5px] border py-1 pl-7 pr-6 text-[11px] outline-none transition-colors cursor-pointer",
+                    selectedProjectId
+                      ? "border-[#3B82F6]/30 bg-[#3B82F6]/[0.07] text-[#60A5FA]"
+                      : "border-[#3F3F46] bg-[#18181B] text-[#A1A1AA] hover:border-[#52525B]"
+                  )}
+                >
+                  <option value="">Tous les projets</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.code ? ` (${p.code})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedProject && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-[5px] bg-[#10B981]/[0.08] text-[#34D399]">
+                  <Database className="h-2.5 w-2.5" />
+                  Données projet actives
                 </span>
               )}
             </div>
             {activeConvId && (
               <div className="flex gap-1.5">
-                <button className="text-[10px] px-2.5 py-1.5 rounded-md border border-[#3F3F46] bg-[#18181B] text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#D4D4D8] transition-colors">
+                <button
+                  onClick={summarizeConversation}
+                  disabled={isStreaming || messages.length === 0}
+                  className="text-[10px] px-2.5 py-1.5 rounded-md border border-[#3F3F46] bg-[#18181B] text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#D4D4D8] transition-colors disabled:opacity-40 disabled:cursor-default"
+                >
                   <ClipboardList className="h-3 w-3 inline mr-1" />
-                  {t("summarize") || "Résumer"}
+                  {t("summarize")}
                 </button>
                 <button
                   onClick={() => activeConvId && setDeleteConvId(activeConvId)}
@@ -691,7 +999,7 @@ export default function ChatPage() {
                 <h2 className="font-display text-lg font-bold text-[#FAFAFA]">
                   {t("emptyTitle")}
                 </h2>
-                <p className="mt-1.5 max-w-md text-center text-[13px] text-[#71717A] leading-relaxed">
+                <p className="mt-1.5 max-w-md text-center text-[13px] text-[#A1A1AA] leading-relaxed">
                   {t("emptyDesc")}
                 </p>
                 <div className="mt-5 flex flex-wrap justify-center gap-2 max-w-lg">
@@ -708,7 +1016,7 @@ export default function ChatPage() {
               </div>
             ) : loadingMessages ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
+                <Loader2 className="h-6 w-6 animate-spin text-[#A1A1AA]" />
               </div>
             ) : (
               /* ── Message List ── */
@@ -737,8 +1045,9 @@ export default function ChatPage() {
                       {isUser && (
                         <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg text-[10px] text-white font-semibold"
                           style={{ background: "linear-gradient(135deg, #F97316, #EF4444)" }}
+                          title={user?.email || undefined}
                         >
-                          JR
+                          {initials}
                         </div>
                       )}
 
@@ -756,7 +1065,7 @@ export default function ChatPage() {
                           "text-[10px] font-semibold mb-1",
                           isUser ? "text-[#FB923C]" : "text-[#60A5FA]"
                         )}>
-                          {isUser ? "Vous" : "Cantaia IA"}
+                          {isUser ? t("roleYou") : t("roleAssistant")}
                         </div>
 
                         {/* Content */}
@@ -774,8 +1083,10 @@ export default function ChatPage() {
                                   <div className="h-1.5 w-1.5 rounded-full bg-[#3B82F6]" style={{ animation: "chatTypingDot 1s 0.2s infinite" }} />
                                   <div className="h-1.5 w-1.5 rounded-full bg-[#3B82F6]" style={{ animation: "chatTypingDot 1s 0.4s infinite" }} />
                                 </div>
-                                <span className="text-[11px] text-[#52525B]">
-                                  {uploading ? "Upload en cours..." : "Cantaia IA analyse..."}
+                                <span className="text-[11px] text-[#A1A1AA]">
+                                  {uploading
+                                    ? t("uploadingStatus")
+                                    : toolStatus || t("analyzingStatus")}
                                 </span>
                               </div>
                             ) : null}
@@ -794,10 +1105,10 @@ export default function ChatPage() {
                                 </span>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-[11px] text-[#D4D4D8] font-medium truncate">{att.file_name}</div>
-                                  <div className="text-[9px] text-[#52525B]">{formatFileSize(att.file_size)}</div>
+                                  <div className="text-[9px] text-[#A1A1AA]">{formatFileSize(att.file_size)}</div>
                                 </div>
                                 <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#10B981]/10 text-[#34D399] font-semibold">
-                                  {att.is_image ? "Vision IA" : "Analysé"}
+                                  {att.is_image ? t("badgeVision") : t("badgeAnalyzed")}
                                 </span>
                               </div>
                             ))}
@@ -808,6 +1119,69 @@ export default function ChatPage() {
                         {msg.created_at && (
                           <div className="text-[9px] text-[#3F3F46] mt-1">
                             {formatConvDate(msg.created_at)}
+                          </div>
+                        )}
+
+                        {/* ── Actionable outputs (assistant only, once settled) ── */}
+                        {isAI && msg.content && !(isLastAssistant && isStreaming) && (
+                          <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-[#27272A] pt-2">
+                            <button
+                              onClick={() => openTaskDraft(msg.content)}
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-[#A1A1AA] transition-colors hover:bg-[#27272A] hover:text-[#F97316]"
+                              title="Créer une tâche à partir de cette réponse"
+                            >
+                              <CheckSquare className="h-3 w-3" />
+                              Créer une tâche
+                            </button>
+                            <button
+                              onClick={() => copyMessage(i, msg.content)}
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-[#A1A1AA] transition-colors hover:bg-[#27272A] hover:text-[#D4D4D8]"
+                              title="Copier la réponse"
+                            >
+                              {copiedIndex === i ? (
+                                <>
+                                  <Check className="h-3 w-3 text-[#34D399]" />
+                                  <span className="text-[#34D399]">Copié</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3 w-3" />
+                                  Copier
+                                </>
+                              )}
+                            </button>
+
+                            {/* Feedback — only meaningful on a persisted conversation */}
+                            {activeConvId && (
+                              <div className="ml-auto flex items-center gap-0.5">
+                                <button
+                                  onClick={() => rateMessage(i, "up")}
+                                  aria-label="Réponse utile"
+                                  aria-pressed={feedback[i] === "up"}
+                                  className={cn(
+                                    "rounded-md p-1 transition-colors hover:bg-[#27272A]",
+                                    feedback[i] === "up"
+                                      ? "text-[#34D399]"
+                                      : "text-[#A1A1AA] hover:text-[#A1A1AA]"
+                                  )}
+                                >
+                                  <ThumbsUp className="h-3 w-3" />
+                                </button>
+                                <button
+                                  onClick={() => rateMessage(i, "down")}
+                                  aria-label="Réponse à améliorer"
+                                  aria-pressed={feedback[i] === "down"}
+                                  className={cn(
+                                    "rounded-md p-1 transition-colors hover:bg-[#27272A]",
+                                    feedback[i] === "down"
+                                      ? "text-[#F87171]"
+                                      : "text-[#A1A1AA] hover:text-[#A1A1AA]"
+                                  )}
+                                >
+                                  <ThumbsDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -851,7 +1225,7 @@ export default function ChatPage() {
                     <button
                       type="button"
                       onClick={() => removePendingFile(i)}
-                      className="text-[#52525B] hover:text-[#F87171] ml-0.5 text-xs"
+                      className="text-[#A1A1AA] hover:text-[#F87171] ml-0.5 text-xs"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -866,7 +1240,7 @@ export default function ChatPage() {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept={[...ALLOWED_TYPES, ".msg", ".eml"].join(",")}
+                accept={ALLOWED_TYPES.join(",")}
                 onChange={(e) => {
                   if (e.target.files) handleFileSelect(e.target.files);
                   e.target.value = "";
@@ -897,37 +1271,48 @@ export default function ChatPage() {
                 placeholder={t("placeholder")}
                 rows={1}
                 disabled={isStreaming}
-                className="flex-1 resize-none rounded-xl border border-[#3F3F46] bg-[#18181B] px-3.5 py-2 text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316] disabled:opacity-50"
+                className="flex-1 resize-none rounded-xl border border-[#3F3F46] bg-[#18181B] px-3.5 py-2 text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316] disabled:opacity-50"
                 style={{ maxHeight: 120, lineHeight: "1.5", fontFamily: "inherit" }}
               />
 
-              {/* Send button */}
-              <button
-                onClick={() => sendMessage()}
-                disabled={(!input.trim() && pendingFiles.length === 0) || isStreaming || uploading}
-                className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all",
-                  (!input.trim() && pendingFiles.length === 0) || isStreaming || uploading
-                    ? "bg-[#27272A] text-[#52525B] cursor-default"
-                    : "text-white cursor-pointer hover:opacity-90"
-                )}
-                style={
-                  (!input.trim() && pendingFiles.length === 0) || isStreaming || uploading
-                    ? undefined
-                    : { background: "linear-gradient(135deg, #F97316, #EA580C)" }
-                }
-              >
-                {isStreaming || uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </button>
+              {/* Send / Stop button — while streaming it interrupts the answer */}
+              {isStreaming ? (
+                <button
+                  onClick={stopStreaming}
+                  aria-label={t("stop")}
+                  title={t("stop")}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#18181B] border border-[#3F3F46] text-[#F87171] cursor-pointer transition-colors hover:bg-[#27272A] hover:border-[#52525B]"
+                >
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={(!input.trim() && pendingFiles.length === 0) || uploading}
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all",
+                    (!input.trim() && pendingFiles.length === 0) || uploading
+                      ? "bg-[#27272A] text-[#A1A1AA] cursor-default"
+                      : "text-white cursor-pointer hover:opacity-90"
+                  )}
+                  style={
+                    (!input.trim() && pendingFiles.length === 0) || uploading
+                      ? undefined
+                      : { background: "linear-gradient(135deg, #F97316, #EA580C)" }
+                  }
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Hint */}
             <p className="text-[10px] text-[#3F3F46] text-center mt-1.5">
-              Glissez-déposez des fichiers ici &middot; PDF, images, Excel &middot; Max 3 fichiers, 10 Mo
+              {t("inputHint")}
             </p>
           </div>
         </div>
@@ -940,6 +1325,119 @@ export default function ChatPage() {
           description={t("deleteDescription")}
           variant="danger"
         />
+
+        {/* ── Lightweight "create a task" modal ── */}
+        {taskDraft && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Créer une tâche"
+            onClick={() => setTaskDraft(null)}
+          >
+            <div
+              className="w-full max-w-md rounded-xl border border-[#27272A] bg-[#18181B] p-4 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-display text-sm font-bold text-[#FAFAFA]">
+                  Créer une tâche
+                </h3>
+                <button
+                  onClick={() => setTaskDraft(null)}
+                  aria-label="Fermer"
+                  className="rounded p-1 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#D4D4D8]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {taskDraft.createdId ? (
+                <div className="py-4 text-center">
+                  <Check className="mx-auto mb-2 h-8 w-8 text-[#34D399]" />
+                  <p className="text-[13px] text-[#D4D4D8]">Tâche créée.</p>
+                  <button
+                    onClick={() => setTaskDraft(null)}
+                    className="mt-4 rounded-lg bg-[#27272A] px-4 py-2 text-[11px] font-medium text-[#D4D4D8] hover:bg-[#3F3F46]"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
+                    Projet
+                  </label>
+                  <select
+                    value={taskDraft.projectId || ""}
+                    onChange={(e) =>
+                      setTaskDraft({
+                        ...taskDraft,
+                        projectId: e.target.value || null,
+                        error: null,
+                      })
+                    }
+                    className="mb-3 w-full rounded-lg border border-[#3F3F46] bg-[#0F0F11] px-3 py-2 text-[12px] text-[#D4D4D8] outline-none focus:border-[#F97316]"
+                  >
+                    <option value="">— Sélectionner —</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                        {p.code ? ` (${p.code})` : ""}
+                      </option>
+                    ))}
+                  </select>
+
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
+                    Titre
+                  </label>
+                  <input
+                    value={taskDraft.title}
+                    onChange={(e) =>
+                      setTaskDraft({ ...taskDraft, title: e.target.value, error: null })
+                    }
+                    className="mb-3 w-full rounded-lg border border-[#3F3F46] bg-[#0F0F11] px-3 py-2 text-[12px] text-[#D4D4D8] outline-none focus:border-[#F97316]"
+                  />
+
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
+                    Description
+                  </label>
+                  <textarea
+                    value={taskDraft.description}
+                    onChange={(e) =>
+                      setTaskDraft({ ...taskDraft, description: e.target.value })
+                    }
+                    rows={4}
+                    className="mb-3 w-full resize-none rounded-lg border border-[#3F3F46] bg-[#0F0F11] px-3 py-2 text-[12px] text-[#D4D4D8] outline-none focus:border-[#F97316]"
+                  />
+
+                  {taskDraft.error && (
+                    <p className="mb-2 rounded-md border border-[#EF4444]/25 bg-[#EF4444]/10 px-3 py-2 text-[11px] text-[#F87171]">
+                      {taskDraft.error}
+                    </p>
+                  )}
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setTaskDraft(null)}
+                      className="rounded-lg border border-[#3F3F46] px-3 py-2 text-[11px] font-medium text-[#A1A1AA] hover:bg-[#27272A]"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={submitTaskDraft}
+                      disabled={taskDraft.saving}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#F97316] px-3 py-2 text-[11px] font-semibold text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50"
+                    >
+                      {taskDraft.saving && <Loader2 className="h-3 w-3 animate-spin" />}
+                      Créer
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* fadeInUp animation for messages */}

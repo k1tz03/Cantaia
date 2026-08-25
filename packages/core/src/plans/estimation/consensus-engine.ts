@@ -256,17 +256,35 @@ export function buildConsensus(
       note = `Détecté uniquement par ${valeurs[0].provider}`;
     }
 
-    // Appliquer les poids des modèles si fournis
-    if (modelWeights && nbModeles >= 2) {
-      let weightedSum = 0;
-      let totalWeight = 0;
-      for (const v of valeurs) {
-        const w = modelWeights[v.provider] ?? 1;
-        weightedSum += v.quantite * w;
-        totalWeight += w;
+    // Appliquer les poids des modèles UNIQUEMENT sur les valeurs RETENUES par
+    // la méthode de consensus.
+    //
+    // AUDIT 08/2026 — l'ancien code pondérait sur TOUTES les `valeurs`, y
+    // compris l'outlier que la concordance partielle venait d'écarter (ligne
+    // `quantite_consensuelle = othersMed`). Avec des poids quasi égaux (cas
+    // nominal post-102), un modèle divergent de 300 % réintégrait ~1/3 de son
+    // écart dans le consensus — l'exclusion était annulée. On ne pondère donc
+    // que le sous-ensemble retenu, et jamais en divergence (où la médiane
+    // robuste doit être conservée).
+    if (modelWeights) {
+      let retained: typeof valeurs = [];
+      if (methode === 'concordance_forte' || methode === 'detection_double') {
+        retained = valeurs;
+      } else if (methode === 'concordance_partielle') {
+        retained = valeurs.filter((v) => v.provider !== outlier);
       }
-      if (totalWeight > 0) {
-        quantite_consensuelle = weightedSum / totalWeight;
+      // 'divergence' → médiane conservée ; 'detection_unique' → valeur unique.
+      if (retained.length >= 2) {
+        let weightedSum = 0;
+        let totalWeight = 0;
+        for (const v of retained) {
+          const w = modelWeights[v.provider] ?? 1;
+          weightedSum += v.quantite * w;
+          totalWeight += w;
+        }
+        if (totalWeight > 0) {
+          quantite_consensuelle = weightedSum / totalWeight;
+        }
       }
     }
 
@@ -312,8 +330,14 @@ export function buildConsensus(
   };
 }
 
-// Construit un Passe2Result fusionné à partir des postes consensuels
-function buildFusedMetrage(postes: PosteConsensus[], valid: ModelMetrage[]): Passe2Result {
+/**
+ * Construit un Passe2Result fusionné à partir des postes consensuels.
+ *
+ * Exporté pour être testé directement : `totaux_par_cfc` alimente le chiffrage
+ * (Passe 4) et l'ancrage quantitatif de la topologie (Passe 5). Une régression
+ * d'accumulation ici est invisible à l'œil et fausse les deux.
+ */
+export function buildFusedMetrage(postes: PosteConsensus[], valid: ModelMetrage[]): Passe2Result {
   // Utiliser la structure de zones du premier modèle valide comme base
   const baseResult = valid[0]?.result;
 
@@ -343,22 +367,36 @@ function buildFusedMetrage(postes: PosteConsensus[], valid: ModelMetrage[]): Pas
     })),
   };
 
-  // Calculer les totaux par CFC
+  // Calculer les totaux par CFC.
+  //
+  // B-b — La clé de lecture était `prefix` alors que la clé d'écriture était
+  // `${prefix}::${unite}` : `get()` ne trouvait JAMAIS rien, la branche
+  // d'accumulation était morte, et chaque poste ÉCRASAIT le précédent du même
+  // couple (préfixe, unité). `totaux_par_cfc` ne contenait donc que le DERNIER
+  // poste de chaque groupe, avec `nb_zones` figé à 1.
+  //
+  // Ce n'est pas un bug d'affichage : `totaux_par_cfc` est l'ancrage
+  // quantitatif transmis à la Passe 4 (chiffrage) ET à la Passe 5 (topologie).
+  // Les deux travaillaient sur du bruit. Une seule clé, une vraie somme.
   for (const p of postes) {
     const prefix = p.cfc_code.split('.')[0];
-    const existing = cfcGroups.get(prefix);
-    if (existing && existing.unite === p.unite) {
+    const key = `${prefix}::${p.unite}`;
+    const conf: ConfidenceLevel =
+      p.confiance_consensus === 'flag' ? 'low' : (p.confiance_consensus as ConfidenceLevel);
+    const existing = cfcGroups.get(key);
+
+    if (existing) {
       existing.quantite += p.quantite_consensuelle;
       existing.count++;
-      existing.confs.push(p.confiance_consensus === 'flag' ? 'low' : p.confiance_consensus as ConfidenceLevel);
-    } else if (!existing) {
-      cfcGroups.set(`${prefix}::${p.unite}`, {
+      existing.confs.push(conf);
+    } else {
+      cfcGroups.set(key, {
         cfc_code: prefix,
         cfc_libelle: p.description,
         quantite: p.quantite_consensuelle,
         unite: p.unite,
         count: 1,
-        confs: [p.confiance_consensus === 'flag' ? 'low' : p.confiance_consensus as ConfidenceLevel],
+        confs: [conf],
       });
     }
   }

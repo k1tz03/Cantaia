@@ -1,7 +1,24 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptToken } from "@/lib/crypto/token-encryption";
+
+/** httpOnly cookie holding the OAuth CSRF nonce for the direct MS flow. */
+const STATE_COOKIE = "ms_connect_state";
+const STATE_MAX_AGE_S = 600; // 10 minutes
+
+function safeEqualStr(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  if (bufA.length !== bufB.length) return false;
+  try {
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Encrypt a token if MICROSOFT_TOKEN_ENCRYPTION_KEY is configured.
@@ -85,6 +102,39 @@ export async function GET(request: Request) {
 
       if (!user) {
         return NextResponse.redirect(`${appUrl}/fr/login`);
+      }
+
+      // ── CSRF / account-binding defence ──
+      // Validate the `state` returned by Microsoft against (a) the httpOnly nonce
+      // cookie set when the flow started and (b) the current session user. Without
+      // this, an attacker could make a signed-in victim exchange the ATTACKER's
+      // authorization code, binding the attacker's mailbox to the victim's account.
+      const returnedState = searchParams.get("state") || "";
+      const cookieStore = await cookies();
+      const savedNonce = cookieStore.get(STATE_COOKIE)?.value || "";
+      let stateOk = false;
+      try {
+        const decoded = JSON.parse(
+          Buffer.from(returnedState, "base64url").toString("utf8")
+        );
+        stateOk =
+          !!savedNonce &&
+          typeof decoded?.nonce === "string" &&
+          safeEqualStr(decoded.nonce, savedNonce) &&
+          decoded?.user_id === user.id &&
+          typeof decoded?.ts === "number" &&
+          Date.now() - decoded.ts < STATE_MAX_AGE_S * 1000;
+      } catch {
+        stateOk = false;
+      }
+
+      if (!stateOk) {
+        console.error("[microsoft-connect] Invalid OAuth state — rejecting callback");
+        const rejectRes = NextResponse.redirect(
+          `${appUrl}/fr/settings?tab=outlook&connect_error=invalid_state`
+        );
+        rejectRes.cookies.delete(STATE_COOKIE);
+        return rejectRes;
       }
 
       // Exchange authorization code for tokens with Microsoft
@@ -235,9 +285,11 @@ export async function GET(request: Request) {
         user.id
       );
 
-      return NextResponse.redirect(
+      const successRes = NextResponse.redirect(
         `${appUrl}/${userLocale}/settings?tab=outlook&connected=email`
       );
+      successRes.cookies.delete(STATE_COOKIE);
+      return successRes;
     } catch (err) {
       console.error("[microsoft-connect] Unexpected error:", err);
       return NextResponse.redirect(
@@ -257,8 +309,11 @@ export async function GET(request: Request) {
   }
 
   // ── Step 2: Generate Microsoft OAuth URL ──
+  // Random nonce bound into `state` AND stored in an httpOnly cookie — verified
+  // on return to defeat CSRF / account-binding (see the code branch above).
+  const nonce = randomBytes(32).toString("base64url");
   const state = Buffer.from(
-    JSON.stringify({ user_id: user.id, ts: Date.now() })
+    JSON.stringify({ user_id: user.id, ts: Date.now(), nonce })
   ).toString("base64url");
 
   const authUrl = new URL(
@@ -271,5 +326,13 @@ export async function GET(request: Request) {
   authUrl.searchParams.set("state", state);
   authUrl.searchParams.set("prompt", "consent");
 
-  return NextResponse.redirect(authUrl.toString());
+  const res = NextResponse.redirect(authUrl.toString());
+  res.cookies.set(STATE_COOKIE, nonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax", // survives the top-level GET redirect back from Microsoft
+    path: "/api/auth/microsoft-connect",
+    maxAge: STATE_MAX_AGE_S,
+  });
+  return res;
 }

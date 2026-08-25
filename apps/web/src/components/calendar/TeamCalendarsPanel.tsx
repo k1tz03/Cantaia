@@ -16,6 +16,7 @@ import {
   Globe,
   Check,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,7 +51,7 @@ interface VisibilityState {
 
 const LS_KEY = "cantaia_calendar_visibility";
 
-function getStoredVisibility(): VisibilityState {
+export function getStoredVisibility(): VisibilityState {
   if (typeof window === "undefined") return {};
   try {
     const stored = localStorage.getItem(LS_KEY);
@@ -95,6 +96,14 @@ interface TeamCalendarsPanelProps {
   open: boolean;
   onClose: () => void;
   onVisibilityChange?: (visibility: VisibilityState) => void;
+  /** True while the external-calendar overlay is being read from Graph. */
+  externalLoading?: boolean;
+  /** Number of external events currently overlaid on the agenda. */
+  externalEventCount?: number;
+  /** Calendars that could not be read (no consent, ICS unsupported…). */
+  externalIssues?: number;
+  /** Re-read the external calendars for the visible range. */
+  onRefreshExternal?: () => void;
 }
 
 // ── Component ─────────────────────────────────────────────
@@ -103,6 +112,10 @@ export function TeamCalendarsPanel({
   open,
   onClose,
   onVisibilityChange,
+  externalLoading = false,
+  externalEventCount = 0,
+  externalIssues = 0,
+  onRefreshExternal,
 }: TeamCalendarsPanelProps) {
   const t = useTranslations("calendar");
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
@@ -271,7 +284,7 @@ export function TeamCalendarsPanel({
           </div>
           <button
             onClick={onClose}
-            className="flex items-center justify-center w-7 h-7 rounded-md text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-md text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -316,7 +329,7 @@ export function TeamCalendarsPanel({
                         <p className="text-[13px] text-[#FAFAFA] font-medium truncate">
                           {displayName(member)}
                         </p>
-                        <p className="text-[11px] text-[#52525B] truncate">
+                        <p className="text-[11px] text-[#A1A1AA] truncate">
                           {member.email}
                         </p>
                       </div>
@@ -327,7 +340,7 @@ export function TeamCalendarsPanel({
                         className={`flex-shrink-0 p-1.5 rounded-md transition-colors ${
                           isVisible(member.id)
                             ? "text-[#10B981] hover:bg-[#10B981]/10"
-                            : "text-[#52525B] hover:bg-[#27272A]"
+                            : "text-[#A1A1AA] hover:bg-[#27272A]"
                         }`}
                         title={isVisible(member.id) ? t("hide") : t("show")}
                       >
@@ -341,7 +354,7 @@ export function TeamCalendarsPanel({
                   ))}
 
                   {orgMembers.length === 0 && (
-                    <p className="text-xs text-[#52525B] px-3 py-4 text-center">
+                    <p className="text-xs text-[#A1A1AA] px-3 py-4 text-center">
                       {t("noMembers")}
                     </p>
                   )}
@@ -363,9 +376,44 @@ export function TeamCalendarsPanel({
                   </span>
                 </div>
 
-                <p className="text-[11px] text-[#52525B] mb-3 leading-relaxed">
+                <p className="text-[11px] text-[#A1A1AA] mb-3 leading-relaxed">
                   {t("externalCalendarsHint")}
                 </p>
+
+                {/* Live overlay status. The registered calendars are read from
+                    Microsoft Graph on demand and never stored — before this,
+                    adding one had no visible effect on the agenda.
+                    i18n-pending: calendar.externalOverlay* */}
+                {externals.length > 0 && (
+                  <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-[#A1A1AA]">
+                        {externalLoading
+                          ? "Lecture des calendriers externes…"
+                          : `${externalEventCount} événement(s) affiché(s) sur l'agenda`}
+                      </p>
+                      {externalIssues > 0 && !externalLoading && (
+                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[#F59E0B]">
+                          <AlertTriangle className="h-3 w-3" />
+                          {externalIssues} calendrier(s) illisible(s) — consentement admin ou lien ICS non supporté
+                        </p>
+                      )}
+                    </div>
+                    {onRefreshExternal && (
+                      <button
+                        type="button"
+                        onClick={onRefreshExternal}
+                        disabled={externalLoading}
+                        className="flex flex-shrink-0 items-center gap-1 rounded-md border border-[#27272A] px-2 py-1 text-[11px] text-[#A1A1AA] transition-colors hover:border-[#3F3F46] hover:text-[#FAFAFA] disabled:opacity-50"
+                      >
+                        <RefreshCw
+                          className={`h-3 w-3 ${externalLoading ? "animate-spin" : ""}`}
+                        />
+                        Actualiser
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   {externals.map((cal) => (
@@ -394,7 +442,7 @@ export function TeamCalendarsPanel({
                           )}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-[11px] text-[#52525B] truncate">
+                          <p className="text-[11px] text-[#A1A1AA] truncate">
                             {cal.member_email}
                           </p>
                           {cal.sync_error && (
@@ -409,7 +457,7 @@ export function TeamCalendarsPanel({
                         className={`flex-shrink-0 p-1.5 rounded-md transition-colors ${
                           isVisible(`ext_${cal.id}`)
                             ? "text-[#10B981] hover:bg-[#10B981]/10"
-                            : "text-[#52525B] hover:bg-[#27272A]"
+                            : "text-[#A1A1AA] hover:bg-[#27272A]"
                         }`}
                         title={isVisible(`ext_${cal.id}`) ? t("hide") : t("show")}
                       >
@@ -424,7 +472,7 @@ export function TeamCalendarsPanel({
                       <button
                         onClick={() => handleRemove(cal.id)}
                         disabled={deleting === cal.id}
-                        className="flex-shrink-0 p-1.5 rounded-md text-[#52525B] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                        className="flex-shrink-0 p-1.5 rounded-md text-[#A1A1AA] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
                         title={t("delete")}
                       >
                         {deleting === cal.id ? (
@@ -441,71 +489,75 @@ export function TeamCalendarsPanel({
                 {!showAddForm ? (
                   <button
                     onClick={() => setShowAddForm(true)}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#27272A] px-4 py-3 text-[13px] text-[#71717A] hover:text-[#FAFAFA] hover:border-[#3F3F46] hover:bg-[#18181B] transition-colors"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#27272A] px-4 py-3 text-[13px] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] hover:bg-[#18181B] transition-colors"
                   >
                     <UserPlus className="w-4 h-4" />
                     {t("addExternalCalendar")}
                   </button>
                 ) : (
                   <div className="mt-3 rounded-lg border border-[#27272A] bg-[#18181B] p-4 space-y-3">
-                    {/* Tab switcher */}
+                    {/* Tab switcher. The ICS path is disabled until an
+                        allowlisted server-side ICS fetch exists — POST accepts
+                        ics_url but GET /external/events never reads it, so an
+                        ICS row would be created with no effect (SSRF vector). */}
                     <div className="flex items-center bg-[#0F0F11] border border-[#27272A] rounded-lg p-0.5">
                       <button
                         onClick={() => setAddTab("outlook")}
                         className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md transition-all ${
                           addTab === "outlook"
                             ? "bg-[#3B82F6] text-white"
-                            : "text-[#71717A] hover:text-[#A1A1AA]"
+                            : "text-[#A1A1AA] hover:text-[#FAFAFA]"
                         }`}
                       >
                         <Monitor className="w-3 h-3" />
                         Microsoft 365
                       </button>
                       <button
-                        onClick={() => setAddTab("ics")}
-                        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md transition-all ${
-                          addTab === "ics"
-                            ? "bg-[#A855F7] text-white"
-                            : "text-[#71717A] hover:text-[#A1A1AA]"
-                        }`}
+                        type="button"
+                        disabled
+                        title={t("comingSoon")}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md text-[#A1A1AA] opacity-50 cursor-not-allowed"
                       >
                         <Link2 className="w-3 h-3" />
                         {t("icsLink")}
+                        <span className="ml-1 rounded bg-[#27272A] px-1 py-0.5 text-[9px] text-[#A1A1AA]">
+                          {t("comingSoon")}
+                        </span>
                       </button>
                     </div>
 
                     {/* Name field */}
                     <div>
-                      <label className="block text-[11px] text-[#71717A] mb-1">
+                      <label className="block text-[11px] text-[#A1A1AA] mb-1">
                         {t("fullName")}
                       </label>
                       <input
                         type="text"
                         value={addName}
                         onChange={(e) => setAddName(e.target.value)}
-                        placeholder="Jean Dupont"
-                        className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs text-[#FAFAFA] placeholder-[#52525B] outline-none focus:border-[#F97316]/50"
+                        placeholder={t("examplePersonName")}
+                        className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs text-[#FAFAFA] placeholder-[#71717A] outline-none focus:border-[#F97316]/50"
                       />
                     </div>
 
                     {/* Email field */}
                     <div>
-                      <label className="block text-[11px] text-[#71717A] mb-1">
+                      <label className="block text-[11px] text-[#A1A1AA] mb-1">
                         {t("emailAddress")}
                       </label>
                       <input
                         type="email"
                         value={addEmail}
                         onChange={(e) => setAddEmail(e.target.value)}
-                        placeholder="jean.dupont@entreprise.ch"
-                        className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs text-[#FAFAFA] placeholder-[#52525B] outline-none focus:border-[#F97316]/50"
+                        placeholder={t("examplePersonEmail")}
+                        className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs text-[#FAFAFA] placeholder-[#71717A] outline-none focus:border-[#F97316]/50"
                       />
                     </div>
 
                     {/* ICS URL field (only for ICS tab) */}
                     {addTab === "ics" && (
                       <div>
-                        <label className="block text-[11px] text-[#71717A] mb-1">
+                        <label className="block text-[11px] text-[#A1A1AA] mb-1">
                           {t("icsUrl")}
                         </label>
                         <input
@@ -513,9 +565,9 @@ export function TeamCalendarsPanel({
                           value={addIcsUrl}
                           onChange={(e) => setAddIcsUrl(e.target.value)}
                           placeholder="https://outlook.office365.com/owa/calendar/..."
-                          className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs text-[#FAFAFA] placeholder-[#52525B] outline-none focus:border-[#F97316]/50"
+                          className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs text-[#FAFAFA] placeholder-[#71717A] outline-none focus:border-[#F97316]/50"
                         />
-                        <p className="mt-1 text-[10px] text-[#52525B]">
+                        <p className="mt-1 text-[10px] text-[#A1A1AA]">
                           {t("icsHelp")}
                         </p>
                       </div>
@@ -536,7 +588,7 @@ export function TeamCalendarsPanel({
                       <button
                         onClick={handleAdd}
                         disabled={adding || !addEmail.trim() || !addName.trim() || (addTab === "ics" && !addIcsUrl.trim())}
-                        className="flex items-center gap-1.5 rounded-md bg-[#F97316] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#EA580C] transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 rounded-md bg-[#F97316] px-3 py-1.5 text-xs font-semibold text-[#0F0F11] hover:bg-[#EA580C] transition-colors disabled:opacity-50"
                       >
                         {adding ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -552,7 +604,7 @@ export function TeamCalendarsPanel({
                           setAddName("");
                           setAddIcsUrl("");
                         }}
-                        className="rounded-md border border-[#27272A] px-3 py-1.5 text-xs text-[#71717A] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors"
+                        className="rounded-md border border-[#27272A] px-3 py-1.5 text-xs text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors"
                       >
                         {t("cancel")}
                       </button>

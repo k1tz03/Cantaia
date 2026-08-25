@@ -1,5 +1,28 @@
 import { Mail, FileText, Hand, Shield } from "lucide-react";
+import {
+  isTaskDueThisWeek,
+  isTaskDueToday,
+  isTaskLater,
+  isTaskOpen,
+  isTaskOverdue,
+} from "@cantaia/core/projects/counters";
 import type { Task, TaskStatus, TaskPriority, TaskSource } from "@cantaia/database";
+
+// "Open" / "overdue" / "due today" now come from @cantaia/core/projects/counters —
+// the single definition shared with /api/tasks?count_only=true, the reminder
+// cron, team-health and the AI routes. The local copies that used to live here
+// compared a DATE against `new Date().toISOString()` (UTC), which drifted by a
+// day for any user west of Greenwich and disagreed with the server counters.
+export {
+  OPEN_TASK_STATUSES,
+  isTaskOpen,
+  isTaskOverdue,
+  isTaskDueToday,
+  isTaskDueThisWeek,
+  isTaskLater,
+  computeTaskCounts,
+} from "@cantaia/core/projects/counters";
+export type { TaskCounts } from "@cantaia/core/projects/counters";
 
 export type ViewMode = "list" | "kanban";
 export type SortField = "title" | "due_date" | "priority" | "status" | "created_at";
@@ -10,25 +33,25 @@ export const STATUS_ORDER: Record<TaskStatus, number> = { todo: 0, in_progress: 
 
 export const KANBAN_COLUMNS: TaskStatus[] = ["todo", "in_progress", "waiting", "done", "cancelled"];
 
+// Thin `Task`-typed aliases kept for the existing call sites.
 export function isOverdue(task: Task): boolean {
-  if (!task.due_date || task.status === "done" || task.status === "cancelled") return false;
-  return task.due_date < new Date().toISOString().split("T")[0];
+  return isTaskOverdue(task);
 }
 
 export function isDueToday(task: Task): boolean {
-  if (!task.due_date || task.status === "done" || task.status === "cancelled") return false;
-  return task.due_date === new Date().toISOString().split("T")[0];
+  return isTaskDueToday(task);
 }
 
 export function isDueThisWeek(task: Task): boolean {
-  if (!task.due_date || task.status === "done" || task.status === "cancelled") return false;
-  const today = new Date();
-  const endOfWeek = new Date(today);
-  endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
-  const dd = task.due_date;
-  const todayStr = today.toISOString().split("T")[0];
-  const endStr = endOfWeek.toISOString().split("T")[0];
-  return dd >= todayStr && dd <= endStr;
+  return isTaskDueThisWeek(task);
+}
+
+export function isLater(task: Task): boolean {
+  return isTaskLater(task);
+}
+
+export function isOpen(task: Task): boolean {
+  return isTaskOpen(task);
 }
 
 export function formatDateShort(dateStr: string): string {

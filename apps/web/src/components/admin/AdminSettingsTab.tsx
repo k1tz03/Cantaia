@@ -178,7 +178,7 @@ export default function AdminSettingsTab() {
           <button
             onClick={saveOrgInfo}
             disabled={!orgInfoDirty || savingOrgInfo}
-            className="flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {savingOrgInfo && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("save")}

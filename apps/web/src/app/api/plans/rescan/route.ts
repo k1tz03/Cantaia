@@ -4,6 +4,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { isPotentialPlan, detectPlansInEmail, savePlanFromAttachment } from "@cantaia/core/plans";
 import { getAttachments as graphGetAttachments } from "@cantaia/core/outlook";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+
+// Le rescan itère jusqu'à 200 emails avec un appel Graph getAttachments par
+// email (séquentiel) + téléchargements/uploads Storage. On lui laisse de la
+// marge mais on borne le travail par un budget temps interne (voir TIME_BUDGET).
+export const maxDuration = 300;
+
+/** Budget temps interne : on s'arrête proprement avant le maxDuration serverless. */
+const TIME_BUDGET_MS = 240_000;
 
 /**
  * POST /api/plans/rescan
@@ -35,6 +44,15 @@ export async function POST() {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
     }
 
+    // Rate limit — le bouton est cliquable sans limite et chaque run enchaîne
+    // jusqu'à 200 appels Graph. 2 rescans/heure/utilisateur suffisent largement.
+    const rl = await rateLimit(`rescan:user:${user.id}`, { limit: 2, windowSec: 3600 });
+    if (!rl.allowed) {
+      return rateLimitResponse(rl);
+    }
+
+    const startedAt = Date.now();
+
     // Get valid Graph API token
     const tokenResult = await getValidMicrosoftToken(user.id);
     if (!tokenResult.accessToken) {
@@ -45,22 +63,19 @@ export async function POST() {
     }
     const graphToken = tokenResult.accessToken;
 
-    // Get user's projects
-    const { data: memberships } = await adminClient
-      .from("project_members")
-      .select("project_id")
-      .eq("user_id", user.id);
-    const projectIds = (memberships || []).map((m: any) => m.project_id);
+    // Org-wide scope (same rule as /api/tasks): scoping the rescan by
+    // project_members meant a manager who was never added as an explicit member
+    // rescanned nothing at all and the run reported "0 plans" as a success.
+    const { data: projects } = await (adminClient as any)
+      .from("projects")
+      .select("id, name, code")
+      .eq("organization_id", userOrg.organization_id);
+
+    const projectIds = (projects || []).map((p: any) => p.id);
 
     if (projectIds.length === 0) {
       return NextResponse.json({ success: true, scanned: 0, plans_saved: 0 });
     }
-
-    // Get projects info for detection context
-    const { data: projects } = await (adminClient as any)
-      .from("projects")
-      .select("id, name, code")
-      .in("id", projectIds);
 
     const projectMap = new Map<string, { id: string; name: string; code: string }>((projects || []).map((p: any) => [p.id, p]));
 
@@ -81,19 +96,30 @@ export async function POST() {
 
     let scanned = 0;
     let plansSaved = 0;
+    let budgetReached = false;
     const errors: string[] = [];
 
     for (const email of classifiedEmails) {
+      // Budget temps : on s'arrête proprement plutôt que de se faire tuer par
+      // le runtime au milieu d'un upload (qui laisserait un état partiel).
+      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+        budgetReached = true;
+        console.warn(`[rescan] Budget temps atteint après ${scanned} emails — arrêt propre`);
+        break;
+      }
       try {
         // Fetch attachments from Graph API
         const attachments = await graphGetAttachments(graphToken, email.outlook_message_id);
 
         // Also fix has_attachments if it was wrong
         if (attachments.length > 0) {
-          await (adminClient as any)
+          const { error: flagErr } = await (adminClient as any)
             .from("email_records")
             .update({ has_attachments: true })
             .eq("id", email.id);
+          if (flagErr) {
+            console.warn(`[rescan] has_attachments update failed for ${email.id}:`, flagErr.message);
+          }
         }
 
         // Filter for potential plans
@@ -162,6 +188,7 @@ export async function POST() {
       success: true,
       scanned,
       plans_saved: plansSaved,
+      partial: budgetReached || undefined,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error: unknown) {

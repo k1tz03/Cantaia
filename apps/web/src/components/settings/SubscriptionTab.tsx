@@ -16,6 +16,7 @@ import { CreditBalanceCard } from "@/components/credits/CreditBalanceCard";
 import { CreditPacks } from "@/components/credits/CreditPacks";
 import { CreditPlans } from "@/components/credits/CreditPlans";
 import { CreditHistory } from "@/components/credits/CreditHistory";
+import { CreditCheckoutResume } from "@/components/credits/CreditCheckoutResume";
 import { SIGNUP_BONUS_CREDITS } from "@/components/credits/credit-config";
 import { useCredits } from "@/lib/hooks/use-credits";
 
@@ -77,15 +78,22 @@ export function SubscriptionTab() {
 
   async function fetchOrg() {
     try {
-      const brandingRes = await fetch("/api/organization/branding");
-      const brandingData = await brandingRes.json();
+      // Dedicated billing snapshot: GET /api/organization/branding did NOT even
+      // select the Stripe columns (so stripe_subscription_id was always
+      // undefined and the portal/cancel buttons never showed). This route
+      // returns exactly the billing fields under a stable `organization` key.
+      const res = await fetch("/api/stripe/subscription-status");
+      if (!res.ok) {
+        console.error("Failed to fetch subscription status:", res.status);
+        return;
+      }
+      const data = await res.json();
       setOrg({
-        subscription_plan: brandingData?.organization?.subscription_plan || "trial",
-        stripe_customer_id: brandingData?.organization?.stripe_customer_id || null,
-        stripe_subscription_id:
-          brandingData?.organization?.stripe_subscription_id || null,
-        trial_ends_at: brandingData?.organization?.trial_ends_at || null,
-        name: brandingData?.organization?.name || "",
+        subscription_plan: data?.organization?.subscription_plan || "trial",
+        stripe_customer_id: data?.organization?.stripe_customer_id || null,
+        stripe_subscription_id: data?.organization?.stripe_subscription_id || null,
+        trial_ends_at: data?.organization?.trial_ends_at || null,
+        name: data?.organization?.name || "",
       });
     } catch (err) {
       console.error("Failed to fetch org:", err);
@@ -161,6 +169,9 @@ export function SubscriptionTab() {
         </div>
       )}
 
+      {/* Post-checkout banner + "Reprendre" back to the interrupted page */}
+      <CreditCheckoutResume />
+
       {/* (a) Balance */}
       <section>
         <h3 className="mb-3 font-display text-[15px] font-bold text-[#FAFAFA]">
@@ -184,7 +195,7 @@ export function SubscriptionTab() {
                 {tc("currentPlan")} : {planLabel}
               </div>
               {balance && balance.monthly_allocation > 0 && (
-                <div className="text-xs text-[#71717A]">
+                <div className="text-xs text-[#A1A1AA]">
                   {tc("creditsPerMonth", { credits: balance.monthly_allocation })}
                 </div>
               )}
@@ -236,8 +247,8 @@ export function SubscriptionTab() {
 
       {/* Support line */}
       <div className="flex items-center gap-2 rounded-[10px] border border-[#27272A] bg-[#18181B] px-4 py-3">
-        <Mail className="h-4 w-4 text-[#71717A]" />
-        <p className="text-[11px] text-[#71717A]">
+        <Mail className="h-4 w-4 text-[#A1A1AA]" />
+        <p className="text-[11px] text-[#A1A1AA]">
           {t("needHelp")} &mdash;{" "}
           <span className="font-medium text-[#F97316]">support@cantaia.io</span>
         </p>

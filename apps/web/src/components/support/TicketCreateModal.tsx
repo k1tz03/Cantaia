@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { X, Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Dialog } from "@cantaia/ui";
 
 interface TicketCreateModalProps {
   open: boolean;
@@ -19,8 +20,6 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
-
-  if (!open) return null;
 
   const missingSubject = !subject.trim();
   const missingMessage = !message.trim() || message.trim().length < 10;
@@ -76,18 +75,31 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
   const fieldErrorClass = "border-red-400 ring-1 ring-red-400";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-[#0F0F11] shadow-xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-[#FAFAFA]">{t("newTicket")}</h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-[#71717A] hover:bg-[#27272A]">
-            <X className="h-4 w-4" />
+    <Dialog
+      open={open}
+      onOpenChange={(next) => { if (!next) onClose(); }}
+      title={t("newTicket")}
+      size="md"
+      dismissible={!saving}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="rounded-md px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A]">
+            Annuler
           </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <button
+            type="submit"
+            form="ticket-create-form"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {t("send")}
+          </button>
+        </>
+      }
+    >
+        <form id="ticket-create-form" onSubmit={handleSubmit} className="flex flex-col">
+          <div className="space-y-4">
             {error && (
               <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400 ring-1 ring-inset ring-red-500/20">
                 <AlertCircle className="h-4 w-4 shrink-0" />
@@ -103,7 +115,7 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 maxLength={200}
-                className={`w-full rounded-md border bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] ${submitted && missingSubject ? fieldErrorClass : "border-[#27272A]"}`}
+                className={`w-full rounded-md border bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] ${submitted && missingSubject ? fieldErrorClass : "border-[#27272A]"}`}
                 placeholder={t("subjectPlaceholder")}
               />
             </div>
@@ -149,7 +161,7 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={5}
-                className={`w-full rounded-md border bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] ${submitted && missingMessage ? fieldErrorClass : "border-[#27272A]"}`}
+                className={`w-full rounded-md border bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] ${submitted && missingMessage ? fieldErrorClass : "border-[#27272A]"}`}
                 placeholder={t("messagePlaceholder")}
               />
               {submitted && missingMessage && (
@@ -157,23 +169,7 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
               )}
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="border-t border-[#27272A] px-5 py-3.5 flex items-center justify-end gap-3">
-            <button type="button" onClick={onClose} className="rounded-md px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]">
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#F97316]/90 disabled:opacity-50"
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {t("send")}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

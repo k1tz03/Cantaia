@@ -1,37 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
+import {
+  aggregateSiteEntries,
+  computeProjectFinancials,
+  loadRateContext,
+  COUNTED_REPORT_STATUSES,
+  SITE_ENTRY_COLUMNS,
+  roundChf,
+} from "@cantaia/core/financials";
 
 /**
  * GET /api/direction/stats
- * Returns org-wide financial statistics for the direction dashboard.
- * Only includes projects where invoiced_amount is set (finalized projects).
+ * Org-wide P&L for the direction dashboard: invoiced, purchases, valued
+ * labour/machines and the REAL margin (labour was ignored until now).
+ *
+ * Restricted to org admins / directors / superadmins: this endpoint publishes
+ * per-project margins and hourly productivity — it was readable by every
+ * authenticated member, foremen included.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(_request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const check = await requireOrgAdmin();
+  if (!check.authorized) {
+    return NextResponse.json({ error: check.error }, { status: check.status });
   }
 
+  const orgId = check.profile.organization_id;
   const admin = createAdminClient();
-
-  // Get user's organization
-  const { data: userRow } = await admin
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!userRow?.organization_id) {
-    return NextResponse.json({ error: "No organization" }, { status: 403 });
-  }
-
-  const orgId = userRow.organization_id;
 
   // Get all projects with invoiced_amount set (finalized)
   const { data: projects, error: projError } = await (admin as any)
@@ -51,10 +47,13 @@ export async function GET(_request: NextRequest) {
       aggregates: {
         total_invoiced: 0,
         total_costs: 0,
+        total_labor_cost: 0,
+        total_machine_cost: 0,
         total_margin: 0,
         avg_margin_pct: 0,
         avg_margin_pct_simple: 0,
         total_hours: 0,
+        total_machine_hours: 0,
         avg_hours_per_thousand: 0,
         project_count: 0,
       },
@@ -63,106 +62,96 @@ export async function GET(_request: NextRequest) {
     });
   }
 
-  // Get site reports for all these projects
   const projectIds = projects.map((p: any) => p.id);
 
-  const { data: reports } = await (admin as any)
+  // Only submitted/locked reports are financial facts — unified filter.
+  // (This route counted drafts too, so an unsubmitted report silently changed
+  // the org margin here but not in /api/projects/[id]/financials.)
+  const { data: reports, error: reportsError } = await (admin as any)
     .from("site_reports")
     .select("id, project_id")
-    .in("project_id", projectIds);
+    .in("project_id", projectIds)
+    .in("status", COUNTED_REPORT_STATUSES as unknown as string[]);
 
-  const reportsByProject = new Map<string, string[]>();
-  for (const r of reports || []) {
-    if (!reportsByProject.has(r.project_id)) {
-      reportsByProject.set(r.project_id, []);
-    }
-    reportsByProject.get(r.project_id)!.push(r.id);
+  if (reportsError) {
+    console.error("[direction/stats] Reports fetch error:", reportsError.message);
+    return NextResponse.json({ error: "Failed to fetch site reports" }, { status: 500 });
   }
 
-  // Get all report IDs
+  const reportsByProject = new Map<string, string[]>();
+  const reportToProject = new Map<string, string>();
+  for (const r of reports || []) {
+    if (!reportsByProject.has(r.project_id)) reportsByProject.set(r.project_id, []);
+    reportsByProject.get(r.project_id)!.push(r.id);
+    reportToProject.set(r.id, r.project_id);
+  }
+
   const allReportIds = (reports || []).map((r: any) => r.id);
 
-  // Fetch entries in batches if needed (Supabase .in() has a limit)
+  // Fetch entries in batches (.in() has a practical limit)
   let allEntries: any[] = [];
   if (allReportIds.length > 0) {
     const BATCH_SIZE = 500;
     for (let i = 0; i < allReportIds.length; i += BATCH_SIZE) {
       const batch = allReportIds.slice(i, i + BATCH_SIZE);
-      const { data: entries } = await (admin as any)
+      const { data: entries, error: entriesError } = await (admin as any)
         .from("site_report_entries")
-        .select("report_id, entry_type, duration_hours, crew_member_id")
+        .select(SITE_ENTRY_COLUMNS)
         .in("report_id", batch);
-      if (entries) {
-        allEntries = allEntries.concat(entries);
+      if (entriesError) {
+        console.error("[direction/stats] Entries fetch error:", entriesError.message);
+        return NextResponse.json({ error: "Failed to fetch site report entries" }, { status: 500 });
       }
+      if (entries) allEntries = allEntries.concat(entries);
     }
   }
 
-  // Map report_id -> project_id for fast lookup
-  const reportToProject = new Map<string, string>();
-  for (const r of reports || []) {
-    reportToProject.set(r.id, r.project_id);
-  }
+  const rates = await loadRateContext(admin as any, orgId, projectIds);
 
-  // Aggregate entries per project
-  const projectStats = new Map<string, {
-    labor_hours: number;
-    machine_hours: number;
-    workers: Set<string>;
-    delivery_notes: number;
-    report_count: number;
-  }>();
-
-  // Initialize stats for all projects
-  for (const p of projects) {
-    const rIds = reportsByProject.get(p.id) || [];
-    projectStats.set(p.id, {
-      labor_hours: 0,
-      machine_hours: 0,
-      workers: new Set(),
-      delivery_notes: 0,
-      report_count: rIds.length,
-    });
-  }
-
-  // Distribute entries to projects
+  // Bucket entries per project, then value each bucket through the core.
+  const entriesByProject = new Map<string, any[]>();
   for (const entry of allEntries) {
     const projectId = reportToProject.get(entry.report_id);
     if (!projectId) continue;
-    const stats = projectStats.get(projectId);
-    if (!stats) continue;
-
-    if (entry.entry_type === "labor") {
-      stats.labor_hours += parseFloat(entry.duration_hours || "0");
-      if (entry.crew_member_id) {
-        stats.workers.add(entry.crew_member_id);
-      }
-    } else if (entry.entry_type === "machine") {
-      stats.machine_hours += parseFloat(entry.duration_hours || "0");
-    } else if (entry.entry_type === "delivery_note") {
-      stats.delivery_notes += 1;
-    }
+    const list = entriesByProject.get(projectId) || [];
+    list.push(entry);
+    entriesByProject.set(projectId, list);
   }
 
-  // Build per-project results
   let totalInvoiced = 0;
-  let totalCosts = 0;
+  let totalPurchases = 0;
+  let totalLaborCost = 0;
+  let totalMachineCost = 0;
   let totalHours = 0;
+  let totalMachineHours = 0;
   let marginPctSum = 0;
 
   const projectResults = projects.map((p: any) => {
     const invoiced = parseFloat(p.invoiced_amount || "0");
-    const costs = parseFloat(p.purchase_costs || "0");
-    const margin = invoiced - costs;
-    const marginPct = invoiced > 0 ? (margin / invoiced) * 100 : 0;
-    const stats = projectStats.get(p.id)!;
-    const laborHours = Math.round(stats.labor_hours * 100) / 100;
-    const hoursPerThousand = invoiced > 0 ? (laborHours / invoiced) * 1000 : 0;
+    const purchases = parseFloat(p.purchase_costs || "0");
+    const aggregates = aggregateSiteEntries(entriesByProject.get(p.id) || [], rates);
+    const workers = aggregates.workers instanceof Set ? aggregates.workers.size : aggregates.workers;
+
+    const financials = computeProjectFinancials({
+      invoiced,
+      purchases,
+      laborHours: aggregates.laborHours,
+      machineHours: aggregates.machineHours,
+      hourlyRate: rates.defaultRate ?? 0,
+      machineRate: rates.machineRate,
+      laborCost: aggregates.laborCost,
+      machineCost: aggregates.machineCost,
+    });
+
+    const hoursPerThousand = invoiced > 0 ? (aggregates.laborHours / invoiced) * 1000 : 0;
 
     totalInvoiced += invoiced;
-    totalCosts += costs;
-    totalHours += laborHours;
-    marginPctSum += marginPct;
+    totalPurchases += purchases;
+    totalLaborCost += financials.laborCost;
+    totalMachineCost += financials.machineCost;
+    totalHours += aggregates.laborHours;
+    totalMachineHours += aggregates.machineHours;
+    marginPctSum += financials.marginPct ?? 0;
 
     return {
       project_id: p.id,
@@ -170,19 +159,24 @@ export async function GET(_request: NextRequest) {
       status: p.status,
       closed_at: p.closed_at,
       invoiced_amount: invoiced,
-      purchase_costs: costs,
-      margin: Math.round(margin * 100) / 100,
-      margin_pct: Math.round(marginPct * 100) / 100,
-      total_labor_hours: laborHours,
-      total_machine_hours: Math.round(stats.machine_hours * 100) / 100,
-      total_workers: stats.workers.size,
-      total_delivery_notes: stats.delivery_notes,
-      total_reports: stats.report_count,
-      hours_per_thousand: Math.round(hoursPerThousand * 100) / 100,
+      purchase_costs: purchases,
+      labor_cost: financials.laborCost,
+      machine_cost: financials.machineCost,
+      machine_valued: aggregates.machineValued === true,
+      margin: financials.margin,
+      margin_pct: financials.marginPct ?? 0,
+      total_labor_hours: aggregates.laborHours,
+      total_machine_hours: aggregates.machineHours,
+      total_workers: workers,
+      total_delivery_notes: aggregates.deliveryNotes,
+      total_reports: (reportsByProject.get(p.id) || []).length,
+      hours_per_thousand: roundChf(hoursPerThousand),
     };
   });
 
   const projectCount = projects.length;
+  // Costs now include labour + machines — `total_costs` is the full cost base.
+  const totalCosts = totalPurchases + totalLaborCost + totalMachineCost;
   const totalMargin = totalInvoiced - totalCosts;
   // Weighted by invoiced amount: a 90% margin on a CHF 5k job must not offset a
   // 2% margin on a CHF 2M job, which the unweighted mean did.
@@ -191,11 +185,8 @@ export async function GET(_request: NextRequest) {
   const avgMarginPctSimple = projectCount > 0 ? marginPctSum / projectCount : 0;
   const avgHoursPerThousand = totalInvoiced > 0 ? (totalHours / totalInvoiced) * 1000 : 0;
 
-  // Top performers by margin %
-  const topPerformers = [...projectResults]
-    .sort((a, b) => b.margin_pct - a.margin_pct);
+  const topPerformers = [...projectResults].sort((a, b) => b.margin_pct - a.margin_pct);
 
-  // Hours efficiency (lower is better)
   const hoursEfficiency = [...projectResults]
     .filter((p) => p.hours_per_thousand > 0)
     .sort((a, b) => a.hours_per_thousand - b.hours_per_thousand);
@@ -203,13 +194,19 @@ export async function GET(_request: NextRequest) {
   return NextResponse.json({
     projects: projectResults,
     aggregates: {
-      total_invoiced: Math.round(totalInvoiced * 100) / 100,
-      total_costs: Math.round(totalCosts * 100) / 100,
-      total_margin: Math.round(totalMargin * 100) / 100,
-      avg_margin_pct: Math.round(avgMarginPct * 100) / 100,
-      avg_margin_pct_simple: Math.round(avgMarginPctSimple * 100) / 100,
-      total_hours: Math.round(totalHours * 100) / 100,
-      avg_hours_per_thousand: Math.round(avgHoursPerThousand * 100) / 100,
+      total_invoiced: roundChf(totalInvoiced),
+      total_purchases: roundChf(totalPurchases),
+      total_labor_cost: roundChf(totalLaborCost),
+      total_machine_cost: roundChf(totalMachineCost),
+      total_costs: roundChf(totalCosts),
+      total_margin: roundChf(totalMargin),
+      avg_margin_pct: roundChf(avgMarginPct),
+      avg_margin_pct_simple: roundChf(avgMarginPctSimple),
+      total_hours: roundChf(totalHours),
+      total_machine_hours: roundChf(totalMachineHours),
+      avg_hours_per_thousand: roundChf(avgHoursPerThousand),
+      hourly_rate: rates.defaultRate ?? null,
+      machine_rate: rates.machineRate,
       project_count: projectCount,
     },
     top_performers: topPerformers,

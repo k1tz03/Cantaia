@@ -83,9 +83,23 @@ export async function PATCH(
 
     const body = await request.json();
 
-    // Update status if provided
+    // Update status if provided — whitelist the value against the DB CHECK
+    // constraint (migration 061: 'draft' | 'submitted' | 'locked'), and verify
+    // {error} so a rejected/failed update is NOT reported as success.
     if (body.status !== undefined) {
-      await (admin as any).from("site_reports").update({ status: body.status }).eq("id", reportId);
+      const ALLOWED_STATUSES = ["draft", "submitted", "locked"];
+      if (!ALLOWED_STATUSES.includes(body.status)) {
+        return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+      }
+      const { error: updateError } = await (admin as any)
+        .from("site_reports")
+        .update({ status: body.status })
+        .eq("id", reportId)
+        .eq("project_id", id);
+      if (updateError) {
+        console.error("[Site Report Detail] PATCH status update error:", updateError.message);
+        return NextResponse.json({ error: "Failed to update report" }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ success: true });

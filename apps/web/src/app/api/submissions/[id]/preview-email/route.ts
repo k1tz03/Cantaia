@@ -1,40 +1,231 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  buildPriceRequestEmail,
+  cleanDescriptionForSupplier,
+  formatSupplierDate,
+  formatSupplierNumber,
+  normalizeSupplierLanguage,
+  supplierStrings,
+  type SupplierLanguage,
+} from "@cantaia/core/submissions";
 
 /**
- * M8: escape every value interpolated into the previewed HTML email.
- * Must stay identical to the escaping done in send-price-requests so the preview
- * matches what the supplier actually receives.
+ * Email preview for one (supplier, lot) pair of a price request.
+ * Returns: { subject, body, body_text, to, tracking_code, … }
+ *
+ *   GET  /api/submissions/[id]/preview-email
+ *        ?group=Béton&supplier_id=xxx&language=de&deadline=…&item_ids=a,b
+ *        &manual_name=…&manual_email=…&manual_contact=…
+ *        (aliases supplier_name_manual / supplier_email_manual accepted)
+ *
+ *   POST /api/submissions/[id]/preview-email
+ *        { material_group, supplier_id?, manual_name?, manual_email?,
+ *          manual_contact?, language?, item_ids?, deadline? }
+ *        — same aliases accepted; `group` accepted for material_group.
+ *
+ * A manual supplier is one with no DB row: either `supplier_id` starts with
+ * "temp-", or no supplier_id is given at all — the manual_* fields then feed
+ * the preview directly (they used to be dropped, so the wizard previewed
+ * "Fournisseur" with no address for every manually-added supplier).
+ *
+ * The preview goes through the SAME templates as send-price-requests
+ * (@cantaia/core/submissions/email-templates) — the two used to hold two
+ * independent French-only copies that drifted apart, and neither honoured the
+ * `language` the wizard sends.
  */
-function escapeHtml(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+
+interface PreviewParams {
+  group: string | null;
+  supplierId: string | null;
+  deadline: string | null;
+  manualName: string | null;
+  manualEmail: string | null;
+  manualContact: string | null;
+  language: string | null;
+  itemIds: string[] | null;
 }
 
-function cleanDescriptionForSupplier(desc: string): string {
-  let cleaned = desc;
-  cleaned = cleaned.replace(/^(?:fourniture\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
-  cleaned = cleaned.replace(/^(?:livraison\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
-  cleaned = cleaned.replace(/^(?:fourniture,?\s+(?:transport\s+et\s+)?(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
-  cleaned = cleaned.replace(/^(?:Lieferung\s+und\s+(?:Montage|Verlegung|Einbau)\s+(?:von\s+)?)/i, "");
-  cleaned = cleaned.replace(/[,;]\s*(?:y\s+compris|incl(?:us|uant)?|inkl(?:usive)?|einschliesslich)\s+.{0,80}$/i, "");
-  cleaned = cleaned.replace(/\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))$/i, "");
-  cleaned = cleaned.replace(/\s+und\s+(?:Montage|Verlegung|Einbau)$/i, "");
-  cleaned = cleaned.trim();
-  if (cleaned.length > 0) cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-  return cleaned.length >= 10 ? cleaned : desc;
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-/**
- * GET /api/submissions/[id]/preview-email?group=Béton&supplier_id=xxx
- * Returns email preview: { subject, body, to, tracking_code }
- */
+async function buildPreviewResponse(
+  submissionId: string,
+  userId: string,
+  p: PreviewParams
+): Promise<NextResponse> {
+  const admin = createAdminClient();
+
+  const group = p.group;
+  const supplierId = p.supplierId;
+
+  // A preview needs a lot, and either a DB supplier or manual supplier data.
+  if (!group || (!supplierId && !p.manualName && !p.manualEmail)) {
+    return NextResponse.json(
+      { error: "group and supplier_id (or manual_name/manual_email) required" },
+      { status: 400 }
+    );
+  }
+
+  // Get user profile first — the org is needed for every check below.
+  const { data: userProfile } = await (admin as any)
+    .from("users")
+    .select("first_name, last_name, email, organization_id, job_title")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!userProfile?.organization_id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Get submission with project info
+  const { data: submission } = await admin
+    .from("submissions")
+    .select("*, projects!submissions_project_id_fkey(id, name, code, client_name, city, organization_id)")
+    .eq("id", submissionId)
+    .maybeSingle();
+
+  if (!submission) return NextResponse.json({ error: "Submission not found" }, { status: 404 });
+
+  // Anti-IDOR: UNCONDITIONAL — a submission with no project (or whose project
+  // belongs to another org) is never previewable.
+  const proj = (submission as any).projects;
+  if (!proj?.organization_id || proj.organization_id !== userProfile.organization_id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Get supplier — from DB (org-scoped) or manual params
+  const isManual = !supplierId || supplierId.startsWith("temp-");
+  let supplier: { company_name: string; contact_name: string | null; email: string | null };
+
+  if (isManual) {
+    supplier = {
+      company_name: p.manualName || "Fournisseur",
+      contact_name: p.manualContact || null,
+      email: p.manualEmail || null,
+    };
+  } else {
+    const { data: dbSupplier } = await admin
+      .from("suppliers")
+      .select("company_name, contact_name, email")
+      .eq("id", supplierId)
+      .eq("organization_id", userProfile.organization_id)
+      .maybeSingle();
+
+    if (!dbSupplier) return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
+    supplier = dbSupplier;
+  }
+
+  // Get org name
+  const { data: org } = await admin
+    .from("organizations")
+    .select("name")
+    .eq("id", userProfile.organization_id)
+    .maybeSingle();
+
+  // Get items for this group, optionally filtered by item_ids
+  const itemIdsFilter = p.itemIds && p.itemIds.length > 0 ? new Set(p.itemIds) : null;
+
+  const { data: allItems } = await (admin as any)
+    .from("submission_items")
+    .select("*")
+    .eq("submission_id", submissionId);
+
+  let groupItems = (allItems || []).filter((i: any) => i.material_group === group);
+  if (itemIdsFilter) {
+    groupItems = groupItems.filter((i: any) => itemIdsFilter.has(i.id));
+  }
+
+  // Generate preview tracking code
+  const shortId = submissionId.slice(0, 4).toUpperCase();
+  const groupSlug = group
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]/g, "-")
+    .slice(0, 15);
+  const trackingCode = `SUB-${shortId}-${groupSlug}-XXXXXX`;
+
+  const language: SupplierLanguage = normalizeSupplierLanguage(p.language);
+  const s = supplierStrings(language);
+
+  const projectName = (submission as any).projects?.name || "Projet";
+  const projectCode = (submission as any).projects?.code;
+  const senderName = `${userProfile?.first_name || ""} ${userProfile?.last_name || ""}`.trim();
+
+  const deadline = p.deadline;
+
+  // The portal link is minted at send time (one token per real request), so
+  // the preview shows a placeholder block instead of a dead URL.
+  const { subject: templateSubject, html } = buildPriceRequestEmail({
+    contactName: supplier.contact_name,
+    projectName,
+    materialGroup: group,
+    items: groupItems,
+    trackingCode,
+    portalUrl: process.env.NEXT_PUBLIC_APP_URL
+      ? `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "")}/${language}/offre/…`
+      : null,
+    deadline,
+    senderName,
+    senderCompany: org?.name || "",
+    senderTitle: userProfile?.job_title || null,
+    language,
+  });
+
+  const subject = projectCode
+    ? templateSubject.replace(projectName, `${projectName} (${projectCode})`)
+    : templateSubject;
+
+  // ── Plain-text mirror for the editable textarea ────────────
+  const contactFirstName = supplier.contact_name?.split(/\s+/)[0] || null;
+  const deadlineStr = formatSupplierDate(deadline, language);
+
+  const colWidths = { num: 6, desc: 40, unit: 8, qty: 10 };
+  const pad = (v: string, w: number) => (v.length >= w ? v.slice(0, w) : v + " ".repeat(w - v.length));
+  const padR = (v: string, w: number) => (v.length >= w ? v.slice(0, w) : " ".repeat(w - v.length) + v);
+  const separator = "-".repeat(colWidths.num + colWidths.desc + colWidths.unit + colWidths.qty + 9);
+  const textTable = [
+    `${pad(s.colNumber, colWidths.num)} | ${pad(s.colDescription, colWidths.desc)} | ${pad(s.colUnit, colWidths.unit)} | ${padR(s.colQuantity, colWidths.qty)}`,
+    separator,
+    ...groupItems.map((i: any) => {
+      const num = (i.item_number || "-").slice(0, colWidths.num);
+      const desc = cleanDescriptionForSupplier(i.description || "").slice(0, colWidths.desc);
+      const unit = (i.unit || "-").slice(0, colWidths.unit);
+      const qty = i.quantity != null ? formatSupplierNumber(Number(i.quantity), language, 0) : "-";
+      return `${pad(num, colWidths.num)} | ${pad(desc, colWidths.desc)} | ${pad(unit, colWidths.unit)} | ${padR(qty, colWidths.qty)}`;
+    }),
+  ].join("\n");
+
+  // `stripTags` keeps the plain-text mirror readable: the template fragments
+  // carry <strong> markers that must not leak into a textarea.
+  const stripTags = (v: string) => v.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim();
+
+  const bodyText = [
+    `${s.greeting(contactFirstName)},`,
+    stripTags(s.prIntro(projectName, group)),
+    textTable,
+    stripTags(s.prDeadline(deadlineStr)),
+    s.prAvailable,
+    `${s.closing}\n${senderName}${userProfile?.job_title ? `\n${userProfile.job_title}` : ""}\n${org?.name || ""}`,
+  ]
+    .join("\n\n")
+    .trim();
+
+  return NextResponse.json({
+    success: true,
+    subject,
+    body: html,
+    body_text: bodyText,
+    language,
+    to: supplier.email,
+    supplier_name: supplier.company_name,
+    tracking_code: trackingCode,
+    items_count: groupItems.length,
+  });
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -45,181 +236,58 @@ export async function GET(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const admin = createAdminClient();
+    const q = request.nextUrl.searchParams;
+    const itemIdsParam = q.get("item_ids");
 
-    const group = request.nextUrl.searchParams.get("group");
-    const supplierId = request.nextUrl.searchParams.get("supplier_id");
-    const deadline = request.nextUrl.searchParams.get("deadline");
-    // Manual supplier data passed as query params when supplier is temp
-    const manualName = request.nextUrl.searchParams.get("manual_name");
-    const manualEmail = request.nextUrl.searchParams.get("manual_email");
-    const manualContact = request.nextUrl.searchParams.get("manual_contact");
+    return await buildPreviewResponse(submissionId, user.id, {
+      group: asString(q.get("group")) || asString(q.get("material_group")),
+      supplierId: asString(q.get("supplier_id")),
+      deadline: asString(q.get("deadline")),
+      manualName: asString(q.get("manual_name")) || asString(q.get("supplier_name_manual")),
+      manualEmail: asString(q.get("manual_email")) || asString(q.get("supplier_email_manual")),
+      manualContact: asString(q.get("manual_contact")),
+      language: asString(q.get("language")),
+      itemIds: itemIdsParam ? itemIdsParam.split(",").filter(Boolean) : null,
+    });
+  } catch (err: any) {
+    console.error("[preview-email] Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
 
-    if (!group || !supplierId) {
-      return NextResponse.json({ error: "group and supplier_id required" }, { status: 400 });
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: submissionId } = await params;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "invalid_body" }, { status: 400 });
     }
 
-    // Get submission with project info
-    const { data: submission } = await admin
-      .from("submissions")
-      .select("*, projects!submissions_project_id_fkey(id, name, code, client_name, city, organization_id)")
-      .eq("id", submissionId)
-      .maybeSingle();
+    const rawItemIds = body.item_ids;
+    const itemIds = Array.isArray(rawItemIds)
+      ? rawItemIds.filter((v): v is string => typeof v === "string" && !!v)
+      : typeof rawItemIds === "string" && rawItemIds
+        ? rawItemIds.split(",").filter(Boolean)
+        : null;
 
-    if (!submission) return NextResponse.json({ error: "Submission not found" }, { status: 404 });
-
-    // Verify submission's project belongs to user's org (checked after userProfile fetch below)
-
-    // Get supplier — from DB or manual params
-    const isManual = supplierId.startsWith("temp-");
-    let supplier: { company_name: string; contact_name: string | null; email: string | null };
-
-    if (isManual) {
-      supplier = {
-        company_name: manualName || "Fournisseur",
-        contact_name: manualContact || null,
-        email: manualEmail || null,
-      };
-    } else {
-      const { data: dbSupplier } = await admin
-        .from("suppliers")
-        .select("company_name, contact_name, email")
-        .eq("id", supplierId)
-        .maybeSingle();
-
-      if (!dbSupplier) return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
-      supplier = dbSupplier;
-    }
-
-    // Get user profile
-    const { data: userProfile } = await (admin as any)
-      .from("users")
-      .select("first_name, last_name, email, organization_id, job_title")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    // Verify submission's project belongs to user's org
-    const proj = (submission as any).projects;
-    if (proj && userProfile?.organization_id && proj.organization_id !== userProfile.organization_id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    // Get org name
-    const { data: org } = await admin
-      .from("organizations")
-      .select("name")
-      .eq("id", userProfile?.organization_id)
-      .maybeSingle();
-
-    // Get items for this group, optionally filtered by item_ids
-    const itemIdsParam = request.nextUrl.searchParams.get("item_ids");
-    const itemIdsFilter = itemIdsParam ? new Set(itemIdsParam.split(",")) : null;
-
-    const { data: allItems } = await (admin as any)
-      .from("submission_items")
-      .select("*")
-      .eq("submission_id", submissionId);
-
-    let groupItems = (allItems || []).filter((i: any) => i.material_group === group);
-    if (itemIdsFilter && itemIdsFilter.size > 0) {
-      groupItems = groupItems.filter((i: any) => itemIdsFilter.has(i.id));
-    }
-
-    // Generate preview tracking code
-    const shortId = submissionId.slice(0, 4).toUpperCase();
-    const groupSlug = group
-      .toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, "-")
-      .slice(0, 15);
-    const trackingCode = `SUB-${shortId}-${groupSlug}-XXXXXX`;
-
-    const projectName = (submission as any).projects?.name || "Projet";
-    const contactFirstName = supplier.contact_name?.split(/\s+/)[0] || null;
-    const greeting = contactFirstName ? `Bonjour ${contactFirstName}` : "Bonjour";
-    const deadlineStr = deadline
-      ? new Date(deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })
-      : "dans les meilleurs délais";
-
-    const itemsTable = groupItems
-      .map((i: any) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(i.item_number || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(cleanDescriptionForSupplier(i.description || ""))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${escapeHtml(i.unit || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
-      .join("\n");
-
-    const projectCode = (submission as any).projects?.code;
-    const subject = projectCode
-      ? `Demande de prix — ${projectName} (${projectCode}) — ${group}`
-      : `Demande de prix — ${projectName} — ${group}`;
-    const senderName = `${userProfile?.first_name || ""} ${userProfile?.last_name || ""}`.trim();
-
-    const html = `
-<p>${escapeHtml(greeting)},</p>
-
-<p>Dans le cadre du projet <strong>${escapeHtml(projectName)}</strong>, nous vous sollicitons pour une offre de prix concernant les postes suivants (<strong>${escapeHtml(group)}</strong>) :</p>
-
-<table style="border-collapse:collapse;width:100%;font-size:13px;margin:16px 0;">
-  <thead>
-    <tr style="background:#f3f4f6;">
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">N°</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Description</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:center;">Unité</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:right;">Quantité</th>
-    </tr>
-  </thead>
-  <tbody>
-    ${itemsTable}
-  </tbody>
-</table>
-
-<p>Merci de nous transmettre votre offre de prix unitaires HT pour ces postes, <strong>avant le ${escapeHtml(deadlineStr)}</strong>.</p>
-
-<p style="background:#f0f9ff;padding:12px;border-radius:6px;border-left:4px solid #3b82f6;margin:16px 0;">
-  <strong>Important :</strong> Merci de mentionner le code <strong>${escapeHtml(trackingCode)}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.
-</p>
-
-<p>Nous restons à votre disposition pour tout renseignement complémentaire.</p>
-
-<p>Cordialement,<br/>
-<strong>${escapeHtml(senderName)}</strong>${userProfile?.job_title ? `<br/>${escapeHtml(userProfile.job_title)}` : ""}<br/>
-${escapeHtml(org?.name || "")}</p>
-`.trim();
-
-    // Generate plain text table for editable textarea
-    const colWidths = { num: 6, desc: 40, unit: 8, qty: 10 };
-    const pad = (s: string, w: number) => s.length >= w ? s.slice(0, w) : s + " ".repeat(w - s.length);
-    const padR = (s: string, w: number) => s.length >= w ? s.slice(0, w) : " ".repeat(w - s.length) + s;
-    const separator = "-".repeat(colWidths.num + colWidths.desc + colWidths.unit + colWidths.qty + 9);
-    const textTableLines = [
-      `${pad("N°", colWidths.num)} | ${pad("Description", colWidths.desc)} | ${pad("Unité", colWidths.unit)} | ${padR("Quantité", colWidths.qty)}`,
-      separator,
-      ...groupItems.map((i: any) => {
-        const num = (i.item_number || "-").slice(0, colWidths.num);
-        const desc = cleanDescriptionForSupplier(i.description || "").slice(0, colWidths.desc);
-        const unit = (i.unit || "-").slice(0, colWidths.unit);
-        const qty = i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-";
-        return `${pad(num, colWidths.num)} | ${pad(desc, colWidths.desc)} | ${pad(unit, colWidths.unit)} | ${padR(qty, colWidths.qty)}`;
-      }),
-    ];
-    const textTable = textTableLines.join("\n");
-
-    // Generate plain text version for editable textarea
-    const bodyText = [
-      `${greeting},`,
-      `Dans le cadre du projet ${projectName}, nous vous sollicitons pour une offre de prix concernant les postes suivants (${group}) :`,
-      textTable,
-      `Merci de nous transmettre votre offre de prix unitaires HT pour ces postes, avant le ${deadlineStr}.`,
-      `Nous restons à votre disposition pour tout renseignement complémentaire.`,
-      `Cordialement,\n${senderName}${userProfile?.job_title ? `\n${userProfile.job_title}` : ""}\n${org?.name || ""}`,
-    ].join("\n\n").trim();
-
-    return NextResponse.json({
-      success: true,
-      subject,
-      body: html,
-      body_text: bodyText,
-      to: supplier.email,
-      supplier_name: supplier.company_name,
-      tracking_code: trackingCode,
-      items_count: groupItems.length,
+    return await buildPreviewResponse(submissionId, user.id, {
+      group: asString(body.material_group) || asString(body.group),
+      supplierId: asString(body.supplier_id),
+      deadline: asString(body.deadline),
+      manualName: asString(body.manual_name) || asString(body.supplier_name_manual),
+      manualEmail: asString(body.manual_email) || asString(body.supplier_email_manual),
+      manualContact: asString(body.manual_contact),
+      language: asString(body.language),
+      itemIds,
     });
   } catch (err: any) {
     console.error("[preview-email] Error:", err);

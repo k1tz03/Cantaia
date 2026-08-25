@@ -150,6 +150,7 @@ export async function POST(request: NextRequest) {
     "languages",
     "certifications",
     "status",
+    "supplier_type",
     "manual_rating",
     "notes",
   ];
@@ -163,6 +164,12 @@ export async function POST(request: NextRequest) {
     if (body[key] !== undefined) {
       insertData[key] = body[key];
     }
+  }
+
+  // Constrain the DB-checked enum so a bad value returns 400, not a 500 from the
+  // CHECK constraint (migration 041).
+  if (insertData.supplier_type !== undefined && !["fournisseur", "prestataire"].includes(insertData.supplier_type)) {
+    return NextResponse.json({ error: "supplier_type invalide" }, { status: 400 });
   }
 
   const { data: supplier, error } = await (adminClient as any)

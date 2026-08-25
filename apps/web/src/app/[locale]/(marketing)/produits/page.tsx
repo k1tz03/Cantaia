@@ -19,7 +19,9 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "chantier.produitsPage.seo" });
   return {
-    title: t("title"),
+    // The translated title already carries the brand — `absolute` stops the
+    // root layout template from appending a second "| Cantaia".
+    title: { absolute: t("title") },
     description: t("description"),
     alternates: {
       canonical: `https://cantaia.io/${locale}/produits`,
@@ -55,8 +57,8 @@ const PRODUITS_DATA: ProduitMeta[] = [
     code: "CFC·COM·211",
     accent: "#F97316",
     statusKey: "actif",
-    statValue: "94",
-    statUnit: "%",
+    statValue: "8",
+    statUnit: "",
   },
   {
     key: "p2",
@@ -64,8 +66,8 @@ const PRODUITS_DATA: ProduitMeta[] = [
     code: "CFC·ADM·221",
     accent: "#F97316",
     statusKey: "actif",
-    statValue: "42",
-    statUnit: "h",
+    statValue: "4",
+    statUnit: "",
   },
   {
     key: "p3",
@@ -73,8 +75,8 @@ const PRODUITS_DATA: ProduitMeta[] = [
     code: "CFC·DOC·212",
     accent: "#FACC15",
     statusKey: "actifBeta",
-    statValue: "35",
-    statUnit: "min",
+    statValue: "3",
+    statUnit: "",
   },
   {
     key: "p4",
@@ -82,8 +84,8 @@ const PRODUITS_DATA: ProduitMeta[] = [
     code: "CFC·PLN·201",
     accent: "#F97316",
     statusKey: "actif",
-    statValue: "12",
-    localizedUnit: true,
+    statValue: "3",
+    statUnit: "",
   },
   {
     key: "p5",
@@ -91,8 +93,8 @@ const PRODUITS_DATA: ProduitMeta[] = [
     code: "CFC·PLG·401",
     accent: "#3B82F6",
     statusKey: "actif",
-    statValue: "180",
-    localizedUnit: true,
+    statValue: "4",
+    statUnit: "",
   },
   {
     key: "p6",
@@ -109,8 +111,8 @@ const PRODUITS_DATA: ProduitMeta[] = [
     code: "CFC·RPT·503",
     accent: "#22C55E",
     statusKey: "actif",
-    statValue: "6",
-    localizedUnit: true,
+    statValue: "2",
+    statUnit: "",
   },
   {
     key: "p8",
@@ -119,15 +121,6 @@ const PRODUITS_DATA: ProduitMeta[] = [
     accent: "#3B82F6",
     statusKey: "actif",
     statValue: "4",
-    statUnit: "h",
-  },
-  {
-    key: "p9",
-    lot: "LOT · 09",
-    code: "CFC·IA·701",
-    accent: "#F97316",
-    statusKey: "actif",
-    statValue: "3",
     statUnit: "",
   },
   {
@@ -136,7 +129,7 @@ const PRODUITS_DATA: ProduitMeta[] = [
     code: "CFC·DIR·601",
     accent: "#EA580C",
     statusKey: "actif",
-    statValue: "12",
+    statValue: "4",
     statUnit: "",
   },
   {
@@ -159,7 +152,6 @@ const PRODUIT_NAMES: Record<string, string> = {
   p6: "Portail Chef d'Équipe",
   p7: "Rapports Chantier",
   p8: "Support Tickets",
-  p9: "Table Ronde IA",
   p10: "Direction & Financials",
   p11: "Cantaia Prix",
 };
@@ -179,7 +171,7 @@ export default async function ProduitsPage({
   const produitsJsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "Cantaia — 11 modules",
+    name: `Cantaia — ${PRODUITS_DATA.length} modules`,
     numberOfItems: PRODUITS_DATA.length,
     itemListElement: PRODUITS_DATA.map((p, i) => ({
       "@type": "ListItem",
@@ -206,7 +198,7 @@ export default async function ProduitsPage({
           className="pointer-events-none fixed left-6 top-1/2 z-10 hidden -translate-y-1/2 -rotate-90 lg:block"
           aria-hidden
         >
-          <span className="font-tech text-[10px] font-semibold tracking-[0.3em] text-[#52525B]">
+          <span className="font-tech text-[10px] font-semibold tracking-[0.3em] text-[#A1A1AA]">
             {t("sideAxis")}
           </span>
         </div>
@@ -222,7 +214,7 @@ export default async function ProduitsPage({
                 {t("hero.tag")}
               </span>
               <div className="h-px flex-1 bg-gradient-to-r from-[#F97316] via-[#27272A] to-transparent" />
-              <span className="font-tech text-[10px] tracking-[0.2em] text-[#52525B]">
+              <span className="font-tech text-[10px] tracking-[0.2em] text-[#A1A1AA]">
                 {t("hero.rightTag")}
               </span>
             </div>
@@ -290,7 +282,7 @@ export default async function ProduitsPage({
                 const statusLabel = t(`status.${p.statusKey}`);
                 const statusColor =
                   p.statusKey === "masque"
-                    ? "text-[#52525B]"
+                    ? "text-[#A1A1AA]"
                     : p.statusKey === "actifBeta"
                     ? "text-[#FACC15]"
                     : "text-[#22C55E]";
@@ -318,7 +310,7 @@ export default async function ProduitsPage({
                     <h3 className="font-condensed text-[30px] font-900 uppercase leading-[0.95] tracking-[-0.01em] text-[#FAFAFA]">
                       {PRODUIT_NAMES[p.key]}
                     </h3>
-                    <p className="mt-1 font-tech text-[11px] font-semibold tracking-[0.18em] text-[#71717A]">
+                    <p className="mt-1 font-tech text-[11px] font-semibold tracking-[0.18em] text-[#A1A1AA]">
                       {t(`products.${p.key}.tagline`).toUpperCase()}
                     </p>
 
@@ -367,7 +359,7 @@ export default async function ProduitsPage({
                             </span>
                           )}
                         </div>
-                        <div className="mt-1 font-tech text-[10px] font-semibold uppercase tracking-[0.18em] text-[#52525B]">
+                        <div className="mt-1 font-tech text-[10px] font-semibold uppercase tracking-[0.18em] text-[#A1A1AA]">
                           {t(`products.${p.key}.statLabel`)}
                         </div>
                       </div>
@@ -396,7 +388,7 @@ export default async function ProduitsPage({
            ───────────────────────────────────── */}
         <section className="relative overflow-hidden px-8 py-24">
           <div className="pointer-events-none absolute left-0 top-0 -translate-y-1/4 -translate-x-1/4">
-            <SiteStamp number="11" subtitle={t("interop.stampSubtitle")} />
+            <SiteStamp number={String(PRODUITS_DATA.length)} subtitle={t("interop.stampSubtitle")} />
           </div>
 
           <div className="relative mx-auto max-w-[1400px]">

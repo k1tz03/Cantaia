@@ -27,6 +27,8 @@ export const MODEL_FOR_TASK = {
   price_extraction: AI_MODELS.SONNET,
   pv_generation: AI_MODELS.SONNET,
   handwritten_notes: AI_MODELS.SONNET,
+  alerts: AI_MODELS.HAIKU,
+  executive_summary: AI_MODELS.SONNET,
 } as const;
 
 // ── AI Error Classification ─────────────────────────────────

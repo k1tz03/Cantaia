@@ -1,6 +1,6 @@
 # Cantaia — Référence Projet
 
-> Document de référence pour Claude. État du code au **24.08.2026** (post-audit complet, correctifs C/H/M, système de crédits, purge du code mort — commits `ebfb8fa`, `74b6727`, `e374ad8`).
+> Document de référence pour Claude. État du code au **25.08.2026** (post audit intégral du site + campagne de correction complète : 6 critiques de sécurité fermés — RLS manquantes, IDOR, escalade — module demandes de prix corrigé, ~390 findings traités, migrations 105→129). Rapports d'audit : demandes de prix https://claude.ai/code/artifact/4b54d513-7b3e-4a36-ba98-268164510205 · global https://claude.ai/code/artifact/90734b9a-8ebb-4cde-83c8-09986e14648a.
 > Règle d'entretien : ce fichier décrit l'ÉTAT COURANT, pas l'historique. Ne pas y accumuler de changelogs de session — l'historique vit dans git et dans la mémoire persistante. Rapport d'audit détaillé : https://claude.ai/code/artifact/069975f9-d082-47bf-b84c-5d64e20eaf38
 
 ---
@@ -42,7 +42,7 @@ apps/web              Next.js 15 (App Router, --turbopack en dev) — l'applicat
 apps/desktop          Tauri v2 Windows (webview → cantaia.io) — ATTENTION : updater.pubkey vide, csp null
 apps/outlook-addin    prévu
 packages/core         logique métier (~106 fichiers TS) : ai, emails, submissions, suppliers, plans, planning, calendar, agents, visits, briefing, pricing, tracking, utils
-packages/database     migrations SQL 001→090 + types.ts
+packages/database     migrations SQL 001→129 + types.ts
 packages/ui           composants partagés shadcn-based
 packages/config       constants, plan-features, credit-costs, tailwind, tsconfig
 ```
@@ -110,21 +110,25 @@ CRON_SECRET (min 16) / RESEND_API_KEY / ADMIN_SECRET_KEY
 NEXT_PUBLIC_USE_MANAGED_AGENTS   # flag : bascule estimation/analyse vers le flux agents
 ```
 
-### Crons Vercel (`apps/web/vercel.json` — 11 entrées)
+### Crons Vercel (`apps/web/vercel.json` — 15 entrées)
 
-Vercel invoque en **GET** avec `Authorization: Bearer ${CRON_SECRET}` — toutes les routes cron exportent `GET` (délègue au POST) et vérifient via `isAuthorizedCron()` (`apps/web/src/lib/cron-auth.ts`).
+Vercel invoque en **GET** avec `Authorization: Bearer ${CRON_SECRET}` — toutes les routes cron exportent `GET` (délègue au POST) et vérifient via `isAuthorizedCron()` (`apps/web/src/lib/cron-auth.ts`). **C2 gelé** : `aggregate-benchmarks` et `extract-patterns` retirés du planning (handlers en no-op jusqu'à ≥15 orgs opt-in) ; leurs routes existent encore.
 
 | Path | Horaire | Rôle |
 |---|---|---|
 | /api/cron/aggregate-activity | 1h | agrégats user_activity_daily |
-| /api/cron/aggregate-benchmarks | 2h | agrégation C2 (marque `processed_at` seulement si les RPC réussissent) |
-| /api/cron/extract-patterns | dim 3h | patterns C3 |
 | /api/cron/refresh-intelligence | 3h30 | refresh vues matérialisées |
 | /api/cron/sync-financials | 4h | financials projets |
+| /api/cron/calendar-sync | 5h15 | sync calendrier Outlook planifiée |
 | /api/cron/calibrate | lun 5h | model_error_profiles + vues calibration |
+| /api/cron/project-memory | 5h | agent mémoire projet |
 | /api/cron/followup-engine | 6h | agent relances |
+| /api/cron/task-reminders | 6h15 | rappels de tâches (échéances) |
 | /api/cron/briefing | 6h45 | briefings + email Resend |
+| /api/cron/meeting-prep | 6h30 | agent préparation de réunion |
 | /api/email/sync/cron | 7h | sync email planifiée |
+| /api/cron/credits-low-alert | 8h | alerte solde de crédits bas |
+| /api/cron/renew-webhooks | toutes 12h | renouvellement subscriptions Graph (sinon expiration → temps réel mail perdu) |
 | /api/cron/supplier-monitor | dim 22h | agent veille fournisseurs |
 | /api/cron/email-drafter | 23h | agent brouillons (toutes les boîtes de l'org, budget temps 240s) |
 
@@ -136,7 +140,7 @@ Locale routing next-intl + garde d'auth Supabase (`getUser()` serveur) sur ~21 r
 
 ---
 
-## 5. Base de données (migrations 001 → 090)
+## 5. Base de données (migrations 001 → 129)
 
 - **Gaps de numérotation** : 008, 042, 087 n'existent pas. `apply_all_missing.sql` est OBSOLÈTE (ne couvre que 014-020) — appliquer les fichiers individuellement.
 - **État prod inconnu depuis le code** : la prod a reçu des patches manuels (la migration 067 en témoigne). Vérifier sur Supabase avant de raisonner "appliqué".
@@ -186,7 +190,7 @@ Auth systématique (`getUser()`) + vérification `organization_id` sur toute rou
 `[locale]/layout.tsx` (fonts, intl, ThemeProvider `forcedTheme="dark"`, toaster, cookies) → groupes `(marketing)`, `(auth)` (noindex), `(onboarding)` (wizard 6 étapes + reprise), `(app)` (AuthProvider, BrandingProvider, AppEmailProvider, AppActiveProjectProvider, AppHeader + CreditBadge + CreditsUIProvider, Sidebar, CommandPalette, OnboardingGuard, TrialGuard, TourOverlay), `(admin)` (check-access au mount), `(super-admin)`, `(public)` (planning/rapports tokenisés), `portal/[projectId]` (bottom nav mobile).
 
 ### Design system (hardcodé — PAS de classes sémantiques Tailwind)
-Dark forcé. `bg-[#0F0F11]` (pages), `bg-[#18181B]` (cards), `bg-[#111113]` (sidebar), bordures `#27272A`, texte `#FAFAFA`/`#A1A1AA`/`#71717A`, accent orange `#F97316` (hover `#EA580C`), sémantique : vert `#10B981`, rouge `#EF4444`, ambre `#F59E0B`, bleu `#3B82F6`. Fonts : Plus Jakarta Sans (headings, `font-display`), Inter (body), JetBrains Mono. ❌ `bg-background`, `text-foreground`, `prose-invert`. Emails HTML : wrapper `bg-white text-black`.
+Dark forcé. `bg-[#0F0F11]` (pages), `bg-[#18181B]` (cards), `bg-[#111113]` (sidebar), bordures `#27272A`, texte `#FAFAFA` (primaire)/`#A1A1AA` (secondaire) — `#71717A` INTERDIT en couleur de texte (contraste insuffisant ; toléré uniquement en `placeholder-`/`bg-`), accent orange `#F97316` (hover `#EA580C`), sémantique : vert `#10B981`, rouge `#EF4444`, ambre `#F59E0B`, bleu `#3B82F6`. Fonts : Plus Jakarta Sans (headings, `font-display`), Inter (body), JetBrains Mono. ❌ `bg-background`, `text-foreground`, `prose-invert`. Emails HTML : wrapper `bg-white text-black`.
 
 ### Composants clés par dossier (`apps/web/src/components/`)
 `app/` (Sidebar — lien /admin visible admin/director seulement, AppHeader, EmailDetailPanel, DashboardOrgView) · `mail/` (AIDraftPanel — les modals du module mail sont inline dans `mail/page.tsx`) · `submissions/` (**PriceRequestV2** = compositeur de demandes de prix par packages, MonteCarloChart — l'ancien wizard et l'éditeur ont été SUPPRIMÉS) · `plans/` + `scene3d/` (SceneViewer/SceneCanvas/adapter, LowConfidenceGate → disclaimer persisté) · `planning/` (16 fichiers Gantt) · `calendar/` (datetime-utils = source de vérité timezone) · `agents/` · `credits/` (CreditBadge, PaywallDialog + `handleInsufficientCredits`, CreditsUIProvider, packs/plans/history) · `chantier/` (landing actuelle — l'ancienne `landing/` est SUPPRIMÉE) · `admin/`, `super-admin/`, `stripe/`, `support/`, `portal/`, `visits/`, `pv-chantier/`, `settings/`, `onboarding/`, `tour/`, `ui/`.
@@ -238,7 +242,7 @@ Pages : home (LandingChantier), `/pricing`, `/produits`, `/modules`, `/about`, `
 
 ## 9. Opérations en attente (à jour au 24.08.2026)
 
-1. **Supabase** : appliquer les migrations **079 → 090** (+ renommages 077/078 des ex-070 en doublon). Ne PAS utiliser `apply_all_missing.sql`. Vérifier l'état réel des 001-076 (patches manuels passés).
+1. **Supabase** : appliquer les migrations **079 → 129** individuellement (dont les critiques de sécurité 105-109 : RLS chat/site_reports/portal_crew, policies service-role, invitations admin-only). Ne PAS utiliser `apply_all_missing.sql`. Vérifier l'état réel des 001-076 (patches manuels passés).
 2. **Stripe** : créer les 7 prix (4 packs one-time + 3 abos recurring) + env `STRIPE_PRICE_CREDIT_*` / `STRIPE_PRICE_SUB_*` sur Vercel.
 3. **Vercel env** : `MICROSOFT_TOKEN_ENCRYPTION_KEY` (requis prod), `OUTLOOK_WEBHOOK_SECRET`, vérifier `CRON_SECRET`, `RESEND_API_KEY`, `GEMINI_API_KEY`.
 4. `git push` (commits locaux `ebfb8fa` → `e374ad8`), puis vérifier dans les logs Vercel que les crons répondent 200 (ils étaient en 405 avant le fix GET).

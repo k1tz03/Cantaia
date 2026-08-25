@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { Project } from "@cantaia/database";
 
@@ -18,6 +18,12 @@ interface TaskFiltersProps {
   setFilterDeadline: (v: string) => void;
   searchQuery: string;
   setSearchQuery: (v: string) => void;
+  /**
+   * "Mes taches" — unlike the other filters this one is applied SERVER-side
+   * (`GET /api/tasks?assigned_to=me`), because it also drives the counters.
+   */
+  onlyMine?: boolean;
+  setOnlyMine?: (v: boolean) => void;
 }
 
 export function TaskFilters({
@@ -34,6 +40,8 @@ export function TaskFilters({
   setFilterDeadline,
   searchQuery,
   setSearchQuery,
+  onlyMine = false,
+  setOnlyMine,
 }: TaskFiltersProps) {
   const t = useTranslations("tasks");
 
@@ -41,6 +49,22 @@ export function TaskFilters({
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
+      {setOnlyMine && (
+        <button
+          type="button"
+          onClick={() => setOnlyMine(!onlyMine)}
+          aria-pressed={onlyMine}
+          className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+            onlyMine
+              ? "border-[#F97316]/40 bg-[#F97316]/10 text-[#F97316]"
+              : "border-[#27272A] bg-[#18181B] text-[#D4D4D8] hover:border-[#3F3F46]"
+          }`}
+        >
+          <User className="h-3.5 w-3.5" />
+          {t("myTasks")}
+        </button>
+      )}
+
       <select
         value={filterProject}
         onChange={(e) => setFilterProject(e.target.value)}
@@ -104,13 +128,13 @@ export function TaskFilters({
       </select>
 
       <div className="relative w-full sm:w-60 sm:ml-auto">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A1A1AA]" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("searchPlaceholder")}
-          className="w-full rounded-lg border border-[#27272A] bg-[#18181B] py-2 pl-10 pr-3 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 transition-all"
+          className="w-full rounded-lg border border-[#27272A] bg-[#18181B] py-2 pl-10 pr-3 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 transition-all"
         />
       </div>
     </div>

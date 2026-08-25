@@ -98,7 +98,7 @@ export function SupplierAlertsBanner() {
                 ? `${alerts.length} alerte${alerts.length > 1 ? "s" : ""} fournisseur`
                 : "Alertes fournisseurs"}
             </span>
-            <span className="text-[11px] text-[#71717A]">Supplier Monitor</span>
+            <span className="text-[11px] text-[#A1A1AA]">Supplier Monitor</span>
           </div>
           {/* Severity pills */}
           <div className="flex items-center gap-1.5 ml-2">
@@ -115,9 +115,9 @@ export function SupplierAlertsBanner() {
           </div>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-[#71717A]" />
+          <ChevronUp className="h-4 w-4 text-[#A1A1AA]" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-[#71717A]" />
+          <ChevronDown className="h-4 w-4 text-[#A1A1AA]" />
         )}
       </button>
 
@@ -127,7 +127,7 @@ export function SupplierAlertsBanner() {
           {alerts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-8 text-center px-6">
               <Shield className="h-8 w-8 text-[#27272A] mb-3" />
-              <p className="text-[13px] text-[#52525B]">Aucune alerte fournisseur</p>
+              <p className="text-[13px] text-[#A1A1AA]">Aucune alerte fournisseur</p>
               <p className="text-[11px] text-[#3F3F46] mt-1">
                 L&apos;agent Supplier Monitor analyse chaque semaine la performance de vos fournisseurs et vous alerte en cas d&apos;anomalie.
               </p>
@@ -153,7 +153,7 @@ export function SupplierAlertsBanner() {
                     <div>
                       <p className="text-[13px] font-medium text-[#FAFAFA]">{alert.title}</p>
                       {alert.supplier?.company_name && (
-                        <p className="text-[11px] text-[#71717A] mt-0.5">{alert.supplier.company_name}</p>
+                        <p className="text-[11px] text-[#A1A1AA] mt-0.5">{alert.supplier.company_name}</p>
                       )}
                     </div>
                     <span className={`text-[9px] font-semibold ${style.color} ${style.bg} px-1.5 py-0.5 rounded shrink-0`}>
@@ -176,14 +176,14 @@ export function SupplierAlertsBanner() {
                     className="p-1.5 rounded-md hover:bg-[#27272A] transition-colors"
                     title="Ignorer"
                   >
-                    <X className="h-3.5 w-3.5 text-[#52525B]" />
+                    <X className="h-3.5 w-3.5 text-[#A1A1AA]" />
                   </button>
                   <button
                     onClick={() => handleAcknowledge(alert.id)}
                     className="p-1.5 rounded-md hover:bg-[#27272A] transition-colors"
                     title="Vu"
                   >
-                    <Check className="h-3.5 w-3.5 text-[#52525B]" />
+                    <Check className="h-3.5 w-3.5 text-[#A1A1AA]" />
                   </button>
                 </div>
               </div>

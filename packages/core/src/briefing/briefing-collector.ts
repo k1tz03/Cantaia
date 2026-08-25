@@ -23,6 +23,38 @@ export interface SubmissionDeadlineInput {
   project_id: string;
 }
 
+export interface CalendarEventInput {
+  id: string;
+  title: string;
+  start_at: string;
+  end_at: string | null;
+  all_day: boolean;
+  location: string | null;
+  event_type: string | null;
+  project_id: string | null;
+}
+
+export interface FollowupInput {
+  id: string;
+  followup_type: string;
+  title: string;
+  description: string | null;
+  urgency: "low" | "medium" | "high" | "critical" | string;
+  suggested_action: string | null;
+  recipient_name: string | null;
+  days_overdue: number | null;
+  project_id: string | null;
+}
+
+export interface SupplierAlertInput {
+  id: string;
+  alert_type: string;
+  category: string;
+  title: string;
+  description: string;
+  recommended_action: string | null;
+}
+
 export interface BriefingDataInput {
   user_name: string;
   projects: Project[];
@@ -30,6 +62,9 @@ export interface BriefingDataInput {
   tasks: Task[];
   meetings: Meeting[];
   submissions?: SubmissionDeadlineInput[];
+  calendar_events?: CalendarEventInput[];
+  followups?: FollowupInput[];
+  supplier_alerts?: SupplierAlertInput[];
   locale: "fr" | "en" | "de";
 }
 
@@ -94,12 +129,67 @@ export interface BriefingRawData {
     days_remaining: number;
     status: string;
   }>;
+  /** Today's calendar entries (union feed), independent of `meetings`. */
+  calendar_today: Array<{
+    id: string;
+    time: string;
+    title: string;
+    location: string | null;
+    event_type: string | null;
+    project_name: string | null;
+    all_day: boolean;
+  }>;
+  /** Pending follow-ups surfaced by the Followup Engine agent. */
+  pending_followups: Array<{
+    id: string;
+    title: string;
+    urgency: string;
+    followup_type: string;
+    suggested_action: string | null;
+    recipient_name: string | null;
+    days_overdue: number | null;
+    project_name: string | null;
+  }>;
+  /** Active supplier alerts surfaced by the Supplier Monitor agent. */
+  supplier_alerts: Array<{
+    id: string;
+    alert_type: string;
+    category: string;
+    title: string;
+    description: string;
+    recommended_action: string | null;
+  }>;
 }
 
 // ---------- Collector function ----------
 
+const PRODUCT_TIMEZONE = "Europe/Zurich";
+
+/**
+ * Date `YYYY-MM-DD` in the product timezone (Europe/Zurich).
+ * `toISOString().split("T")[0]` yields the UTC date — between midnight and
+ * ~02:00 Zurich it reports the previous day, so "today"'s filters would drift.
+ */
+function zurichDateString(d: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: PRODUCT_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/** Wall-clock time `HH:mm` in the product timezone (Europe/Zurich). */
+function zurichTimeString(value: string | Date): string {
+  return new Date(value).toLocaleTimeString("fr-CH", {
+    timeZone: PRODUCT_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function collectBriefingData(input: BriefingDataInput): BriefingRawData {
-  const today = new Date().toISOString().split("T")[0];
+  const today = zurichDateString();
 
   // Build project lookup
   const projectMap = new Map(input.projects.map((p) => [p.id, p]));
@@ -205,10 +295,7 @@ export function collectBriefingData(input: BriefingDataInput): BriefingRawData {
         new Date(a.meeting_date).getTime() - new Date(b.meeting_date).getTime()
     )
     .map((m) => ({
-      time: new Date(m.meeting_date).toLocaleTimeString("fr-CH", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      time: zurichTimeString(m.meeting_date),
       project_name: projectMap.get(m.project_id)?.name ?? "—",
       title: m.title,
       location: m.location,
@@ -291,6 +378,54 @@ export function collectBriefingData(input: BriefingDataInput): BriefingRawData {
     .sort((a, b) => a.days_remaining - b.days_remaining)
     .slice(0, 10);
 
+  // Today's calendar entries (union feed from the calendar module).
+  const calendarToday = (input.calendar_events || []).map((e) => ({
+    id: e.id,
+    time: e.all_day ? "—" : zurichTimeString(e.start_at),
+    title: e.title,
+    location: e.location,
+    event_type: e.event_type,
+    project_name: e.project_id
+      ? (projectMap.get(e.project_id)?.name ?? null)
+      : null,
+    all_day: e.all_day,
+  }));
+
+  // Pending follow-ups, most urgent first.
+  const urgencyRank: Record<string, number> = {
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+  };
+  const pendingFollowups = (input.followups || [])
+    .slice()
+    .sort(
+      (a, b) => (urgencyRank[a.urgency] ?? 9) - (urgencyRank[b.urgency] ?? 9)
+    )
+    .slice(0, 10)
+    .map((f) => ({
+      id: f.id,
+      title: f.title,
+      urgency: f.urgency,
+      followup_type: f.followup_type,
+      suggested_action: f.suggested_action,
+      recipient_name: f.recipient_name,
+      days_overdue: f.days_overdue,
+      project_name: f.project_id
+        ? (projectMap.get(f.project_id)?.name ?? null)
+        : null,
+    }));
+
+  const supplierAlerts = (input.supplier_alerts || []).slice(0, 10).map((a) => ({
+    id: a.id,
+    alert_type: a.alert_type,
+    category: a.category,
+    title: a.title,
+    description: a.description,
+    recommended_action: a.recommended_action,
+  }));
+
   return {
     user_name: input.user_name,
     date: today,
@@ -301,12 +436,17 @@ export function collectBriefingData(input: BriefingDataInput): BriefingRawData {
       emails_action_required: allActionRequired,
       tasks_overdue: allOverdue,
       tasks_due_today: allDueToday,
-      meetings_today: meetingsToday.length,
+      // Prefer the calendar feed when it has entries — it is the union of
+      // meetings, site visits and deadlines, so it is the honest "today" count.
+      meetings_today: Math.max(meetingsToday.length, calendarToday.length),
     },
     projects: projectData,
     meetings_today: meetingsToday,
     overdue_tasks: overdueTasks,
     urgent_emails: urgentEmails,
     submission_deadlines: submissionDeadlines,
+    calendar_today: calendarToday,
+    pending_followups: pendingFollowups,
+    supplier_alerts: supplierAlerts,
   };
 }

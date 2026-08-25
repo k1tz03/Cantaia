@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Send,
   Users,
   ListTodo,
@@ -200,7 +201,10 @@ interface DecisionEmail {
 interface Stats {
   avgResponseTime: number;
   processedToday: number;
+  /** D-FIX7 — same population as the three buckets, nothing else. */
   totalUnprocessed: number;
+  /** Synced but never classified — rendered separately, never folded above. */
+  pendingClassification?: number;
   totalToday: number;
   savingsGenerated: number | null;
   decisionsUrgent: number;
@@ -364,10 +368,10 @@ class MailErrorBoundary extends React.Component<
               <span className="text-red-400 text-xl">!</span>
             </div>
             <h2 className="text-lg font-semibold text-[#FAFAFA] mb-2">Une erreur est survenue</h2>
-            <p className="text-sm text-[#71717A] mb-4">Le module Mail a rencontré un problème d&apos;affichage.</p>
+            <p className="text-sm text-[#A1A1AA] mb-4">Le module Mail a rencontré un problème d&apos;affichage.</p>
             <button
               onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors"
             >
               Recharger
             </button>
@@ -423,17 +427,28 @@ function MailPageInner() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [folderMessages, setFolderMessages] = useState<FolderMessage[]>([]);
   const [folderMessagesLoading, setFolderMessagesLoading] = useState(false);
+  const [folderError, setFolderError] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [foldersExpanded, setFoldersExpanded] = useState(true);
 
+  // User's default snooze duration (email_preferences.default_snooze_hours).
+  // A ref so snoozeCard can read it without re-creating the callback.
+  const snoozeHoursRef = useRef(4);
+
   // 2-panel: selected email
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [selectedFolderMessage, setSelectedFolderMessage] = useState<FolderMessage | null>(null);
+  // D-FIX9 — below `lg` the two panels share the viewport: one is shown at a
+  // time. The old layout pinned the list to a hard 420 px, so on a phone the
+  // reading pane started off-screen and the page scrolled sideways.
+  const [showDetailOnMobile, setShowDetailOnMobile] = useState(false);
 
   // Modal states
   const [replyEmail, setReplyEmail] = useState<DecisionEmail | null>(null);
+  // D-FIX6 — the accepted AI draft that seeded the open ReplyModal, if any.
+  const [replyDraft, setReplyDraft] = useState<{ id: string; body: string } | null>(null);
   const [delegateEmail, setDelegateEmail] = useState<DecisionEmail | null>(null);
   const [transferEmail, setTransferEmail] = useState<DecisionEmail | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
@@ -441,6 +456,8 @@ function MailPageInner() {
 
   // Email signature
   const [userSignature, setUserSignature] = useState("");
+  // The connected user's own address — used to colour "my" messages in threads.
+  const [userEmail, setUserEmail] = useState("");
 
   // FIX 5 — Lock body scroll when any popup is open
   const anyPopupOpen = !!(replyEmail || delegateEmail || transferEmail || composeOpen);
@@ -496,7 +513,10 @@ function MailPageInner() {
     // Fetch user signature for compose/reply
     fetch("/api/user/profile")
       .then((r) => r.json())
-      .then((d) => { if (d.profile?.email_signature) setUserSignature(d.profile.email_signature); })
+      .then((d) => {
+        if (d.profile?.email_signature) setUserSignature(d.profile.email_signature);
+        if (d.profile?.email) setUserEmail(d.profile.email);
+      })
       .catch(() => {});
   }, [fetchData]);
 
@@ -512,14 +532,14 @@ function MailPageInner() {
       }
       const json = await res.json();
       if (json.success || json.reclassified !== undefined) {
-        toast.success(`${json.emails_classified ?? json.reclassified ?? 0} emails reclassifiés`);
+        toast.success(t("emailsReclassified", { count: json.emails_classified ?? json.reclassified ?? 0 }));
         notifyCreditsChanged();
         fetchData();
       } else {
-        toast.error(json.error || "Erreur de reclassification");
+        toast.error(json.error || t("reclassificationError"));
       }
     } catch {
-      toast.error("Erreur lors de la reclassification");
+      toast.error(t("reclassificationError"));
     }
     setReclassifying(false);
   }, [fetchData]);
@@ -538,7 +558,7 @@ function MailPageInner() {
       const savedCount = saveEvent?.data?.result_preview
         ? (() => { const m = String(saveEvent.data!.result_preview).match(/"saved"\s*:\s*(\d+)/); return m ? parseInt(m[1], 10) : 0; })()
         : 0;
-      toast.success(`${savedCount} emails classifiés par l'agent IA`);
+      toast.success(t("emailsClassifiedByAgent", { count: savedCount }));
       fetchData();
     } else if (classifierAgent.status === "failed") {
       // Agent failed — fall back to legacy reclassification
@@ -611,13 +631,20 @@ function MailPageInner() {
     setFolderMessagesLoading(true);
     setFolderMessages([]);
     setSelectedFolderMessage(null);
+    setFolderError(false);
     try {
       const res = await fetch(`/api/email/folders/messages?folder_id=${encodeURIComponent(folderId)}&top=50`);
       if (res.ok) {
         const data = await res.json();
         setFolderMessages(data.messages || []);
+      } else {
+        // Distinguish a real error from a genuinely empty folder — otherwise a
+        // failed fetch reads as "no messages".
+        setFolderError(true);
       }
-    } catch { /* non-blocking */ }
+    } catch {
+      setFolderError(true);
+    }
     setFolderMessagesLoading(false);
   }, []);
 
@@ -626,6 +653,7 @@ function MailPageInner() {
     setViewMode(mode);
     setSelectedEmailId(null);
     setSelectedFolderMessage(null);
+    setShowDetailOnMobile(false);
     fetchFolderMessages(folderId);
   }, [fetchFolderMessages]);
 
@@ -635,6 +663,7 @@ function MailPageInner() {
     setSelectedFolderId(folder.id);
     setSelectedEmailId(null);
     setSelectedFolderMessage(null);
+    setShowDetailOnMobile(false);
     fetchFolderMessages(folder.id);
   }, [fetchFolderMessages]);
 
@@ -658,19 +687,52 @@ function MailPageInner() {
     setCreatingFolder(false);
   }, [newFolderName, fetchFolders]);
 
+  // Load the user's default snooze duration once.
+  useEffect(() => {
+    fetch("/api/emails/preferences")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const h = data?.preferences?.default_snooze_hours;
+        if (typeof h === "number" && h > 0) snoozeHoursRef.current = h;
+      })
+      .catch(() => { /* keep default */ });
+  }, []);
+
+  // Remove an id from the optimistic-dismiss set (restore the card on failure).
+  const restoreCard = useCallback((emailId: string) => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(emailId);
+      return next;
+    });
+  }, []);
+
   const dismissCard = useCallback(async (emailId: string, action: string, email?: DecisionEmail) => {
     setDismissedIds((prev) => new Set(prev).add(emailId));
     // If the dismissed email is selected, clear selection
     setSelectedEmailId((prev) => prev === emailId ? null : prev);
+    setShowDetailOnMobile(false);
     try {
       if (action === "archive") {
-        await fetch(`/api/email/${emailId}/archive`, { method: "POST" });
+        const archiveRes = await fetch(`/api/email/${emailId}/archive`, { method: "POST" });
+        if (!archiveRes.ok) {
+          restoreCard(emailId);
+          toast.error(t("actionFailed"));
+          return;
+        }
       }
-      await fetch("/api/mail/decisions", {
+      const res = await fetch("/api/mail/decisions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email_id: emailId, action }),
       });
+      // A failed action used to be swallowed: the card vanished from the view
+      // while the email stayed unprocessed in the DB — a silent false success.
+      if (!res.ok) {
+        restoreCard(emailId);
+        toast.error(t("actionFailed"));
+        return;
+      }
 
       // Fire-and-forget: notify learning engine for positive confirmation actions
       if ((action === "replied" || action === "accept") && email?.project_id) {
@@ -684,38 +746,64 @@ function MailPageInner() {
           }),
         }).catch(() => {});
       }
-    } catch { /* non-blocking */ }
-  }, []);
+    } catch {
+      restoreCard(emailId);
+      toast.error(t("actionFailed"));
+    }
+  }, [restoreCard, t]);
 
   const snoozeCard = useCallback(async (emailId: string) => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(8, 0, 0, 0);
+    // Honour the user's default_snooze_hours preference instead of a hardcoded
+    // "tomorrow 08:00".
+    const until = new Date(Date.now() + snoozeHoursRef.current * 60 * 60 * 1000);
     setDismissedIds((prev) => new Set(prev).add(emailId));
     setSelectedEmailId((prev) => prev === emailId ? null : prev);
+    setShowDetailOnMobile(false);
     try {
-      await fetch(`/api/email/${emailId}/snooze`, {
+      const res = await fetch(`/api/email/${emailId}/snooze`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ until: tomorrow.toISOString() }),
+        body: JSON.stringify({ until: until.toISOString() }),
       });
-    } catch { /* non-blocking */ }
-  }, []);
+      if (!res.ok) {
+        restoreCard(emailId);
+        toast.error(t("actionFailed"));
+      }
+    } catch {
+      restoreCard(emailId);
+      toast.error(t("actionFailed"));
+    }
+  }, [restoreCard, t]);
 
-  const moveToFolder = useCallback(async (emailId: string, folderId: string, folderName: string) => {
-    // Move email in Outlook via Graph API
+  const moveToFolder = useCallback(async (
+    emailId: string,
+    folderId: string,
+    folderName: string,
+    suggestedFolderId?: string | null,
+  ) => {
+    // Move email in Outlook via Graph API. A failure must NOT silently dismiss
+    // the card as if the move had succeeded.
     try {
-      await fetch(`/api/email/${emailId}/move`, {
+      const res = await fetch(`/api/email/${emailId}/move`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folder_id: folderId }),
       });
-    } catch { /* non-blocking */ }
+      if (!res.ok) {
+        toast.error(t("actionFailed"));
+        return;
+      }
+    } catch {
+      toast.error(t("actionFailed"));
+      return;
+    }
 
     // Find the email to get sender/subject for learning
     const email = [...urgent, ...thisWeek, ...info].find((e) => e.id === emailId);
 
-    // Fire-and-forget: teach the folder learning engine
+    // Fire-and-forget: teach the folder learning engine.
+    // D-FIX9 — `suggested_folder_id` lets the engine score its OWN suggestion:
+    // accepting it confirms, picking another folder overrides it.
     if (email) {
       fetch("/api/email/folder-learn", {
         method: "POST",
@@ -726,6 +814,7 @@ function MailPageInner() {
           folder_name: folderName,
           sender_email: email.sender_email,
           subject: email.subject,
+          suggested_folder_id: suggestedFolderId ?? null,
         }),
       }).catch(() => {});
     }
@@ -733,24 +822,27 @@ function MailPageInner() {
     // Dismiss from the decision view after moving
     setDismissedIds((prev) => new Set(prev).add(emailId));
     setSelectedEmailId((prev) => prev === emailId ? null : prev);
-  }, [urgent, thisWeek, info]);
+    setShowDetailOnMobile(false);
+  }, [urgent, thisWeek, info, t]);
 
   const reassignProject = useCallback(async (emailId: string, projectId: string) => {
     try {
-      if (projectId) {
-        // Reassign to a different project
-        await fetch("/api/emails/confirm-classification", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email_id: emailId, action: "change_project", project_id: projectId }),
-        });
-      } else {
-        // Remove from project — use reject action to clear project_id
-        await fetch("/api/emails/confirm-classification", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email_id: emailId, action: "reject" }),
-        });
+      const res = projectId
+        ? await fetch("/api/emails/confirm-classification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email_id: emailId, action: "change_project", project_id: projectId }),
+          })
+        : await fetch("/api/emails/confirm-classification", {
+            // Remove from project — use reject action to clear project_id
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email_id: emailId, action: "reject" }),
+          });
+      // Don't update the badge on failure — that would be a false success.
+      if (!res.ok) {
+        toast.error(t("actionFailed"));
+        return;
       }
       // Update local state so project badge updates immediately
       const proj = projectId ? orgProjects.find((p) => p.id === projectId) : null;
@@ -759,8 +851,10 @@ function MailPageInner() {
       setUrgent(updater);
       setThisWeek(updater);
       setInfo(updater);
-    } catch { /* non-blocking */ }
-  }, [orgProjects]);
+    } catch {
+      toast.error(t("actionFailed"));
+    }
+  }, [orgProjects, t]);
 
   // Compute filtered emails (needed by useEffect below, must be before early returns)
   const filteredUrgent = urgent.filter((e) => !dismissedIds.has(e.id));
@@ -810,7 +904,7 @@ function MailPageInner() {
         </div>
         {/* Panels skeleton */}
         <div className="flex-1 flex min-h-0">
-          <div className="w-[420px] border-r border-[#1C1C1F]">
+          <div className="w-full lg:w-[420px] border-r border-[#1C1C1F]">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="px-4 py-3 border-b border-[#1C1C1F]">
                 <div className="flex gap-3">
@@ -824,7 +918,7 @@ function MailPageInner() {
               </div>
             ))}
           </div>
-          <div className="flex-1 flex items-center justify-center">
+          <div className="hidden lg:flex flex-1 items-center justify-center">
             <div className="h-5 w-56 animate-pulse rounded bg-[#1C1C1F]" />
           </div>
         </div>
@@ -836,8 +930,12 @@ function MailPageInner() {
 
   const totalActionable = filteredUrgent.length + filteredThisWeek.length;
   const totalInfo = filteredInfo.length;
-  // Use the API's total unprocessed count (matches sidebar badge) or fall back to bucket totals
+  // D-FIX7 — `totalUnprocessed` now counts EXACTLY the classifications the three
+  // buckets render, so this number is one the user can actually bring to zero.
   const totalUnprocessed = stats?.totalUnprocessed ?? (totalActionable + totalInfo);
+  // Emails synced but never classified: a separate, honest, actionable number
+  // instead of silently padding the counter above.
+  const pendingClassification = stats?.pendingClassification ?? 0;
 
   // Auto-select first email if none selected (initial load, no URL param)
   if (!selectedEmailId && !urlEmailId && allEmails.length > 0) {
@@ -851,19 +949,111 @@ function MailPageInner() {
     setSelectedEmailId(email.id);
     setSelectedFolderMessage(null);
     if (email.project_id) setActiveProject(email.project_id);
+    setShowDetailOnMobile(true);
+  };
+
+  /**
+   * D-FIX6 — "Utiliser ce brouillon" now opens the reply composer pre-filled.
+   * Both AIDraftPanel mount points passed no `onAcceptDraft`, so accepting a
+   * draft flipped its status and threw the text away: the user read the AI
+   * reply, then retyped it by hand.
+   */
+  const openDraftReply = (draft: { id: string; draft_body: string; email_record_id: string; email?: { id: string; sender_name: string; sender_email: string; subject: string; received_at: string } | null }) => {
+    const known = allEmails.find((e) => e.id === draft.email_record_id);
+    if (known) {
+      setSelectedEmailId(known.id);
+      if (known.project_id) setActiveProject(known.project_id);
+      setReplyDraft({ id: draft.id, body: draft.draft_body });
+      setReplyEmail(known);
+      return;
+    }
+
+    // Draft for an email that already left the buckets (processed, snoozed…).
+    // Reply to it anyway from a minimal record rather than dropping the draft.
+    if (!draft.email) return;
+    setReplyDraft({ id: draft.id, body: draft.draft_body });
+    setReplyEmail({
+      id: draft.email_record_id,
+      subject: draft.email.subject,
+      sender_email: draft.email.sender_email,
+      sender_name: draft.email.sender_name,
+      recipients: null,
+      body_preview: "",
+      received_at: draft.email.received_at,
+      classification: "action_required",
+      ai_summary: null,
+      ai_classification_confidence: null,
+      project_id: null,
+      project_name: null,
+      is_processed: false,
+      outlook_message_id: null,
+      price_extracted: false,
+      email_category: null,
+      priority: "action",
+      is_quote: false,
+      price_indicator: null,
+      suggested_project_data: null,
+    });
+  };
+
+  /**
+   * D-FIX5 — "Tâches" used to only dismiss the card: the AI extraction ran on
+   * every panel open, was billed, and was thrown away. It now persists through
+   * `/api/ai/extract-tasks?persist` (which enforces the org check and writes
+   * real `tasks` rows) before the email leaves the queue.
+   */
+  const createTasksFromEmail = async (email: DecisionEmail) => {
+    try {
+      const res = await fetch("/api/ai/extract-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_id: email.id, persist: true }),
+      });
+      if (await handleInsufficientCredits(res)) return;
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || data.success === false) {
+        toast.error(data.error || t("tasks.createError"));
+        return;
+      }
+      notifyCreditsChanged();
+
+      const created = data.created ?? 0;
+      if (created > 0) {
+        toast.success(t("tasks.created", { count: created }));
+        dismissCard(email.id, "task", email);
+      } else {
+        toast.info(t("tasks.noneFound"));
+      }
+    } catch {
+      toast.error(t("tasks.createError"));
+    }
   };
 
   return (
     <div className="h-full min-h-screen bg-[#0F0F11] flex flex-col">
       {/* ═══ TOP TOOLBAR ═══ */}
-      <div className="flex-shrink-0 h-14 border-b border-[#1C1C1F] flex items-center px-5 gap-4">
+      {/* A fixed h-14 row of four labelled buttons overflowed a phone viewport
+          and forced the page to scroll sideways: it wraps now, and the labels
+          collapse to their icons on narrow screens. */}
+      <div className="flex-shrink-0 min-h-14 border-b border-[#1C1C1F] flex flex-wrap items-center px-5 py-2 gap-x-4 gap-y-2">
         {/* Left: title + counts */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-[15px] font-bold text-[#FAFAFA]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
             Mail
           </h1>
-          <span className="text-[12px] text-[#52525B]">
-            {totalUnprocessed} non trait&eacute;{totalUnprocessed !== 1 ? "s" : ""}{totalActionable > 0 && <> &middot; <span className="text-[#F97316]">{totalActionable} à traiter</span></>}
+          <span className="text-[12px] text-[#A1A1AA]">
+            {t("unprocessedCount", { count: totalUnprocessed })}{totalActionable > 0 && <> &middot; <span className="text-[#F97316]">{t("actionableCount", { count: totalActionable })}</span></>}
+            {pendingClassification > 0 && (
+              <> &middot; <button
+                onClick={handleReclassify}
+                disabled={reclassifying || classifierAgent.isRunning}
+                className="text-[#A1A1AA] underline decoration-dotted underline-offset-2 hover:text-[#FAFAFA] disabled:opacity-50 transition-colors"
+                title={t("pendingClassificationHint")}
+              >
+                {t("pendingClassification", { count: pendingClassification })}
+              </button></>
+            )}
           </span>
         </div>
 
@@ -875,10 +1065,10 @@ function MailPageInner() {
           {/* Compose new email button */}
           <button
             onClick={() => setComposeOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            Nouveau
+            <span className="hidden sm:inline">Nouveau</span>
           </button>
 
           {/* Sync button */}
@@ -888,7 +1078,7 @@ function MailPageInner() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#18181B] border border-[#27272A] rounded-lg hover:bg-[#27272A] disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? t("syncing") : t("sync")}
+            <span className="hidden sm:inline">{syncing ? t("syncing") : t("sync")}</span>
           </button>
 
           {/* Reclassify all button */}
@@ -898,7 +1088,7 @@ function MailPageInner() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#18181B] border border-[#27272A] rounded-lg hover:bg-[#27272A] disabled:opacity-50 transition-colors"
           >
             {reclassifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-            Reclassifier
+            <span className="hidden sm:inline">Reclassifier</span>
           </button>
 
           {/* AI Summaries button */}
@@ -920,7 +1110,7 @@ function MailPageInner() {
                   if (json.updated > 0) fetchData();
                 }
               } catch {
-                toast.error("Erreur lors de la génération des résumés");
+                toast.error(t("summariesError"));
               }
               setGeneratingSummaries(false);
               setTimeout(() => setSummaryToast(null), 4000);
@@ -929,7 +1119,7 @@ function MailPageInner() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#F97316] bg-[#F97316]/10 border border-[#F97316]/20 rounded-lg hover:bg-[#F97316]/15 disabled:opacity-50 transition-colors"
           >
             {generatingSummaries ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-            {t("generateSummaries")}
+            <span className="hidden sm:inline">{t("generateSummaries")}</span>
           </button>
         </div>
       </div>
@@ -968,13 +1158,13 @@ function MailPageInner() {
                 <Mail className="w-4 h-4 text-[#F97316]" />
               </div>
               <div>
-                <p className="text-[13px] font-medium text-[#FAFAFA]">Connectez votre email pour commencer</p>
-                <p className="text-[11px] text-[#71717A]">Cantaia classera automatiquement vos emails par chantier et extraira les tâches</p>
+                <p className="text-[13px] font-medium text-[#FAFAFA]">{t("connectEmailTitle")}</p>
+                <p className="text-[11px] text-[#A1A1AA]">{t("connectEmailDesc")}</p>
               </div>
             </div>
             <a
               href={`/${locale}/settings?tab=outlook`}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-semibold text-white bg-[#F97316] rounded-lg hover:bg-[#EA580C] transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-semibold text-[#0F0F11] bg-[#F97316] rounded-lg hover:bg-[#EA580C] transition-colors"
             >
               <Settings className="w-3.5 h-3.5" />
               Connecter Microsoft 365 / Gmail
@@ -987,7 +1177,11 @@ function MailPageInner() {
       {/* ═══ 2-PANEL MAIN CONTENT ═══ */}
       <div className="flex-1 flex min-h-0">
         {/* ── LEFT PANEL: Folder nav + Email list ── */}
-        <div className="w-[420px] flex-shrink-0 border-r border-[#1C1C1F] flex flex-col min-h-0 bg-[#0F0F11]">
+        <div
+          className={`w-full lg:w-[420px] lg:flex-shrink-0 border-r border-[#1C1C1F] flex-col min-h-0 bg-[#0F0F11] ${
+            showDetailOnMobile ? "hidden lg:flex" : "flex"
+          }`}
+        >
           {/* ── Folder navigation ── */}
           <div className="flex-shrink-0 border-b border-[#1C1C1F]" data-tour="mail-nav">
             <nav className="py-1">
@@ -1019,29 +1213,37 @@ function MailPageInner() {
             </nav>
 
             {/* ── Custom folders / Groups ── */}
+            {/*
+              A11y \u2014 this used to be a <button> wrapping another <button>, which
+              is invalid HTML: React still renders it, but the browser drops the
+              inner control out of the tab order and clicking it fired both
+              handlers. The two controls are now siblings in a flex row.
+            */}
             <div className="border-t border-[#1C1C1F]">
-              <button
-                onClick={() => {
-                  setFoldersExpanded(!foldersExpanded);
-                  if (!foldersLoaded) fetchFolders();
-                }}
-                className="w-full flex items-center justify-between px-4 py-2 hover:bg-[#18181B] transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  {foldersExpanded ? <ChevronDown className="w-3 h-3 text-[#52525B]" /> : <ChevronRight className="w-3 h-3 text-[#52525B]" />}
-                  <span className="text-[10px] uppercase tracking-wider text-[#52525B] font-semibold">Groupes</span>
+              <div className="w-full flex items-center justify-between pr-3 hover:bg-[#18181B] transition-colors">
+                <button
+                  onClick={() => {
+                    setFoldersExpanded(!foldersExpanded);
+                    if (!foldersLoaded) fetchFolders();
+                  }}
+                  aria-expanded={foldersExpanded}
+                  className="flex-1 flex items-center gap-2 px-4 py-2 text-left"
+                >
+                  {foldersExpanded ? <ChevronDown className="w-3 h-3 text-[#A1A1AA]" /> : <ChevronRight className="w-3 h-3 text-[#A1A1AA]" />}
+                  <span className="text-[10px] uppercase tracking-wider text-[#A1A1AA] font-semibold">Groupes</span>
                   {customFolders.length > 0 && (
                     <span className="text-[10px] text-[#3F3F46]">{customFolders.length}</span>
                   )}
-                </div>
+                </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setShowCreateFolder(true); }}
-                  className="p-1 text-[#52525B] hover:text-[#F97316] rounded transition-colors"
+                  onClick={() => setShowCreateFolder(true)}
+                  className="p-1 text-[#A1A1AA] hover:text-[#F97316] rounded transition-colors"
+                  aria-label={"Cr\u00e9er un groupe"}
                   title={"Cr\u00e9er un groupe"}
                 >
                   <FolderPlus className="w-3.5 h-3.5" />
                 </button>
-              </button>
+              </div>
 
               {foldersExpanded && (
                 <>
@@ -1073,20 +1275,20 @@ function MailPageInner() {
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") createFolder(); if (e.key === "Escape") setShowCreateFolder(false); }}
-                  placeholder="Nom du groupe..."
+                  placeholder={t("groupNamePlaceholder")}
                   autoFocus
-                  className="flex-1 bg-[#18181B] border border-[#27272A] rounded-md px-2.5 py-1.5 text-[12px] text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50"
+                  className="flex-1 bg-[#18181B] border border-[#27272A] rounded-md px-2.5 py-1.5 text-[12px] text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#F97316]/50"
                 />
                 <button
                   onClick={createFolder}
                   disabled={creatingFolder || !newFolderName.trim()}
-                  className="px-2.5 py-1.5 text-[11px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-md disabled:opacity-50 transition-colors"
+                  className="px-2.5 py-1.5 text-[11px] font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-md disabled:opacity-50 transition-colors"
                 >
-                  {creatingFolder ? <Loader2 className="w-3 h-3 animate-spin" /> : "Cr\u00e9er"}
+                  {creatingFolder ? <Loader2 className="w-3 h-3 animate-spin" /> : t("create")}
                 </button>
                 <button
                   onClick={() => { setShowCreateFolder(false); setNewFolderName(""); }}
-                  className="p-1.5 text-[#52525B] hover:text-[#A1A1AA] rounded transition-colors"
+                  className="p-1.5 text-[#A1A1AA] hover:text-[#A1A1AA] rounded transition-colors"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -1097,18 +1299,35 @@ function MailPageInner() {
           {/* ── AI Drafts section (top-level, always visible) ── */}
           {viewMode === "decisions" && (
             <div className="px-3 py-2 border-b border-[#27272A]">
-              <AIDraftPanel />
+              <AIDraftPanel onAcceptDraft={openDraftReply} />
             </div>
           )}
 
           {/* ── Email list ── */}
-          <div className="flex-1 overflow-y-auto" data-tour="mail-buckets">
+          <div
+            className="flex-1 overflow-y-auto"
+            data-tour="mail-buckets"
+            aria-label={t("listAriaLabel")}
+          >
             {isFolderView ? (
               /* Folder messages (sent, trash, drafts, custom) */
               <>
                 {folderMessagesLoading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-5 h-5 animate-spin text-[#52525B]" />
+                    <Loader2 className="w-5 h-5 animate-spin text-[#A1A1AA]" />
+                  </div>
+                ) : folderError ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center px-8">
+                    <div className="w-10 h-10 bg-[#EF4444]/10 rounded-xl flex items-center justify-center mb-3">
+                      <AlertTriangle className="w-5 h-5 text-[#EF4444]" />
+                    </div>
+                    <p className="text-[13px] text-[#A1A1AA]">{t("folderLoadError")}</p>
+                    <button
+                      onClick={() => selectedFolderId && fetchFolderMessages(selectedFolderId)}
+                      className="mt-3 rounded-md border border-[#27272A] px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] hover:bg-[#27272A]"
+                    >
+                      {t("retry")}
+                    </button>
                   </div>
                 ) : folderMessages.length > 0 ? (
                   folderMessages.map((msg) => (
@@ -1116,16 +1335,16 @@ function MailPageInner() {
                       key={msg.id}
                       message={msg}
                       isSelected={selectedFolderMessage?.id === msg.id}
-                      onSelect={() => { setSelectedFolderMessage(msg); setSelectedEmailId(null); }}
+                      onSelect={() => { setSelectedFolderMessage(msg); setSelectedEmailId(null); setShowDetailOnMobile(true); }}
                       isSentView={viewMode === "sent"}
                     />
                   ))
                 ) : (
                   <div className="flex flex-col items-center justify-center py-16 text-center px-8">
                     <div className="w-10 h-10 bg-[#27272A] rounded-xl flex items-center justify-center mb-3">
-                      {viewMode === "sent" ? <Send className="w-5 h-5 text-[#52525B]" /> : viewMode === "trash" ? <Trash2 className="w-5 h-5 text-[#52525B]" /> : <Folder className="w-5 h-5 text-[#52525B]" />}
+                      {viewMode === "sent" ? <Send className="w-5 h-5 text-[#A1A1AA]" /> : viewMode === "trash" ? <Trash2 className="w-5 h-5 text-[#A1A1AA]" /> : <Folder className="w-5 h-5 text-[#A1A1AA]" />}
                     </div>
-                    <p className="text-[13px] text-[#52525B]">
+                    <p className="text-[13px] text-[#A1A1AA]">
                       {viewMode === "sent" ? "Aucun email envoy\u00e9" : viewMode === "trash" ? "La corbeille est vide" : "Aucun email dans ce groupe"}
                     </p>
                   </div>
@@ -1193,7 +1412,7 @@ function MailPageInner() {
                   <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                 </div>
                 <p className="text-[13px] font-semibold text-[#FAFAFA] mb-1">{t("empty.title", { firstName })}</p>
-                <p className="text-[11px] text-[#71717A] mb-4">{t("empty.subtitle")}</p>
+                <p className="text-[11px] text-[#A1A1AA] mb-4">{t("empty.subtitle")}</p>
                 <button onClick={fetchData} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#18181B] border border-[#27272A] rounded-lg hover:bg-[#27272A] transition-colors">
                   <RefreshCw className="w-3.5 h-3.5" />{t("actions.refresh")}
                 </button>
@@ -1203,22 +1422,30 @@ function MailPageInner() {
         </div>
 
         {/* ── RIGHT PANEL: Email detail ── */}
-        <div className="flex-1 flex flex-col min-h-0 bg-[#0F0F11]" data-tour="mail-detail">
+        <div
+          className={`flex-1 flex-col min-h-0 bg-[#0F0F11] ${
+            showDetailOnMobile ? "flex" : "hidden lg:flex"
+          }`}
+          data-tour="mail-detail"
+        >
           {selectedEmail ? (
             <EmailDetailPanel
               email={selectedEmail}
               isAloneInOrg={isAloneInOrg}
+              currentUserEmail={userEmail}
               locale={locale}
               folders={customFolders}
               orgProjects={orgProjects}
-              onReply={() => setReplyEmail(selectedEmail)}
+              onBack={() => setShowDetailOnMobile(false)}
+              onReply={() => { setReplyDraft(null); setReplyEmail(selectedEmail); }}
               onDelegate={() => setDelegateEmail(selectedEmail)}
               onTransfer={() => setTransferEmail(selectedEmail)}
-              onCreateTask={() => dismissCard(selectedEmail.id, "task")}
+              onCreateTask={() => createTasksFromEmail(selectedEmail)}
+              onAcceptDraft={openDraftReply}
               onArchive={() => dismissCard(selectedEmail.id, "archive")}
               onSnooze={() => snoozeCard(selectedEmail.id)}
               onAccept={() => dismissCard(selectedEmail.id, "accept", selectedEmail)}
-              onNegotiate={() => setReplyEmail(selectedEmail)}
+              onNegotiate={() => { setReplyDraft(null); setReplyEmail(selectedEmail); }}
               onRefuse={() => dismissCard(selectedEmail.id, "refuse")}
               onMoveToFolder={moveToFolder}
               onReassignProject={reassignProject}
@@ -1242,7 +1469,7 @@ function MailPageInner() {
               />
               <div className="text-center relative z-[1]">
                 <Mail className="w-10 h-10 text-[#27272A] mx-auto mb-3" />
-                <p className="text-[13px] text-[#52525B]">S{"\u00e9"}lectionnez un email pour voir son contenu</p>
+                <p className="text-[13px] text-[#A1A1AA]">S{"\u00e9"}lectionnez un email pour voir son contenu</p>
               </div>
             </div>
           )}
@@ -1254,12 +1481,17 @@ function MailPageInner() {
       {/* Reply Modal */}
       {replyEmail && (
         <ReplyModal
+          key={`${replyEmail.id}:${replyDraft?.id || "blank"}`}
           email={replyEmail}
           signature={userSignature}
-          onClose={() => setReplyEmail(null)}
+          currentUserEmail={userEmail}
+          initialBody={replyDraft?.body}
+          draftId={replyDraft?.id}
+          onClose={() => { setReplyEmail(null); setReplyDraft(null); }}
           onDone={(emailId) => {
             const sentEmail = replyEmail;
             setReplyEmail(null);
+            setReplyDraft(null);
             dismissCard(emailId, "replied", sentEmail);
           }}
         />
@@ -1340,9 +1572,9 @@ function EmailBucket({ color, label, count, emails, selectedEmailId, onSelect }:
       >
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
         <span className="text-[11px] font-semibold uppercase tracking-wide text-[#A1A1AA]">{label}</span>
-        <span className="text-[11px] font-bold text-[#52525B]">{count}</span>
+        <span className="text-[11px] font-bold text-[#A1A1AA]">{count}</span>
         <div className="flex-1" />
-        {collapsed ? <ChevronRight className="w-3.5 h-3.5 text-[#52525B]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#52525B]" />}
+        {collapsed ? <ChevronRight className="w-3.5 h-3.5 text-[#A1A1AA]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#A1A1AA]" />}
       </button>
 
       {/* Email rows */}
@@ -1370,13 +1602,28 @@ function EmailRow({ email, isSelected, onSelect }: {
   const avatarColor = getAvatarColor(email.sender_name || email.sender_email, false);
 
   return (
+    // A11y — the card was a plain <div onClick>: unreachable by keyboard and
+    // invisible to assistive tech. It is now an activatable control, focusable
+    // and triggered by Enter/Space. (`role="button"` rather than a listbox
+    // option: the list interleaves collapsible bucket headers, which are not
+    // valid children of a listbox.)
     <div
-      className={`flex gap-3 px-4 py-3 border-b border-[#1C1C1F] cursor-pointer transition-colors ${
+      role="button"
+      aria-current={isSelected ? "true" : undefined}
+      aria-label={`${email.sender_name || email.sender_email} — ${safeStr(email.subject)}`}
+      tabIndex={0}
+      className={`flex gap-3 px-4 py-3 border-b border-[#1C1C1F] cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F97316] ${
         isSelected
           ? "bg-[#1C1209] border-l-[3px] border-l-[#F97316]"
           : "hover:bg-[#18181B] border-l-[3px] border-l-transparent"
       }`}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
     >
       {/* Avatar */}
       <div
@@ -1390,10 +1637,10 @@ function EmailRow({ email, isSelected, onSelect }: {
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-baseline">
           <span className="text-[13px] font-semibold text-[#FAFAFA] truncate">{email.sender_name || email.sender_email}</span>
-          <span className="text-[10px] text-[#52525B] shrink-0 ml-2">{formatTime(email)}</span>
+          <span className="text-[10px] text-[#A1A1AA] shrink-0 ml-2">{formatTime(email)}</span>
         </div>
         <div className="text-[12px] text-[#D4D4D8] truncate mt-0.5">{safeStr(email.subject)}</div>
-        <div className="text-[11px] text-[#71717A] truncate mt-0.5">{safeStr(email.ai_summary || email.body_preview)}</div>
+        <div className="text-[11px] text-[#A1A1AA] truncate mt-0.5">{safeStr(email.ai_summary || email.body_preview)}</div>
         <div className="flex gap-1 mt-1.5 flex-wrap">
           {email.project_name && (
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3B82F6]/10 text-[#60A5FA] font-medium">{email.project_name}</span>
@@ -1433,11 +1680,11 @@ function MailNavItem({ icon, label, count, active, onClick, indent }: {
           : "text-[#A1A1AA] hover:bg-[#18181B] hover:text-[#FAFAFA]"
       }`}
     >
-      <span className={`shrink-0 ${active ? "text-[#F97316]" : "text-[#52525B]"}`}>{icon}</span>
+      <span className={`shrink-0 ${active ? "text-[#F97316]" : "text-[#A1A1AA]"}`}>{icon}</span>
       <span className="flex-1 text-left truncate">{label}</span>
       {count != null && count > 0 && (
         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-          active ? "bg-[#F97316]/20 text-[#F97316]" : "bg-[#27272A] text-[#71717A]"
+          active ? "bg-[#F97316]/20 text-[#F97316]" : "bg-[#27272A] text-[#A1A1AA]"
         }`}>
           {count}
         </span>
@@ -1463,12 +1710,22 @@ function FolderEmailRow({ message, isSelected, onSelect, isSentView }: {
 
   return (
     <div
-      className={`flex gap-3 px-4 py-3 border-b border-[#1C1C1F] cursor-pointer transition-colors ${
+      role="button"
+      aria-current={isSelected ? "true" : undefined}
+      aria-label={`${displayName} — ${message.subject || "(Sans objet)"}`}
+      tabIndex={0}
+      className={`flex gap-3 px-4 py-3 border-b border-[#1C1C1F] cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F97316] ${
         isSelected
           ? "bg-[#1C1209] border-l-[3px] border-l-[#F97316]"
           : "hover:bg-[#18181B] border-l-[3px] border-l-transparent"
       }`}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
     >
       <div
         className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] text-white font-semibold shrink-0"
@@ -1481,17 +1738,17 @@ function FolderEmailRow({ message, isSelected, onSelect, isSentView }: {
           <span className={`text-[13px] font-semibold truncate ${message.is_read ? "text-[#A1A1AA]" : "text-[#FAFAFA]"}`}>
             {displayName}
           </span>
-          <span className="text-[10px] text-[#52525B] shrink-0 ml-2">
+          <span className="text-[10px] text-[#A1A1AA] shrink-0 ml-2">
             {formatTime({ received_at: message.received_at } as DecisionEmail)}
           </span>
         </div>
-        <div className={`text-[12px] truncate mt-0.5 ${message.is_read ? "text-[#71717A]" : "text-[#D4D4D8]"}`}>
+        <div className={`text-[12px] truncate mt-0.5 ${message.is_read ? "text-[#A1A1AA]" : "text-[#D4D4D8]"}`}>
           {message.subject || "(Sans objet)"}
         </div>
-        <div className="text-[11px] text-[#52525B] truncate mt-0.5">{message.body_preview}</div>
+        <div className="text-[11px] text-[#A1A1AA] truncate mt-0.5">{message.body_preview}</div>
         {message.has_attachments && (
           <div className="flex gap-1 mt-1">
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#27272A] text-[#71717A] font-medium flex items-center gap-0.5">
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#27272A] text-[#A1A1AA] font-medium flex items-center gap-0.5">
               <Paperclip className="w-2.5 h-2.5" />PJ
             </span>
           </div>
@@ -1513,23 +1770,23 @@ function FolderMessageDetail({ message, locale }: { message: FolderMessage; loca
         <h2 className="text-[18px] font-bold text-[#FAFAFA] leading-snug" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
           {message.subject || "(Sans objet)"}
         </h2>
-        <div className="mt-2 space-y-1 text-[12px] text-[#71717A]">
+        <div className="mt-2 space-y-1 text-[12px] text-[#A1A1AA]">
           <div className="flex items-center gap-1.5">
-            <span className="text-[#52525B] w-6 shrink-0">De</span>
+            <span className="text-[#A1A1AA] w-6 shrink-0">De</span>
             <strong className="text-[#D4D4D8]">{message.sender_name || message.sender_email}</strong>
             {message.sender_name && message.sender_email && (
-              <span className="text-[#52525B]">&lt;{message.sender_email}&gt;</span>
+              <span className="text-[#A1A1AA]">&lt;{message.sender_email}&gt;</span>
             )}
           </div>
           {message.recipients && message.recipients.length > 0 && (
             <div className="flex items-start gap-1.5">
-              <span className="text-[#52525B] w-6 shrink-0 mt-px">{"\u00c0"}</span>
+              <span className="text-[#A1A1AA] w-6 shrink-0 mt-px">{"\u00c0"}</span>
               <span className="text-[#A1A1AA]">{message.recipients.join(", ")}</span>
             </div>
           )}
           {message.cc && message.cc.length > 0 && (
             <div className="flex items-start gap-1.5">
-              <span className="text-[#52525B] w-6 shrink-0 mt-px">CC</span>
+              <span className="text-[#A1A1AA] w-6 shrink-0 mt-px">CC</span>
               <span className="text-[#A1A1AA]">{message.cc.join(", ")}</span>
             </div>
           )}
@@ -1558,22 +1815,26 @@ function FolderMessageDetail({ message, locale }: { message: FolderMessage; loca
 interface FolderInfo { id: string; name: string; }
 interface FolderSuggestion { folder_id: string; folder_name: string; confidence: number; reason: string; }
 
-function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, onReply, onDelegate, onTransfer, onCreateTask, onArchive, onSnooze, onAccept, onNegotiate, onRefuse, onMoveToFolder, onReassignProject, onCreateNewProject, onCreateFolder }: {
+function EmailDetailPanel({ email, isAloneInOrg, currentUserEmail, locale, folders, orgProjects, onBack, onReply, onDelegate, onTransfer, onCreateTask, onAcceptDraft, onArchive, onSnooze, onAccept, onNegotiate, onRefuse, onMoveToFolder, onReassignProject, onCreateNewProject, onCreateFolder }: {
   email: DecisionEmail;
   isAloneInOrg: boolean;
+  currentUserEmail?: string;
   locale: string;
   folders: FolderInfo[];
   orgProjects: { id: string; name: string; code: string | null; color: string | null }[];
+  /** Mobile only — returns to the list panel. */
+  onBack: () => void;
   onReply: () => void;
   onDelegate: () => void;
   onTransfer: () => void;
   onCreateTask: () => void;
+  onAcceptDraft: (draft: { id: string; draft_body: string; email_record_id: string }) => void;
   onArchive: () => void;
   onSnooze: () => void;
   onAccept: () => void;
   onNegotiate: () => void;
   onRefuse: () => void;
-  onMoveToFolder: (emailId: string, folderId: string, folderName: string) => void;
+  onMoveToFolder: (emailId: string, folderId: string, folderName: string, suggestedFolderId?: string | null) => void;
   onReassignProject: (emailId: string, projectId: string) => void;
   onCreateNewProject: (email: DecisionEmail) => void;
   onCreateFolder: (name: string) => void;
@@ -1587,6 +1848,40 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
   const [folderDropdownOpen, setFolderDropdownOpen] = useState(false);
   const [folderSuggestion, setFolderSuggestion] = useState<FolderSuggestion | null>(null);
   const [movingToFolder, setMovingToFolder] = useState(false);
+  // Inline "new group" input — replaces window.prompt (unthemed, non-i18n and
+  // blocked in the Tauri webview).
+  const [showNewGroupInput, setShowNewGroupInput] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
+
+  const createGroupAndMove = async () => {
+    const name = newGroupName.trim();
+    if (!name) return;
+    setCreatingGroup(true);
+    try {
+      const res = await fetch("/api/email/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        toast.error(t("actionFailed"));
+        return;
+      }
+      const data = await res.json();
+      if (data.folder?.id) {
+        onMoveToFolder(email.id, data.folder.id, name);
+      }
+      onCreateFolder(name);
+      setShowNewGroupInput(false);
+      setNewGroupName("");
+      setFolderDropdownOpen(false);
+    } catch {
+      toast.error(t("actionFailed"));
+    } finally {
+      setCreatingGroup(false);
+    }
+  };
   const folderDropdownRef = useRef<HTMLDivElement>(null);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const projectDropdownRef = useRef<HTMLDivElement>(null);
@@ -1674,7 +1969,9 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
   const handleMoveToFolder = async (folderId: string, folderName: string) => {
     setMovingToFolder(true);
     setFolderDropdownOpen(false);
-    onMoveToFolder(email.id, folderId, folderName);
+    // D-FIX9 — hand the AI suggestion along so folder-learn can tell
+    // "user accepted the suggestion" from "user overrode it".
+    onMoveToFolder(email.id, folderId, folderName, folderSuggestion?.folder_id ?? null);
     setMovingToFolder(false);
   };
 
@@ -1682,22 +1979,30 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
     <>
       {/* ── Subject + Meta (non-scrollable) ── */}
       <div className="flex-shrink-0 px-6 pt-5 pb-3">
+        {/* Mobile-only return to the list (the two panels share the viewport) */}
+        <button
+          onClick={onBack}
+          className="lg:hidden mb-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          {t("actions.backToList")}
+        </button>
         <h2 className="text-[18px] font-bold text-[#FAFAFA] leading-snug" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
           {safeStr(email.subject)}
         </h2>
-        <div className="mt-2 space-y-1 text-[12px] text-[#71717A]">
+        <div className="mt-2 space-y-1 text-[12px] text-[#A1A1AA]">
           {/* From */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[#52525B] w-6 shrink-0">De</span>
+            <span className="text-[#A1A1AA] w-6 shrink-0">De</span>
             <strong className="text-[#D4D4D8]">{safeStr(email.sender_name || email.sender_email)}</strong>
             {email.sender_name && email.sender_email && (
-              <span className="text-[#52525B]">&lt;{email.sender_email}&gt;</span>
+              <span className="text-[#A1A1AA]">&lt;{email.sender_email}&gt;</span>
             )}
           </div>
           {/* To */}
           {email.recipients && email.recipients.length > 0 && (
             <div className="flex items-start gap-1.5">
-              <span className="text-[#52525B] w-6 shrink-0 mt-px">{"À"}</span>
+              <span className="text-[#A1A1AA] w-6 shrink-0 mt-px">{t("toLabel")}</span>
               <span className="text-[#A1A1AA]">{email.recipients.join(", ")}</span>
             </div>
           )}
@@ -1721,7 +2026,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
                       onClick={() => { onReassignProject(email.id, ""); setProjectDropdownOpen(false); }}
                       className="w-full text-left px-3 py-1.5 text-[11px] text-[#A1A1AA] hover:bg-[#27272A] transition-colors flex items-center gap-2"
                     >
-                      <X className="w-3 h-3 text-[#71717A]" />
+                      <X className="w-3 h-3 text-[#A1A1AA]" />
                       Retirer du projet
                     </button>
                   )}
@@ -1737,7 +2042,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
                         style={{ backgroundColor: proj.color || "#3B82F6" }}
                       />
                       <span className="truncate">{proj.name}</span>
-                      {proj.code && <span className="text-[#52525B] ml-auto shrink-0">{proj.code}</span>}
+                      {proj.code && <span className="text-[#A1A1AA] ml-auto shrink-0">{proj.code}</span>}
                       {proj.id === email.project_id && <Check className="w-3 h-3 ml-auto shrink-0 text-[#60A5FA]" />}
                     </button>
                   ))}
@@ -1764,7 +2069,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
             </button>
           </>
         ) : (
-          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors">
+          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors">
             <Send className="w-3.5 h-3.5" />{t("actions.replyWithAI")}
           </button>
         )}
@@ -1772,14 +2077,14 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
         {/* Secondary actions */}
         {!email.is_quote && (
           <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
-            <RotateCcw className="w-3.5 h-3.5" />{"R\u00e9pondre"}
+            <RotateCcw className="w-3.5 h-3.5" />{t("actions.reply")}
           </button>
         )}
         <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
           <Forward className="w-3.5 h-3.5" />{t("actions.transfer")}
         </button>
         <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
-          <ListTodo className="w-3.5 h-3.5" />Tâches
+          <ListTodo className="w-3.5 h-3.5" />{t("tasksLabel")}
         </button>
 
         {/* Move to group dropdown — always visible */}
@@ -1802,7 +2107,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
             <div className="absolute top-full left-0 mt-1 z-50 w-56 bg-[#1C1C1F] border border-[#27272A] rounded-lg shadow-xl py-1 max-h-64 overflow-y-auto">
               {folderSuggestion && (
                 <>
-                  <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#52525B] font-semibold flex items-center gap-1">
+                  <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#A1A1AA] font-semibold flex items-center gap-1">
                     <Sparkles className="w-3 h-3 text-[#F97316]" />Suggestion IA
                   </div>
                   <button
@@ -1818,50 +2123,51 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
               )}
               {folders.length > 0 && (
                 <>
-                  <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#52525B] font-semibold">Tous les groupes</div>
+                  <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#A1A1AA] font-semibold">Tous les groupes</div>
                   {folders.map((folder) => (
                     <button
                       key={folder.id}
                       onClick={() => handleMoveToFolder(folder.id, folder.name)}
                       className="w-full text-left px-3 py-2 text-[12px] text-[#D4D4D8] hover:bg-[#27272A] flex items-center gap-2"
                     >
-                      <Folder className="w-3.5 h-3.5 text-[#52525B]" />
+                      <Folder className="w-3.5 h-3.5 text-[#A1A1AA]" />
                       {folder.name}
                     </button>
                   ))}
                   <div className="border-t border-[#27272A] my-1" />
                 </>
               )}
-              {/* Create new group option — always available */}
-              <button
-                onClick={async () => {
-                  setFolderDropdownOpen(false);
-                  const folderName = prompt("Nom du nouveau groupe :");
-                  if (folderName && folderName.trim()) {
-                    try {
-                      // Create the folder
-                      const res = await fetch("/api/email/folders", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name: folderName.trim() }),
-                      });
-                      if (res.ok) {
-                        const data = await res.json();
-                        // Move the email to the newly created folder
-                        if (data.folder?.id) {
-                          onMoveToFolder(email.id, data.folder.id, folderName.trim());
-                        }
-                        // Also refresh folders list
-                        onCreateFolder(folderName.trim());
-                      }
-                    } catch { /* non-blocking */ }
-                  }
-                }}
-                className="w-full text-left px-3 py-2 text-[12px] text-[#3B82F6] hover:bg-[#3B82F6]/10 flex items-center gap-2"
-              >
-                <FolderPlus className="w-3.5 h-3.5" />
-                Créer un groupe
-              </button>
+              {/* Create new group option — inline input (no window.prompt) */}
+              {showNewGroupInput ? (
+                <div className="px-3 py-2 flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") createGroupAndMove();
+                      if (e.key === "Escape") { setShowNewGroupInput(false); setNewGroupName(""); }
+                    }}
+                    placeholder={t("groupNameShort")}
+                    className="min-w-0 flex-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2 py-1 text-[12px] text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-[#3B82F6] focus:outline-none"
+                  />
+                  <button
+                    onClick={createGroupAndMove}
+                    disabled={creatingGroup || !newGroupName.trim()}
+                    className="rounded-md bg-[#3B82F6] px-2 py-1 text-[11px] font-medium text-white hover:bg-[#2563EB] disabled:opacity-50"
+                  >
+                    {creatingGroup ? <Loader2 className="h-3 w-3 animate-spin" /> : t("create")}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setShowNewGroupInput(true); setNewGroupName(""); }}
+                  className="w-full text-left px-3 py-2 text-[12px] text-[#3B82F6] hover:bg-[#3B82F6]/10 flex items-center gap-2"
+                >
+                  <FolderPlus className="w-3.5 h-3.5" />
+                  {t("createGroup")}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1875,11 +2181,21 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right-side actions */}
-        <button onClick={onSnooze} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#71717A] hover:text-[#A1A1AA] bg-[#18181B] hover:bg-[#27272A] border border-[#27272A] rounded-lg transition-colors">
+        {/* Right-side actions — icon-only, so they need an accessible name */}
+        <button
+          onClick={onSnooze}
+          aria-label={t("actions.snooze")}
+          title={t("actions.snooze")}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] hover:text-[#A1A1AA] bg-[#18181B] hover:bg-[#27272A] border border-[#27272A] rounded-lg transition-colors"
+        >
           <AlarmClock className="w-3.5 h-3.5" />
         </button>
-        <button onClick={onArchive} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#71717A] hover:text-red-400 bg-[#18181B] hover:bg-red-500/10 border border-[#27272A] rounded-lg transition-colors">
+        <button
+          onClick={onArchive}
+          aria-label={t("actions.archive")}
+          title={t("actions.archive")}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] hover:text-red-400 bg-[#18181B] hover:bg-red-500/10 border border-[#27272A] rounded-lg transition-colors"
+        >
           <Archive className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -1927,18 +2243,18 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
               <div className="px-4 py-3">
                 <div className="flex items-center gap-2 mb-2">
                   <Building2 className="w-3.5 h-3.5 text-[#3B82F6]" />
-                  <span className="text-[11px] uppercase font-bold tracking-wider text-[#3B82F6]">Nouveau projet détecté</span>
+                  <span className="text-[11px] uppercase font-bold tracking-wider text-[#3B82F6]">{t("newProjectDetected")}</span>
                 </div>
                 {email.suggested_project_data?.name && (
                   <div className="flex items-center gap-3 mb-2">
                     <span className="text-[13px] font-medium text-[#FAFAFA]">{email.suggested_project_data.name}</span>
                     {email.suggested_project_data.location && (
-                      <span className="text-[11px] text-[#71717A] flex items-center gap-1">
+                      <span className="text-[11px] text-[#A1A1AA] flex items-center gap-1">
                         <MapPin className="w-3 h-3" />{email.suggested_project_data.location}
                       </span>
                     )}
                     {email.suggested_project_data.client && (
-                      <span className="text-[11px] text-[#71717A]">{email.suggested_project_data.client}</span>
+                      <span className="text-[11px] text-[#A1A1AA]">{email.suggested_project_data.client}</span>
                     )}
                   </div>
                 )}
@@ -1948,14 +2264,14 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-[#3B82F6] hover:bg-[#2563EB] rounded-lg transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    Créer ce projet
+                    {t("createThisProject")}
                   </button>
                   <button
                     onClick={() => onReassignProject(email.id, "")}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors"
                   >
                     <ArrowRightLeft className="w-3.5 h-3.5" />
-                    Attribuer à un projet existant
+                    {t("assignExistingProject")}
                   </button>
                 </div>
               </div>
@@ -1966,7 +2282,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
         {/* ── Email body ── */}
         <div className="px-6 pb-4">
           {threadError && !thread && (
-            <div className="mb-3 px-3 py-1.5 text-[11px] text-[#52525B] flex items-center gap-1.5">
+            <div className="mb-3 px-3 py-1.5 text-[11px] text-[#A1A1AA] flex items-center gap-1.5">
               <MessageSquare className="w-3 h-3" />{threadError}
             </div>
           )}
@@ -1993,19 +2309,19 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
                 <div className="mt-5">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="flex-1 h-px bg-[#27272A]" />
-                    <span className="text-[10px] uppercase font-semibold text-[#52525B] tracking-wide">
+                    <span className="text-[10px] uppercase font-semibold text-[#A1A1AA] tracking-wide">
                       {t("email.thread")} &middot; {thread.length - 1} message{thread.length - 1 > 1 ? "s" : ""} pr{thread.length - 1 > 1 ? "\u00e9c\u00e9dents" : "\u00e9c\u00e9dent"}
                     </span>
                     <div className="flex-1 h-px bg-[#27272A]" />
                   </div>
-                  <ThreadView thread={thread.slice(0, -1)} currentUserEmail={email.sender_email} />
+                  <ThreadView thread={thread.slice(0, -1)} currentUserEmail={currentUserEmail} />
                 </div>
               )}
             </div>
           ) : (
             <div className="bg-[#18181B] rounded-xl border border-[#27272A] p-5">
               {threadLoading && !fallbackBody ? (
-                <div className="flex items-center gap-2 text-[#52525B] text-[13px] py-8 justify-center">
+                <div className="flex items-center gap-2 text-[#A1A1AA] text-[13px] py-8 justify-center">
                   <Loader2 className="w-4 h-4 animate-spin" />{t("email.loadingContent")}
                 </div>
               ) : fallbackIsHtml ? (
@@ -2018,7 +2334,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
 
           {/* AI Draft Panel — shows pending draft if one exists for this email */}
           <div className="px-4 pb-3">
-            <AIDraftPanel emailRecordId={email.id} compact />
+            <AIDraftPanel emailRecordId={email.id} compact onAcceptDraft={onAcceptDraft} />
           </div>
         </div>
       </div>
@@ -2081,18 +2397,18 @@ function ThreadView({ thread, currentUserEmail }: {
                   )}
                 </div>
                 {!isExpanded && (
-                  <p className="text-[11px] text-[#52525B] truncate mt-0.5">{safeStr(msg.bodyPreview)}</p>
+                  <p className="text-[11px] text-[#A1A1AA] truncate mt-0.5">{safeStr(msg.bodyPreview)}</p>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[10px] text-[#52525B]">{formatThreadDate(msg.receivedDateTime, locale)}</span>
-                {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-[#52525B]" /> : <ChevronRight className="w-3.5 h-3.5 text-[#52525B]" />}
+                <span className="text-[10px] text-[#A1A1AA]">{formatThreadDate(msg.receivedDateTime, locale)}</span>
+                {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-[#A1A1AA]" /> : <ChevronRight className="w-3.5 h-3.5 text-[#A1A1AA]" />}
               </div>
             </button>
 
             {isExpanded && (
               <div className="border-t border-[#27272A]">
-                <div className="px-4 py-2 text-[11px] text-[#52525B] space-y-0.5 bg-[#0F0F11]/50">
+                <div className="px-4 py-2 text-[11px] text-[#A1A1AA] space-y-0.5 bg-[#0F0F11]/50">
                   <p>{t("email.from")} : {msg.from.name} &lt;{msg.from.email}&gt;</p>
                   {msg.to.length > 0 && (
                     <p>{t("email.to")} : {msg.to.map((r) => r.name || r.email).join(", ")}</p>
@@ -2121,14 +2437,19 @@ function ThreadView({ thread, currentUserEmail }: {
    REPLY MODAL (FIX 3 — centered popup, 2 columns, CC/CCI)
    ═══════════════════════════════════════════════════════════ */
 
-function ReplyModal({ email, signature, onClose, onDone }: {
+function ReplyModal({ email, signature, currentUserEmail, initialBody, draftId, onClose, onDone }: {
   email: DecisionEmail;
   signature?: string;
+  currentUserEmail?: string;
+  /** D-FIX6 — body of an accepted AI draft, so the user edits instead of retyping. */
+  initialBody?: string;
+  /** Draft this reply started from; retired server-side once the email is out. */
+  draftId?: string;
   onClose: () => void;
   onDone: (emailId: string) => void;
 }) {
   const t = useTranslations("mail.decisions");
-  const [replyText, setReplyText] = useState("");
+  const [replyText, setReplyText] = useState(initialBody || "");
   const [replyLoading, setReplyLoading] = useState(false);
   const [thread, setThread] = useState<ThreadMessage[] | null>(null);
   const [threadLoading, setThreadLoading] = useState(true);
@@ -2141,7 +2462,9 @@ function ReplyModal({ email, signature, onClose, onDone }: {
   const [instructions, setInstructions] = useState("");
   const [tone, setTone] = useState<string>("formal");
   const [replyLength, setReplyLength] = useState<string>("moyen");
-  const [hasGenerated, setHasGenerated] = useState(false);
+  // An accepted AI draft already IS a generated reply — do not offer to
+  // regenerate over it as if the box were empty.
+  const [hasGenerated, setHasGenerated] = useState(!!initialBody);
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const threadContextRef = useRef<string>("");
 
@@ -2194,10 +2517,19 @@ function ReplyModal({ email, signature, onClose, onDone }: {
         const data = await res.json();
         setReplyText(data.reply_text || "");
         notifyCreditsChanged();
+      } else {
+        // A non-402 failure (500, timeout) used to be swallowed: the AI panel
+        // showed an empty box with no explanation.
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || t("aiGenerationFailed"));
+        setHasGenerated(false);
       }
-    } catch { /* ignore */ }
+    } catch {
+      toast.error(t("aiGenerationFailed"));
+      setHasGenerated(false);
+    }
     setReplyLoading(false);
-  }, [email.id, instructions, tone, replyLength]);
+  }, [email.id, instructions, tone, replyLength, t]);
 
   useEffect(() => {
     if (replyRef.current) {
@@ -2235,6 +2567,8 @@ function ReplyModal({ email, signature, onClose, onDone }: {
       };
       if (cc.trim()) payload.cc = cc.split(",").map((s: string) => s.trim()).filter(Boolean);
       if (bcc.trim()) payload.bcc = bcc.split(",").map((s: string) => s.trim()).filter(Boolean);
+      // D-FIX6 — lets the server retire the AI draft this reply came from.
+      if (draftId) payload.draft_id = draftId;
 
       const res = await fetch("/api/email/send", {
         method: "POST",
@@ -2269,9 +2603,9 @@ function ReplyModal({ email, signature, onClose, onDone }: {
               <h2 className="text-lg font-semibold text-[#FAFAFA]">
                 {t("replyModal.title", { sender: email.sender_name || email.sender_email })}
               </h2>
-              <p className="text-sm text-[#71717A] truncate mt-0.5">{safeStr(email.subject)}</p>
+              <p className="text-sm text-[#A1A1AA] truncate mt-0.5">{safeStr(email.subject)}</p>
             </div>
-            <button onClick={onClose} className="p-1.5 text-[#71717A] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors flex-shrink-0">
+            <button onClick={onClose} className="p-1.5 text-[#A1A1AA] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors flex-shrink-0">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -2281,19 +2615,19 @@ function ReplyModal({ email, signature, onClose, onDone }: {
             {/* Left: conversation thread */}
             <div className="md:w-[40%] border-r border-[#27272A] flex flex-col min-h-0">
               <div className="px-4 py-2 border-b border-[#27272A] flex-shrink-0">
-                <span className="text-xs uppercase font-semibold tracking-wide text-[#52525B]">
+                <span className="text-xs uppercase font-semibold tracking-wide text-[#A1A1AA]">
                   {thread && thread.length > 1 ? t("email.conversation", { count: thread.length }) : t("email.originalEmail")}
                 </span>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-[#0F0F11]" onWheel={(e) => e.stopPropagation()}>
                 {thread && thread.length > 0 ? (
-                  <ThreadView thread={thread} currentUserEmail={email.sender_email} />
+                  <ThreadView thread={thread} currentUserEmail={currentUserEmail} />
                 ) : (
                   <>
                     <div className="text-sm font-medium text-[#FAFAFA] mb-1">{safeStr(email.subject)}</div>
-                    <div className="text-xs text-[#71717A] mb-3">{t("email.from")} : {safeStr(email.sender_name || email.sender_email)}</div>
+                    <div className="text-xs text-[#A1A1AA] mb-3">{t("email.from")} : {safeStr(email.sender_name || email.sender_email)}</div>
                     {threadLoading && !fallbackBody ? (
-                      <div className="flex items-center gap-2 text-[#71717A] text-sm py-4">
+                      <div className="flex items-center gap-2 text-[#A1A1AA] text-sm py-4">
                         <Loader2 className="w-4 h-4 animate-spin" />{t("email.loading")}
                       </div>
                     ) : fallbackIsHtml ? (
@@ -2310,17 +2644,17 @@ function ReplyModal({ email, signature, onClose, onDone }: {
             <div className="md:w-[60%] flex flex-col min-h-0">
               <div className="flex-shrink-0 px-4 py-3 border-b border-[#27272A] bg-[#0F0F11] space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-[#71717A] w-8 text-right">{t("email.to")} :</span>
+                  <span className="text-[#A1A1AA] w-8 text-right">{t("email.to")} :</span>
                   <span className="text-[#FAFAFA] font-medium">{email.sender_email}</span>
                 </div>
                 {showCcBcc ? (
                   <>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-[#71717A] w-8 text-right">{t("email.cc")} :</span>
+                      <span className="text-[#A1A1AA] w-8 text-right">{t("email.cc")} :</span>
                       <input type="text" value={cc} onChange={(e) => setCc(e.target.value)} placeholder={t("replyModal.ccPlaceholder")} className="flex-1 px-2 py-1 border border-[#3F3F46] rounded text-sm bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]" />
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-[#71717A] w-8 text-right">{t("email.bcc")} :</span>
+                      <span className="text-[#A1A1AA] w-8 text-right">{t("email.bcc")} :</span>
                       <input type="text" value={bcc} onChange={(e) => setBcc(e.target.value)} placeholder={t("replyModal.bccPlaceholder")} className="flex-1 px-2 py-1 border border-[#3F3F46] rounded text-sm bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]" />
                     </div>
                   </>
@@ -2336,51 +2670,51 @@ function ReplyModal({ email, signature, onClose, onDone }: {
                 {!hasGenerated && (
                   <div className="mb-4 p-4 rounded-xl border border-[#27272A] bg-[#0F0F11]">
                     <div className="mb-3">
-                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-2 block">Ton</label>
+                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#A1A1AA] mb-2 block">{t("composeTone")}</label>
                       <div className="flex gap-1.5 flex-wrap">
                         {[
-                          { key: "formal", label: "Formel" },
-                          { key: "casual", label: "Décontracté" },
-                          { key: "urgent", label: "Urgent" },
-                          { key: "empathique", label: "Empathique" },
+                          { key: "formal", label: t("toneFormal") },
+                          { key: "casual", label: t("toneCasual") },
+                          { key: "urgent", label: t("toneUrgent") },
+                          { key: "empathique", label: t("toneEmpathique") },
                         ].map((opt) => (
-                          <button key={opt.key} onClick={() => setTone(opt.key)} className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${tone === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#71717A] border-[#27272A] hover:border-[#3F3F46]"}`}>
+                          <button key={opt.key} onClick={() => setTone(opt.key)} className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${tone === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#A1A1AA] border-[#27272A] hover:border-[#3F3F46]"}`}>
                             {opt.label}
                           </button>
                         ))}
                       </div>
                     </div>
                     <div className="mb-3">
-                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-2 block">Longueur</label>
+                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#A1A1AA] mb-2 block">{t("composeLength")}</label>
                       <div className="flex gap-1.5">
                         {[
-                          { key: "court", label: "Court" },
-                          { key: "moyen", label: "Moyen" },
-                          { key: "detaille", label: "Détaillé" },
+                          { key: "court", label: t("lengthShort") },
+                          { key: "moyen", label: t("lengthMedium") },
+                          { key: "detaille", label: t("lengthDetailed") },
                         ].map((opt) => (
-                          <button key={opt.key} onClick={() => setReplyLength(opt.key)} className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${replyLength === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#71717A] border-[#27272A] hover:border-[#3F3F46]"}`}>
+                          <button key={opt.key} onClick={() => setReplyLength(opt.key)} className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${replyLength === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#A1A1AA] border-[#27272A] hover:border-[#3F3F46]"}`}>
                             {opt.label}
                           </button>
                         ))}
                       </div>
                     </div>
                     <div className="mb-3">
-                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-2 block">Instructions (optionnel)</label>
+                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#A1A1AA] mb-2 block">{t("replyInstructionsLabel")}</label>
                       <textarea
                         value={instructions}
                         onChange={(e) => setInstructions(e.target.value)}
-                        placeholder={"Sur quel ton ? Que voulez-vous dire ? Ex: Dis-lui que le délai est repoussé à vendredi, ton amical"}
-                        className="w-full h-20 p-2.5 text-[12px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#18181B] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                        placeholder={t("replyInstructionsPlaceholder")}
+                        className="w-full h-20 p-2.5 text-[12px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#18181B] placeholder:text-[#71717A] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                       />
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={generateReply}
                         disabled={replyLoading}
-                        className="flex-1 py-2 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2 text-[12px] font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                       >
                         {replyLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                        {instructions.trim() ? "Générer avec instructions" : "Générer automatiquement"}
+                        {instructions.trim() ? t("generateWithInstructions") : t("generateAutomatically")}
                       </button>
                     </div>
                   </div>
@@ -2420,7 +2754,7 @@ function ReplyModal({ email, signature, onClose, onDone }: {
                     the signature is user-authored HTML stored server-side. */}
                 {signature?.trim() && (
                   <div className="mt-3 border-t border-dashed border-[#27272A] pt-3">
-                    <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-1.5">Signature</p>
+                    <p className="text-[10px] uppercase tracking-wider text-[#A1A1AA] mb-1.5">Signature</p>
                     <div className="bg-white rounded p-2 text-xs text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(signature)) }} />
                   </div>
                 )}
@@ -2439,12 +2773,12 @@ function ReplyModal({ email, signature, onClose, onDone }: {
               <button
                 onClick={handleSend}
                 disabled={sending || replyLoading || !replyText.trim()}
-                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 {t("replyModal.send")}
               </button>
-              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#D4D4D8] transition-colors ml-auto">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:text-[#D4D4D8] transition-colors ml-auto">
                 {t("replyModal.cancel")}
               </button>
             </div>
@@ -2476,8 +2810,8 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
     async function loadBody() {
       if (!email.outlook_message_id) { setEmailBody(email.body_preview || ""); return; }
       try {
-        const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
-        if (res.ok) { const data = await res.json(); setEmailBody(data.body || email.body_preview || ""); }
+        const res = await fetch(`/api/outlook/email-body?messageId=${encodeURIComponent(email.outlook_message_id)}`);
+        if (res.ok) { const data = await res.json(); setEmailBody(data.content || email.body_preview || ""); }
       } catch { setEmailBody(email.body_preview || ""); }
     }
     loadBody();
@@ -2554,28 +2888,28 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
         <div className="bg-[#18181B] rounded-2xl shadow-2xl flex flex-col w-full max-w-lg border border-[#27272A]" onClick={(e) => e.stopPropagation()}>
           <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between bg-[#0F0F11] border-b border-[#27272A] rounded-t-2xl">
             <h2 className="text-lg font-semibold text-[#FAFAFA]">{t("delegateModal.title")}</h2>
-            <button onClick={onClose} className="p-1.5 text-[#71717A] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors">
+            <button onClick={onClose} className="p-1.5 text-[#A1A1AA] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
           <div className="p-6 space-y-4">
             <div className="text-sm text-[#A1A1AA] bg-[#27272A] rounded-lg p-3 border border-[#3F3F46]">
               <p className="font-medium text-[#FAFAFA] truncate">{safeStr(email.subject)}</p>
-              <p className="text-xs text-[#71717A] mt-1">{t("email.from")} : {safeStr(email.sender_name || email.sender_email)}</p>
+              <p className="text-xs text-[#A1A1AA] mt-1">{t("email.from")} : {safeStr(email.sender_name || email.sender_email)}</p>
             </div>
             <div>
-              <label className="block text-xs text-[#71717A] uppercase font-medium mb-2">{t("delegateModal.delegateTo")}</label>
+              <label className="block text-xs text-[#A1A1AA] uppercase font-medium mb-2">{t("delegateModal.delegateTo")}</label>
               {orgMembers.length > 0 ? (
                 <select value={selectedMember} onChange={(e) => setSelectedMember(e.target.value)} className="w-full p-2.5 border border-[#3F3F46] rounded-lg text-sm text-[#FAFAFA] focus:outline-none focus:ring-2 focus:ring-[#F97316] bg-[#27272A]">
                   <option value="">{t("delegateModal.selectMember")}</option>
                   {orgMembers.map((m) => (<option key={m.id} value={m.id}>{m.first_name} {m.last_name} ({m.email})</option>))}
                 </select>
               ) : (
-                <p className="text-sm text-[#71717A]">{t("delegateModal.noMembers")}</p>
+                <p className="text-sm text-[#A1A1AA]">{t("delegateModal.noMembers")}</p>
               )}
             </div>
             <div>
-              <label className="block text-xs text-[#71717A] uppercase font-medium mb-2">{t("delegateModal.message")}</label>
+              <label className="block text-xs text-[#A1A1AA] uppercase font-medium mb-2">{t("delegateModal.message")}</label>
               <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t("delegateModal.messagePlaceholder")} className="w-full h-24 p-3 text-sm border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#27272A] focus:outline-none focus:ring-2 focus:ring-[#F97316]" />
             </div>
           </div>
@@ -2586,11 +2920,11 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
               </div>
             )}
             <div className="flex items-center gap-3">
-              <button onClick={handleDelegate} disabled={sending || !selectedMember} className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={handleDelegate} disabled={sending || !selectedMember} className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
                 {t("delegateModal.confirm")}
               </button>
-              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#D4D4D8] transition-colors ml-auto">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:text-[#D4D4D8] transition-colors ml-auto">
                 {t("delegateModal.cancel")}
               </button>
             </div>
@@ -2621,8 +2955,8 @@ function TransferModal({ email, onClose, onDone }: {
     async function loadBody() {
       if (!email.outlook_message_id) { setEmailBody(email.body_preview || ""); return; }
       try {
-        const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
-        if (res.ok) { const data = await res.json(); setEmailBody(data.body || email.body_preview || ""); }
+        const res = await fetch(`/api/outlook/email-body?messageId=${encodeURIComponent(email.outlook_message_id)}`);
+        if (res.ok) { const data = await res.json(); setEmailBody(data.content || email.body_preview || ""); }
       } catch { setEmailBody(email.body_preview || ""); }
     }
     loadBody();
@@ -2676,21 +3010,21 @@ function TransferModal({ email, onClose, onDone }: {
         <div className="bg-[#18181B] rounded-2xl shadow-2xl flex flex-col w-full max-w-lg border border-[#27272A]" onClick={(e) => e.stopPropagation()}>
           <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between bg-[#0F0F11] border-b border-[#27272A] rounded-t-2xl">
             <h2 className="text-lg font-semibold text-[#FAFAFA]">{t("transferModal.title")}</h2>
-            <button onClick={onClose} className="p-1.5 text-[#71717A] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors">
+            <button onClick={onClose} className="p-1.5 text-[#A1A1AA] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
           <div className="p-6 space-y-4">
             <div className="text-sm text-[#A1A1AA] bg-[#27272A] rounded-lg p-3 border border-[#3F3F46]">
               <p className="font-medium text-[#FAFAFA] truncate">{safeStr(email.subject)}</p>
-              <p className="text-xs text-[#71717A] mt-1">{t("email.from")} : {safeStr(email.sender_name || email.sender_email)}</p>
+              <p className="text-xs text-[#A1A1AA] mt-1">{t("email.from")} : {safeStr(email.sender_name || email.sender_email)}</p>
             </div>
             <div>
-              <label className="block text-xs text-[#71717A] uppercase font-medium mb-2">{t("transferModal.transferTo")}</label>
+              <label className="block text-xs text-[#A1A1AA] uppercase font-medium mb-2">{t("transferModal.transferTo")}</label>
               <input type="email" value={toEmail} onChange={(e) => setToEmail(e.target.value)} placeholder={t("transferModal.recipientPlaceholder")} className="w-full px-3 py-2.5 border border-[#3F3F46] rounded-lg text-sm text-[#FAFAFA] bg-[#27272A] focus:outline-none focus:ring-2 focus:ring-[#F97316]" />
             </div>
             <div>
-              <label className="block text-xs text-[#71717A] uppercase font-medium mb-2">{t("transferModal.message")}</label>
+              <label className="block text-xs text-[#A1A1AA] uppercase font-medium mb-2">{t("transferModal.message")}</label>
               <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t("transferModal.messagePlaceholder")} className="w-full h-24 p-3 text-sm border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#27272A] focus:outline-none focus:ring-2 focus:ring-[#F97316]" />
             </div>
           </div>
@@ -2701,11 +3035,11 @@ function TransferModal({ email, onClose, onDone }: {
               </div>
             )}
             <div className="flex items-center gap-3">
-              <button onClick={handleTransfer} disabled={sending || !toEmail.trim()} className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={handleTransfer} disabled={sending || !toEmail.trim()} className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Forward className="w-4 h-4" />}
                 {t("transferModal.confirm")}
               </button>
-              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#D4D4D8] transition-colors ml-auto">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:text-[#D4D4D8] transition-colors ml-auto">
                 {t("transferModal.cancel")}
               </button>
             </div>
@@ -2727,6 +3061,7 @@ interface ContactSuggestion {
 }
 
 function ComposeModal({ signature, onClose, onSent }: { signature?: string; onClose: () => void; onSent: () => void }) {
+  const t = useTranslations("mail.decisions");
   const [toEmails, setToEmails] = useState<string[]>([]);
   const [toInput, setToInput] = useState("");
   const [ccInput, setCcInput] = useState("");
@@ -2762,7 +3097,7 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
       if (f.size > maxSize) {
-        setSendError(`"${f.name}" dépasse 10 MB`);
+        setSendError(t("composeFileTooLarge", { name: f.name }));
         continue;
       }
       // Avoid duplicates by name+size
@@ -2875,8 +3210,14 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
         if (data.body) setBody(data.body);
         setShowAiAssist(false);
         notifyCreditsChanged();
+      } else {
+        // Non-402 failure used to produce nothing on click — surface it.
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || t("aiGenerationFailed"));
       }
-    } catch { /* ignore */ }
+    } catch {
+      toast.error(t("aiGenerationFailed"));
+    }
     setGenerating(false);
   };
 
@@ -2912,19 +3253,19 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setSendError(data.error || "Erreur lors de l'envoi");
+        setSendError(data.error || t("composeSendErrorGeneric"));
         setSending(false);
         return;
       }
       onSent();
     } catch {
-      setSendError("Erreur réseau");
+      setSendError(t("composeNetworkError"));
     }
     setSending(false);
   };
 
-  const sourceLabel: Record<string, string> = { team: "Équipe", supplier: "Fournisseur", recent: "Récent", outlook: "Outlook" };
-  const sourceColor: Record<string, string> = { team: "text-[#3B82F6]", supplier: "text-[#10B981]", recent: "text-[#71717A]", outlook: "text-[#F97316]" };
+  const sourceLabel: Record<string, string> = { team: t("composeSourceTeam"), supplier: t("composeSourceSupplier"), recent: t("composeSourceRecent"), outlook: "Outlook" };
+  const sourceColor: Record<string, string> = { team: "text-[#3B82F6]", supplier: "text-[#10B981]", recent: "text-[#A1A1AA]", outlook: "text-[#F97316]" };
 
   return (
     <>
@@ -2937,8 +3278,8 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
         >
           {/* Header */}
           <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between bg-[#0F0F11] border-b border-[#27272A] rounded-t-2xl">
-            <h2 className="text-lg font-semibold text-[#FAFAFA]">Nouveau message</h2>
-            <button onClick={onClose} className="p-1.5 text-[#71717A] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors">
+            <h2 className="text-lg font-semibold text-[#FAFAFA]">{t("composeNewMessage")}</h2>
+            <button onClick={onClose} className="p-1.5 text-[#A1A1AA] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -2947,7 +3288,7 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
           <div className="flex-shrink-0 px-6 py-3 border-b border-[#27272A] space-y-2 bg-[#0F0F11]">
             {/* To field */}
             <div className="flex items-start gap-2 relative">
-              <span className="text-[12px] text-[#71717A] w-8 text-right pt-1.5">À :</span>
+              <span className="text-[12px] text-[#A1A1AA] w-8 text-right pt-1.5">{t("composeTo")}</span>
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-1 p-1.5 border border-[#3F3F46] rounded-lg bg-[#18181B] min-h-[36px]">
                   {toEmails.map((email) => (
@@ -2964,8 +3305,8 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
                     onChange={(e) => setToInput(e.target.value)}
                     onKeyDown={handleToKeyDown}
                     onBlur={() => { if (toInput.trim()) addEmail(toInput); setTimeout(() => setShowSuggestions(false), 200); }}
-                    placeholder={toEmails.length ? "" : "Ajouter un destinataire..."}
-                    className="flex-1 min-w-[120px] bg-transparent text-[12px] text-[#FAFAFA] outline-none placeholder:text-[#52525B] py-0.5"
+                    placeholder={toEmails.length ? "" : t("composeToPlaceholder")}
+                    className="flex-1 min-w-[120px] bg-transparent text-[12px] text-[#FAFAFA] outline-none placeholder:text-[#71717A] py-0.5"
                   />
                 </div>
                 {/* Autocomplete dropdown */}
@@ -2979,9 +3320,9 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
                       >
                         <div className="flex-1 min-w-0">
                           <div className="text-[12px] text-[#FAFAFA] truncate">{c.name}</div>
-                          <div className="text-[10px] text-[#52525B] truncate">{c.email}</div>
+                          <div className="text-[10px] text-[#A1A1AA] truncate">{c.email}</div>
                         </div>
-                        <span className={`text-[9px] font-medium ${sourceColor[c.source] || "text-[#52525B]"}`}>{sourceLabel[c.source] || c.source}</span>
+                        <span className={`text-[9px] font-medium ${sourceColor[c.source] || "text-[#A1A1AA]"}`}>{sourceLabel[c.source] || c.source}</span>
                       </button>
                     ))}
                   </div>
@@ -2993,28 +3334,28 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
             {showCcBcc ? (
               <>
                 <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-[#71717A] w-8 text-right">CC :</span>
-                  <input type="text" value={ccInput} onChange={(e) => setCcInput(e.target.value)} placeholder="CC..." className="flex-1 px-2 py-1.5 border border-[#3F3F46] rounded-lg text-[12px] bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]" />
+                  <span className="text-[12px] text-[#A1A1AA] w-8 text-right">CC :</span>
+                  <input type="text" value={ccInput} onChange={(e) => setCcInput(e.target.value)} placeholder={t("composeCcPlaceholder")} className="flex-1 px-2 py-1.5 border border-[#3F3F46] rounded-lg text-[12px] bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-[#71717A] w-8 text-right">CCI :</span>
-                  <input type="text" value={bccInput} onChange={(e) => setBccInput(e.target.value)} placeholder="CCI..." className="flex-1 px-2 py-1.5 border border-[#3F3F46] rounded-lg text-[12px] bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]" />
+                  <span className="text-[12px] text-[#A1A1AA] w-8 text-right">CCI :</span>
+                  <input type="text" value={bccInput} onChange={(e) => setBccInput(e.target.value)} placeholder={t("composeBccPlaceholder")} className="flex-1 px-2 py-1.5 border border-[#3F3F46] rounded-lg text-[12px] bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]" />
                 </div>
               </>
             ) : (
               <button onClick={() => setShowCcBcc(true)} className="text-[11px] text-[#F97316] hover:underline ml-10">
-                Ajouter CC / CCI
+                {t("composeAddCcBcc")}
               </button>
             )}
 
             {/* Subject */}
             <div className="flex items-center gap-2">
-              <span className="text-[12px] text-[#71717A] w-8 text-right">Objet :</span>
+              <span className="text-[12px] text-[#A1A1AA] w-8 text-right">{t("composeSubject")}</span>
               <input
                 type="text"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="Objet de l'email..."
+                placeholder={t("composeSubjectPlaceholder")}
                 className="flex-1 px-2 py-1.5 border border-[#3F3F46] rounded-lg text-[12px] bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
               />
             </div>
@@ -3025,13 +3366,13 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Rédigez votre message..."
-              className="w-full h-full min-h-[200px] p-3 text-[13px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#0F0F11] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316] leading-relaxed"
+              placeholder={t("composeBodyPlaceholder")}
+              className="w-full h-full min-h-[200px] p-3 text-[13px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#0F0F11] placeholder:text-[#71717A] focus:outline-none focus:ring-1 focus:ring-[#F97316] leading-relaxed"
             />
             {/* Signature preview (supports rich HTML) */}
             {signature?.trim() && (
               <div className="mt-2 border-t border-dashed border-[#27272A] pt-2">
-                <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-1">Signature (ajoutée automatiquement)</p>
+                <p className="text-[10px] uppercase tracking-wider text-[#A1A1AA] mb-1">{t("composeSignatureAuto")}</p>
                 {/* B14: sanitize the stored HTML signature like any other email body */}
                 <div className="bg-white rounded p-2 text-xs text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(signature)) }} />
               </div>
@@ -3041,13 +3382,13 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
               <div className="mt-3 flex flex-wrap gap-2">
                 {attachments.map((file, i) => (
                   <div key={`${file.name}-${i}`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#27272A] border border-[#3F3F46] rounded-lg text-[11px] text-[#D4D4D8] group">
-                    <FileText className="w-3.5 h-3.5 text-[#71717A] flex-shrink-0" />
+                    <FileText className="w-3.5 h-3.5 text-[#A1A1AA] flex-shrink-0" />
                     <span className="truncate max-w-[160px]">{file.name}</span>
-                    <span className="text-[#52525B]">({formatFileSize(file.size)})</span>
+                    <span className="text-[#A1A1AA]">({formatFileSize(file.size)})</span>
                     <button
                       type="button"
                       onClick={() => removeAttachment(i)}
-                      className="ml-0.5 p-0.5 rounded hover:bg-[#3F3F46] text-[#52525B] hover:text-[#FAFAFA] transition-colors"
+                      className="ml-0.5 p-0.5 rounded hover:bg-[#3F3F46] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -3064,27 +3405,27 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
               className="w-full px-6 py-2.5 flex items-center gap-2 text-[12px] font-medium text-[#F97316] hover:bg-[#27272A]/30 transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Assistance IA
+              {t("composeAiAssist")}
               <ChevronDown className={`w-3.5 h-3.5 ml-auto transition-transform ${showAiAssist ? "rotate-180" : ""}`} />
             </button>
             {showAiAssist && (
               <div className="px-6 pb-4 space-y-3">
                 <div className="flex gap-3">
                   <div className="flex-1">
-                    <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-1.5 block">Ton</label>
+                    <label className="text-[10px] uppercase font-semibold tracking-wider text-[#A1A1AA] mb-1.5 block">{t("composeTone")}</label>
                     <div className="flex gap-1.5 flex-wrap">
-                      {[{ key: "formal", label: "Formel" }, { key: "casual", label: "Décontracté" }, { key: "urgent", label: "Urgent" }, { key: "empathique", label: "Empathique" }].map((opt) => (
-                        <button key={opt.key} onClick={() => setAiTone(opt.key)} className={`px-2 py-1 text-[10px] rounded-lg border transition-colors ${aiTone === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#71717A] border-[#27272A] hover:border-[#3F3F46]"}`}>
+                      {[{ key: "formal", label: t("toneFormal") }, { key: "casual", label: t("toneCasual") }, { key: "urgent", label: t("toneUrgent") }, { key: "empathique", label: t("toneEmpathique") }].map((opt) => (
+                        <button key={opt.key} onClick={() => setAiTone(opt.key)} className={`px-2 py-1 text-[10px] rounded-lg border transition-colors ${aiTone === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#A1A1AA] border-[#27272A] hover:border-[#3F3F46]"}`}>
                           {opt.label}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div className="flex-1">
-                    <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-1.5 block">Longueur</label>
+                    <label className="text-[10px] uppercase font-semibold tracking-wider text-[#A1A1AA] mb-1.5 block">{t("composeLength")}</label>
                     <div className="flex gap-1.5">
-                      {[{ key: "court", label: "Court" }, { key: "moyen", label: "Moyen" }, { key: "detaille", label: "Détaillé" }].map((opt) => (
-                        <button key={opt.key} onClick={() => setAiLength(opt.key)} className={`px-2 py-1 text-[10px] rounded-lg border transition-colors ${aiLength === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#71717A] border-[#27272A] hover:border-[#3F3F46]"}`}>
+                      {[{ key: "court", label: t("lengthShort") }, { key: "moyen", label: t("lengthMedium") }, { key: "detaille", label: t("lengthDetailed") }].map((opt) => (
+                        <button key={opt.key} onClick={() => setAiLength(opt.key)} className={`px-2 py-1 text-[10px] rounded-lg border transition-colors ${aiLength === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#A1A1AA] border-[#27272A] hover:border-[#3F3F46]"}`}>
                           {opt.label}
                         </button>
                       ))}
@@ -3094,16 +3435,16 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
                 <textarea
                   value={aiInstructions}
                   onChange={(e) => setAiInstructions(e.target.value)}
-                  placeholder="Décrivez l'email que vous voulez écrire... Ex: Demande de confirmation du planning pour la semaine prochaine, ton amical"
-                  className="w-full h-16 p-2.5 text-[11px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#18181B] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                  placeholder={t("composeAiPlaceholder")}
+                  className="w-full h-16 p-2.5 text-[11px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#18181B] placeholder:text-[#71717A] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                 />
                 <button
                   onClick={handleGenerateAI}
                   disabled={generating || !aiInstructions.trim()}
-                  className="w-full py-2 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  className="w-full py-2 text-[12px] font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
                   {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  {generating ? "Génération..." : "Générer avec IA"}
+                  {generating ? t("composeGenerating") : t("composeGenerateAI")}
                 </button>
               </div>
             )}
@@ -3113,13 +3454,13 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
           {suggestedProject && !confirmedProject && (
             <div className="flex-shrink-0 px-6 py-2.5 border-t border-[#27272A] bg-[#3B82F6]/5 flex items-center gap-3">
               <span className="text-[11px] text-[#60A5FA]">
-                Cet email semble concerner <strong>{suggestedProject.name}</strong>
+                {t("composeEmailAboutProject")} <strong>{suggestedProject.name}</strong>
               </span>
               <button onClick={() => setConfirmedProject(suggestedProject.id)} className="text-[10px] px-2 py-0.5 bg-[#3B82F6]/10 text-[#60A5FA] border border-[#3B82F6]/20 rounded hover:bg-[#3B82F6]/20 transition-colors">
-                Confirmer
+                {t("composeConfirm")}
               </button>
-              <button onClick={() => setSuggestedProject(null)} className="text-[10px] text-[#52525B] hover:text-[#71717A]">
-                Ignorer
+              <button onClick={() => setSuggestedProject(null)} className="text-[10px] text-[#A1A1AA] hover:text-[#A1A1AA]">
+                {t("composeIgnore")}
               </button>
             </div>
           )}
@@ -3135,16 +3476,16 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
               <button
                 onClick={handleSend}
                 disabled={sending || !toEmails.length || !subject.trim() || !body.trim()}
-                className="inline-flex items-center gap-2 px-5 py-2 text-[13px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-5 py-2 text-[13px] font-medium text-[#0F0F11] bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Envoyer
+                {t("composeSend")}
               </button>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 text-[#71717A] hover:text-[#D4D4D8] hover:bg-[#27272A] rounded-lg transition-colors"
-                title="Joindre un fichier"
+                className="p-2 text-[#A1A1AA] hover:text-[#D4D4D8] hover:bg-[#27272A] rounded-lg transition-colors"
+                title={t("composeAttachFile")}
               >
                 <Paperclip className="w-4 h-4" />
               </button>
@@ -3156,10 +3497,10 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
                 onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
               />
               {attachments.length > 0 && (
-                <span className="text-[11px] text-[#52525B]">{attachments.length} fichier{attachments.length > 1 ? "s" : ""}</span>
+                <span className="text-[11px] text-[#A1A1AA]">{t("composeFileCount", { count: attachments.length })}</span>
               )}
-              <button onClick={onClose} className="px-4 py-2 text-[13px] font-medium text-[#71717A] hover:text-[#D4D4D8] transition-colors ml-auto">
-                Annuler
+              <button onClick={onClose} className="px-4 py-2 text-[13px] font-medium text-[#A1A1AA] hover:text-[#D4D4D8] transition-colors ml-auto">
+                {t("composeCancel")}
               </button>
             </div>
           </div>
@@ -3179,6 +3520,7 @@ function NewProjectFromEmailModal({ email, onClose, onCreated }: {
   onClose: () => void;
   onCreated: (projectId: string) => void;
 }) {
+  const t = useTranslations("mail.decisions");
   const suggested = email.suggested_project_data;
   const [name, setName] = useState(suggested?.name || "");
   const [client, setClient] = useState(suggested?.client || email.sender_name || "");
@@ -3203,14 +3545,14 @@ function NewProjectFromEmailModal({ email, onClose, onCreated }: {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erreur lors de la création");
+      if (!res.ok) throw new Error(data.error || t("npCreateFailed"));
       if (data.project_id) {
         onCreated(data.project_id);
       } else {
         onClose();
       }
     } catch (err: any) {
-      setError(err.message || "Erreur lors de la création du projet");
+      setError(err.message || t("npCreateFailedGeneric"));
     }
     setSaving(false);
   }
@@ -3223,9 +3565,9 @@ function NewProjectFromEmailModal({ email, onClose, onCreated }: {
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#27272A]">
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-[#3B82F6]" />
-              <h3 className="text-[15px] font-bold text-[#FAFAFA]">Créer un nouveau projet</h3>
+              <h3 className="text-[15px] font-bold text-[#FAFAFA]">{t("npNewProjectTitle")}</h3>
             </div>
-            <button onClick={onClose} className="text-[#71717A] hover:text-[#FAFAFA] transition-colors">
+            <button onClick={onClose} className="text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -3233,9 +3575,9 @@ function NewProjectFromEmailModal({ email, onClose, onCreated }: {
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             {/* Source email info */}
             <div className="rounded-lg bg-[#0F0F11] border border-[#27272A] p-3">
-              <div className="text-[10px] uppercase tracking-wider text-[#52525B] font-semibold mb-1">Créé depuis l&apos;email</div>
+              <div className="text-[10px] uppercase tracking-wider text-[#A1A1AA] font-semibold mb-1">{t("npCreatedFromEmail")}</div>
               <div className="text-[12px] text-[#A1A1AA] truncate">{email.subject}</div>
-              <div className="text-[11px] text-[#52525B] mt-0.5">de {email.sender_name || email.sender_email}</div>
+              <div className="text-[11px] text-[#A1A1AA] mt-0.5">{t("npFrom", { sender: email.sender_name || email.sender_email })}</div>
             </div>
 
             {error && (
@@ -3246,37 +3588,37 @@ function NewProjectFromEmailModal({ email, onClose, onCreated }: {
             )}
 
             <div>
-              <label className="block text-[12px] font-medium text-[#A1A1AA] mb-1.5">Nom du projet *</label>
+              <label className="block text-[12px] font-medium text-[#A1A1AA] mb-1.5">{t("npProjectNameLabel")}</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 text-[13px] bg-[#0F0F11] border border-[#27272A] rounded-lg text-[#FAFAFA] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6]"
-                placeholder="Nom du projet"
+                className="w-full px-3 py-2 text-[13px] bg-[#0F0F11] border border-[#27272A] rounded-lg text-[#FAFAFA] placeholder:text-[#71717A] focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6]"
+                placeholder={t("npProjectNamePlaceholder")}
                 autoFocus
                 required
               />
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium text-[#A1A1AA] mb-1.5">Client</label>
+              <label className="block text-[12px] font-medium text-[#A1A1AA] mb-1.5">{t("npClientLabel")}</label>
               <input
                 type="text"
                 value={client}
                 onChange={(e) => setClient(e.target.value)}
-                className="w-full px-3 py-2 text-[13px] bg-[#0F0F11] border border-[#27272A] rounded-lg text-[#FAFAFA] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6]"
-                placeholder="Nom du client"
+                className="w-full px-3 py-2 text-[13px] bg-[#0F0F11] border border-[#27272A] rounded-lg text-[#FAFAFA] placeholder:text-[#71717A] focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6]"
+                placeholder={t("npClientPlaceholder")}
               />
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium text-[#A1A1AA] mb-1.5">Ville</label>
+              <label className="block text-[12px] font-medium text-[#A1A1AA] mb-1.5">{t("npCityLabel")}</label>
               <input
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="w-full px-3 py-2 text-[13px] bg-[#0F0F11] border border-[#27272A] rounded-lg text-[#FAFAFA] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6]"
-                placeholder="Ville du chantier"
+                className="w-full px-3 py-2 text-[13px] bg-[#0F0F11] border border-[#27272A] rounded-lg text-[#FAFAFA] placeholder:text-[#71717A] focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6]"
+                placeholder={t("npCityPlaceholder")}
               />
             </div>
 
@@ -3287,14 +3629,14 @@ function NewProjectFromEmailModal({ email, onClose, onCreated }: {
                 className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium text-white bg-[#3B82F6] hover:bg-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                Créer le projet
+                {t("npCreateProject")}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 text-[13px] font-medium text-[#71717A] hover:text-[#D4D4D8] transition-colors"
+                className="px-4 py-2.5 text-[13px] font-medium text-[#A1A1AA] hover:text-[#D4D4D8] transition-colors"
               >
-                Annuler
+                {t("npCancel")}
               </button>
             </div>
           </form>

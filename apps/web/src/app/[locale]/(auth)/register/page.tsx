@@ -21,7 +21,7 @@ export default function RegisterPage() {
       {/* Divider */}
       <div className="mb-6 flex items-center gap-4">
         <div className="h-px flex-1 bg-[#27272A]" />
-        <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.08em] text-[#71717A]">
+        <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A1A1AA]">
           {t("orContinueWith")}
         </span>
         <div className="h-px flex-1 bg-[#27272A]" />

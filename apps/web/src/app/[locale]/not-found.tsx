@@ -11,7 +11,7 @@ export default function NotFound() {
         <h2 className="text-2xl font-bold text-[#FAFAFA] mb-4">
           {t("notFoundTitle")}
         </h2>
-        <p className="text-[#71717A] mb-6">
+        <p className="text-[#A1A1AA] mb-6">
           {t("notFoundDescription")}
         </p>
         <Link

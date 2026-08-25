@@ -8,6 +8,7 @@ import { isAuthorizedCron } from "@/lib/cron-auth";
 import {
   nextAgentBudgetMs,
   isSuccessfulToolResult,
+  canRunNightlyAgents,
 } from "../agent-cron-utils";
 
 export const maxDuration = 300; // 5 min for the whole run (see agent-cron-utils)
@@ -40,11 +41,35 @@ export async function POST(request: NextRequest) {
   const agentConfig = getAgentConfig("email-drafter" as AgentType);
   const now = new Date().toISOString();
 
+  // ── Watchdog: requalify stale 'running' sessions ────────
+  // If a lambda is killed before its finally block, the session row stays
+  // 'running' forever (eternal spinner in /agents, re-runs blocked). Sweep any
+  // run whose last activity is older than 15 min back to 'failed'.
+  const staleThreshold = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { error: staleErr } = await (admin as any)
+    .from("agent_sessions")
+    .update({
+      status: "failed",
+      error_message: "stale: interrupted before completion",
+      completed_at: now,
+    })
+    .eq("status", "running")
+    .or(
+      `last_event_at.lt.${staleThreshold},and(last_event_at.is.null,started_at.lt.${staleThreshold})`
+    );
+  if (staleErr) {
+    console.warn("[cron/email-drafter] Stale-session sweep failed:", staleErr.message);
+  }
+
   // Find all organizations that have users with active email connections
-  const { data: orgUsers } = await (admin as any)
+  const { data: orgUsers, error: connErr } = await (admin as any)
     .from("email_connections")
     .select("user_id, organization_id")
     .eq("status", "active");
+  if (connErr) {
+    console.error("[cron/email-drafter] Failed to list connections:", connErr.message);
+    return NextResponse.json({ error: "Failed to list connections" }, { status: 500 });
+  }
 
   if (!orgUsers || orgUsers.length === 0) {
     return NextResponse.json({ message: "No active email connections", count: 0 });
@@ -63,6 +88,26 @@ export async function POST(request: NextRequest) {
     pairs.push({ orgId: row.organization_id, userId: row.user_id });
   }
 
+  // Anti-famine ordering: mailboxes are processed until the time budget runs
+  // out, so a stable order always starves the tail of the list. Process the
+  // least-recently-run mailboxes first (never-run = highest priority) so the
+  // ones skipped last night lead tonight.
+  const { data: recentRuns } = await (admin as any)
+    .from("agent_sessions")
+    .select("user_id, completed_at")
+    .eq("agent_type", "email-drafter")
+    .order("completed_at", { ascending: false })
+    .limit(1000);
+  const lastRunAt = new Map<string, number>();
+  for (const s of recentRuns || []) {
+    if (s.user_id && s.completed_at && !lastRunAt.has(s.user_id)) {
+      lastRunAt.set(s.user_id, new Date(s.completed_at).getTime());
+    }
+  }
+  pairs.sort(
+    (a, b) => (lastRunAt.get(a.userId) ?? 0) - (lastRunAt.get(b.userId) ?? 0)
+  );
+
   const orgCount = new Set(pairs.map((p) => p.orgId)).size;
   console.log(
     `[cron/email-drafter] Processing ${pairs.length} mailbox(es) across ${orgCount} organizations`
@@ -70,8 +115,22 @@ export async function POST(request: NextRequest) {
 
   const results: { orgId: string; userId: string; draftsGenerated: number; status: string; error?: string }[] = [];
   const skipped: Array<{ orgId: string; userId: string }> = [];
+  const gated: Array<{ orgId: string; reason: string }> = [];
+
+  // Plan/org gate is per organization — cache it so a 30-mailbox org is
+  // checked once, not thirty times.
+  const gateCache = new Map<string, { allowed: boolean; reason?: string }>();
 
   for (const { orgId, userId } of pairs) {
+    // Nightly agents are a Pro+ feature and can be switched off per org.
+    let gate = gateCache.get(orgId);
+    if (!gate) {
+      gate = await canRunNightlyAgents(admin, orgId);
+      gateCache.set(orgId, gate);
+      if (!gate.allowed) gated.push({ orgId, reason: gate.reason || "plan" });
+    }
+    if (!gate.allowed) continue;
+
     // AGT.H4 — stop cleanly before Vercel kills the function mid-run.
     const runBudgetMs = nextAgentBudgetMs(cronStart, agentConfig.maxDurationMs);
     if (runBudgetMs === null) {
@@ -84,7 +143,7 @@ export async function POST(request: NextRequest) {
       const sessionId = crypto.randomUUID();
       const dbSessionId = crypto.randomUUID();
 
-      await (admin as any).from("agent_sessions").insert({
+      const { error: sessErr } = await (admin as any).from("agent_sessions").insert({
         id: dbSessionId,
         organization_id: orgId,
         user_id: userId,
@@ -94,8 +153,19 @@ export async function POST(request: NextRequest) {
         input_payload: { _initial_message: "Scan and draft", trigger: "cron" },
         status: "running",
         started_at: now,
+        last_event_at: now,
         model: agentConfig.model,
       });
+      if (sessErr) {
+        // Without a session row the run is untraceable and the final update
+        // would match nothing — skip this mailbox with an explicit log.
+        console.error(
+          `[cron/email-drafter] Session insert failed for ${userId}@${orgId}:`,
+          sessErr.message
+        );
+        results.push({ orgId, userId, draftsGenerated: 0, status: "failed", error: "session_insert_failed" });
+        continue;
+      }
 
       const startTime = Date.now();
       let draftsGenerated = 0;
@@ -217,6 +287,7 @@ export async function POST(request: NextRequest) {
     total_orgs: new Set(results.map((r) => r.orgId)).size,
     total_drafts: totalDrafts,
     skipped_mailboxes: skipped,
+    gated_orgs: gated,
     duration_ms: Date.now() - cronStart,
     results,
   });

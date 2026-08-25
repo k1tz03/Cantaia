@@ -16,6 +16,7 @@ import type {
   PlanningPhase,
   PlanningDependency,
 } from "./planning-types";
+import { addIsoDays } from "./date-utils";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -36,6 +37,7 @@ interface GanttSidePanelProps {
   ) => void;
   onRemoveDependency: (depId: string) => void;
   onDelete: (taskId: string) => void;
+  onDuplicate?: (taskId: string) => void;
   onClose: () => void;
   readOnly?: boolean;
 }
@@ -50,9 +52,7 @@ function toDateInputValue(dateStr: string): string {
 }
 
 function addDaysToDate(dateStr: string, days: number): string {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
+  return addIsoDays(dateStr, days);
 }
 
 function daysBetween(a: string, b: string): number {
@@ -66,22 +66,6 @@ function daysBetween(a: string, b: string): number {
 // ---------------------------------------------------------------------------
 
 const DEP_TYPES = ["FS", "SS", "FF", "SF"] as const;
-
-/** Maps dependency type codes to labels. Used by context menus in the dependency section. */
-export function _depTypeLabel(type: string): string {
-  switch (type) {
-    case "FS":
-      return "Fin-Debut";
-    case "SS":
-      return "Debut-Debut";
-    case "FF":
-      return "Fin-Fin";
-    case "SF":
-      return "Debut-Fin";
-    default:
-      return type;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -97,6 +81,7 @@ export default function GanttSidePanel({
   onAddDependency,
   onRemoveDependency,
   onDelete,
+  onDuplicate,
   onClose,
   readOnly,
 }: GanttSidePanelProps) {
@@ -108,11 +93,13 @@ export default function GanttSidePanel({
   const [endDate, setEndDate] = useState("");
   const [duration, setDuration] = useState(1);
   const [phaseId, setPhaseId] = useState("");
-  const [supplierName, setSupplierName] = useState("");
+  const [supplierId, setSupplierId] = useState("");
   const [teamSize, setTeamSize] = useState(1);
   const [cfcCode, setCfcCode] = useState("");
   const [progress, setProgress] = useState(0);
-  const [notes, setNotes] = useState("");
+  const [actualStart, setActualStart] = useState("");
+  const [actualEnd, setActualEnd] = useState("");
+  const [actualError, setActualError] = useState<string | null>(null);
 
   // Dependency form
   const [showDepForm, setShowDepForm] = useState(false);
@@ -131,14 +118,22 @@ export default function GanttSidePanel({
     setEndDate(toDateInputValue(task.end_date));
     setDuration(task.duration_days);
     setPhaseId(task.phase_id);
-    setSupplierName(task.supplier_name ?? "");
+    // The select used to be keyed on the company NAME and was never persisted:
+    // it is now keyed on supplier_id, which is what the API writes.
+    setSupplierId(
+      task.supplier_id ??
+        suppliers.find((s) => s.company_name === task.supplier_name)?.id ??
+        "",
+    );
     setTeamSize(task.team_size);
     setCfcCode(task.cfc_code ?? "");
     setProgress(task.progress);
-    setNotes(""); // placeholder — tasks don't have a notes field in DB currently
+    setActualStart(toDateInputValue(task.actual_start_date ?? ""));
+    setActualEnd(toDateInputValue(task.actual_end_date ?? ""));
+    setActualError(null);
     setConfirmDelete(false);
     setShowDepForm(false);
-  }, [task]);
+  }, [task, suppliers]);
 
   // ── Change handlers (immediate push to parent) ─────────────────────────
 
@@ -221,6 +216,61 @@ export default function GanttSidePanel({
     },
     [task, readOnly, onUpdate],
   );
+
+  /**
+   * Persists the assignment. `supplier_id` is the column the API writes;
+   * `supplier_name` rides along so the bar label updates without a refetch.
+   */
+  const handleSupplierChange = useCallback(
+    (val: string) => {
+      if (!task || readOnly) return;
+      setSupplierId(val);
+      const match = suppliers.find((s) => s.id === val);
+      onUpdate(task.id, {
+        supplier_id: val || null,
+        supplier_name: match?.company_name ?? null,
+      });
+    },
+    [task, readOnly, suppliers, onUpdate],
+  );
+
+  const handleActualStartChange = useCallback(
+    (val: string) => {
+      if (!task || readOnly) return;
+      setActualStart(val);
+      if (val && actualEnd && actualEnd < val) {
+        setActualError(t("actuals.orderError"));
+        return;
+      }
+      setActualError(null);
+      onUpdate(task.id, { actual_start_date: val || null });
+    },
+    [task, readOnly, actualEnd, onUpdate, t],
+  );
+
+  const handleActualEndChange = useCallback(
+    (val: string) => {
+      if (!task || readOnly) return;
+      setActualEnd(val);
+      if (val && actualStart && val < actualStart) {
+        setActualError(t("actuals.orderError"));
+        return;
+      }
+      setActualError(null);
+      onUpdate(task.id, { actual_end_date: val || null });
+    },
+    [task, readOnly, actualStart, onUpdate, t],
+  );
+
+  const handleConvertToMilestone = useCallback(() => {
+    if (!task || readOnly || task.is_milestone) return;
+    onUpdate(task.id, {
+      is_milestone: true,
+      duration_days: 0,
+      end_date: task.start_date,
+    });
+    onClose();
+  }, [task, readOnly, onUpdate, onClose]);
 
   // ── Dependencies ──────────────────────────────────────────────────────
 
@@ -310,14 +360,15 @@ export default function GanttSidePanel({
                   />
                 )}
                 {task.cfc_code && (
-                  <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-xs font-medium bg-[#27272A] text-[#71717A]">
+                  <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-xs font-medium bg-[#27272A] text-[#A1A1AA]">
                     CFC {task.cfc_code}
                   </span>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg hover:bg-[#27272A] text-[#71717A] hover:text-[#71717A] transition-colors shrink-0"
+                aria-label={t("share.close")}
+                className="p-1.5 rounded-lg hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#A1A1AA] transition-colors shrink-0"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -359,7 +410,7 @@ export default function GanttSidePanel({
                       disabled={readOnly}
                       className="w-24 rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
                     />
-                    <span className="text-sm text-[#71717A]">
+                    <span className="text-sm text-[#A1A1AA]">
                       {t("taskList.daysShort")}
                     </span>
                   </div>
@@ -385,21 +436,23 @@ export default function GanttSidePanel({
 
                 <FieldLabel label={t("sidePanel.supplier")}>
                   <select
-                    value={supplierName}
-                    onChange={(e) => {
-                      setSupplierName(e.target.value);
-                      // The parent can look up the supplier id if needed
-                    }}
+                    value={supplierId}
+                    onChange={(e) => handleSupplierChange(e.target.value)}
                     disabled={readOnly}
-                    className="w-full rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                    className="w-full rounded-lg border border-[#27272A] bg-[#18181B] text-[#FAFAFA] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                   >
                     <option value="">{t("sidePanel.noSupplier")}</option>
                     {suppliers.map((s) => (
-                      <option key={s.id} value={s.company_name}>
+                      <option key={s.id} value={s.id}>
                         {s.company_name}
                       </option>
                     ))}
                   </select>
+                  {task.supplier_name && (
+                    <p className="mt-1 text-xs text-[#A1A1AA]">
+                      {t("sidePanel.assignedTo", { name: task.supplier_name })}
+                    </p>
+                  )}
                 </FieldLabel>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -417,7 +470,7 @@ export default function GanttSidePanel({
                         disabled={readOnly}
                         className="w-20 rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                       />
-                      <span className="text-xs text-[#71717A]">
+                      <span className="text-xs text-[#A1A1AA]">
                         {t("sidePanel.teamSize")}
                       </span>
                     </div>
@@ -475,7 +528,7 @@ export default function GanttSidePanel({
               {/* Section: Dependencies */}
               <Section title={t("sidePanel.dependencies")}>
                 {predecessorDeps.length === 0 && !showDepForm && (
-                  <p className="text-sm text-[#71717A] italic mb-2">
+                  <p className="text-sm text-[#A1A1AA] italic mb-2">
                     {t("sidePanel.noDependencies")}
                   </p>
                 )}
@@ -496,7 +549,7 @@ export default function GanttSidePanel({
                         {dep.dependency_type}
                       </span>
                       {dep.lag_days !== 0 && (
-                        <span className="text-xs text-[#71717A]">
+                        <span className="text-xs text-[#A1A1AA]">
                           {dep.lag_days > 0 ? "+" : ""}
                           {dep.lag_days}
                           {t("sidePanel.lagDays")}
@@ -505,7 +558,7 @@ export default function GanttSidePanel({
                       {!readOnly && (
                         <button
                           onClick={() => onRemoveDependency(dep.id)}
-                          className="p-0.5 rounded hover:bg-red-50 text-[#71717A] hover:text-red-500 transition-colors"
+                          className="p-0.5 rounded hover:bg-[#EF4444]/10 text-[#A1A1AA] hover:text-[#EF4444] transition-colors"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -533,7 +586,7 @@ export default function GanttSidePanel({
                     </select>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-[#71717A] shrink-0">
+                      <span className="text-xs text-[#A1A1AA] shrink-0">
                         {t("sidePanel.depType")}:
                       </span>
                       <div className="flex gap-1">
@@ -545,7 +598,7 @@ export default function GanttSidePanel({
                               "px-2 py-0.5 text-[10px] font-bold uppercase rounded transition-colors",
                               depType === dt
                                 ? "bg-blue-600 text-white"
-                                : "bg-[#27272A] text-[#71717A] hover:bg-[#27272A]",
+                                : "bg-[#27272A] text-[#A1A1AA] hover:bg-[#27272A]",
                             ].join(" ")}
                           >
                             {dt}
@@ -555,7 +608,7 @@ export default function GanttSidePanel({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-[#71717A] shrink-0">
+                      <span className="text-xs text-[#A1A1AA] shrink-0">
                         {t("sidePanel.lag")}:
                       </span>
                       <input
@@ -566,7 +619,7 @@ export default function GanttSidePanel({
                         }
                         className="w-16 rounded border border-[#27272A] px-2 py-1 text-sm"
                       />
-                      <span className="text-xs text-[#71717A]">
+                      <span className="text-xs text-[#A1A1AA]">
                         {t("sidePanel.lagDays")}
                       </span>
                     </div>
@@ -581,7 +634,7 @@ export default function GanttSidePanel({
                       </button>
                       <button
                         onClick={() => setShowDepForm(false)}
-                        className="px-3 py-1 text-xs text-[#71717A] hover:text-[#FAFAFA]"
+                        className="px-3 py-1 text-xs text-[#A1A1AA] hover:text-[#FAFAFA]"
                       >
                         {t("config.cancel")}
                       </button>
@@ -600,33 +653,75 @@ export default function GanttSidePanel({
                 )}
               </Section>
 
-              {/* Section: Notes */}
-              <Section title={t("sidePanel.notes")}>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  disabled={readOnly}
-                  rows={3}
-                  placeholder="..."
-                  className="w-full rounded-lg border border-[#27272A] px-3 py-2 text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
-                />
-              </Section>
+              {/* Section: Actuals (migration 094) — feeds the calibration loop */}
+              {!task.is_milestone && (
+                <Section title={t("actuals.title")}>
+                  <p className="text-xs text-[#A1A1AA] -mt-1">
+                    {t("actuals.hint")}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FieldLabel label={t("actuals.start")}>
+                      <input
+                        type="date"
+                        value={actualStart}
+                        onChange={(e) => handleActualStartChange(e.target.value)}
+                        disabled={readOnly}
+                        className="w-full rounded-lg border border-[#27272A] bg-[#18181B] text-[#FAFAFA] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                      />
+                    </FieldLabel>
+                    <FieldLabel label={t("actuals.end")}>
+                      <input
+                        type="date"
+                        value={actualEnd}
+                        min={actualStart || undefined}
+                        onChange={(e) => handleActualEndChange(e.target.value)}
+                        disabled={readOnly}
+                        className="w-full rounded-lg border border-[#27272A] bg-[#18181B] text-[#FAFAFA] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                      />
+                    </FieldLabel>
+                  </div>
+                  {actualError && (
+                    <div className="flex items-center gap-2 text-xs text-red-400">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      {actualError}
+                    </div>
+                  )}
+                  {actualStart && actualEnd && !actualError && (
+                    <p className="text-xs text-[#A1A1AA]">
+                      {t("actuals.deviation", {
+                        days: Math.max(
+                          0,
+                          daysBetween(actualStart, actualEnd),
+                        ),
+                        planned: task.duration_days,
+                      })}
+                    </p>
+                  )}
+                </Section>
+              )}
 
               {/* Section: Actions */}
               {!readOnly && (
                 <div className="space-y-2 pb-4">
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A] transition-colors"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      {t("contextMenu.duplicate")}
-                    </button>
+                    {onDuplicate && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDuplicate(task.id);
+                          onClose();
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#A1A1AA] border border-[#27272A] rounded-lg hover:bg-[#27272A] transition-colors"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        {t("contextMenu.duplicate")}
+                      </button>
+                    )}
                     {!task.is_milestone && (
                       <button
                         type="button"
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A] transition-colors"
+                        onClick={handleConvertToMilestone}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#A1A1AA] border border-[#27272A] rounded-lg hover:bg-[#27272A] transition-colors"
                       >
                         <Diamond className="h-3.5 w-3.5" />
                         {t("sidePanel.convertToMilestone")}
@@ -635,8 +730,8 @@ export default function GanttSidePanel({
                   </div>
 
                   {confirmDelete ? (
-                    <div className="p-3 border border-red-200 rounded-lg bg-red-50 space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-red-700">
+                    <div className="p-3 border border-red-500/30 rounded-lg bg-red-500/10 space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-red-400">
                         <AlertTriangle className="h-4 w-4 shrink-0" />
                         <span>{t("sidePanel.deleteConfirmDesc")}</span>
                       </div>
@@ -649,7 +744,7 @@ export default function GanttSidePanel({
                         </button>
                         <button
                           onClick={() => setConfirmDelete(false)}
-                          className="px-3 py-1 text-xs text-[#71717A] hover:text-[#FAFAFA]"
+                          className="px-3 py-1 text-xs text-[#A1A1AA] hover:text-[#FAFAFA]"
                         >
                           {t("config.cancel")}
                         </button>
@@ -658,7 +753,7 @@ export default function GanttSidePanel({
                   ) : (
                     <button
                       onClick={() => setConfirmDelete(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       {t("sidePanel.deleteConfirm")}
@@ -687,7 +782,7 @@ function Section({
 }) {
   return (
     <div>
-      <h3 className="text-xs font-semibold text-[#71717A] uppercase tracking-wider mb-2">
+      <h3 className="text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider mb-2">
         {title}
       </h3>
       <div className="space-y-3">{children}</div>
@@ -704,7 +799,7 @@ function FieldLabel({
 }) {
   return (
     <div>
-      <label className="block text-xs text-[#71717A] mb-1">{label}</label>
+      <label className="block text-xs text-[#A1A1AA] mb-1">{label}</label>
       {children}
     </div>
   );

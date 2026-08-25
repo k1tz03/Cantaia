@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { X, Loader2 } from "lucide-react";
 
 interface Attachment {
@@ -58,14 +59,19 @@ export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInpu
           method: "POST",
           body: formData,
         });
-        if (res.ok) {
-          const data = await res.json();
-          attachments.push(data);
+        // A dropped attachment must abort the send — never quietly post the
+        // message without the file the user attached.
+        if (!res.ok) {
+          throw new Error(t("attachmentUploadFailed"));
         }
+        attachments.push(await res.json());
       }
       await onSend(content.trim(), attachments);
+      // Only clear the composer once the send actually succeeded.
       setContent("");
       setFiles([]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("replyFailed"));
     } finally {
       setSending(false);
     }
@@ -98,7 +104,7 @@ export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInpu
               }}
             >
               <span style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-              <button type="button" onClick={() => removeFile(i)} style={{ color: "#71717A", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>
+              <button type="button" onClick={() => removeFile(i)} style={{ color: "#A1A1AA", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>
                 <X size={10} />
               </button>
             </div>

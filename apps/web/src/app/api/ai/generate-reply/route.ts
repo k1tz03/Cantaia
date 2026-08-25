@@ -164,6 +164,9 @@ export async function POST(request: NextRequest) {
     replyInstructions,
     undefined,
     (usage) => {
+      // Single tracking call — carries the real token counts AND the reply
+      // context metadata. Previously a second, token-less trackApiUsage ran
+      // after generation, logging a duplicate 0-cost row for every reply.
       trackApiUsage({
         supabase: adminClient,
         userId: user.id,
@@ -173,7 +176,14 @@ export async function POST(request: NextRequest) {
         model: usage.model,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
-        metadata: { email_id: body.email_id },
+        metadata: {
+          email_id: body.email_id,
+          event: "ai_reply_generated",
+          tone: body.tone || null,
+          length: body.length || null,
+          had_thread_context: !!body.thread_context,
+          had_full_body: !!bodyFull,
+        },
       });
     }
     );
@@ -192,38 +202,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Track AI reply generation ──
-  // B16: this used to INSERT into `email_classification_feedback` with columns
-  // that do not exist (feedback_type / original_value / new_value / metadata /
-  // user_id). Migration 025 defines only original_project_id,
-  // corrected_project_id, original_classification, corrected_classification and
-  // created_by — see saveFeedbackRecord() in
-  // packages/core/src/emails/classification-learning.ts, the canonical writer.
-  // Every insert therefore failed silently.
-  //
-  // We deliberately do NOT rewrite it onto the real columns: that table means
-  // "the user corrected the AI". Three consumers read it that way —
-  // aggregate_email_benchmarks() (avg_correction_rate, a cross-org C2 metric),
-  // /api/intelligence/stats (email learning dimension) and
-  // /api/cron/extract-patterns. Generating a draft reply is not a correction,
-  // so the details belong in api_usage_logs, next to the AI call itself.
-  trackApiUsage({
-    supabase: adminClient,
-    userId: user.id,
-    organizationId: userProfile.organization_id ?? "",
-    actionType: "email_reply",
-    apiProvider: "anthropic",
-    metadata: {
-      email_id: body.email_id,
-      event: "ai_reply_generated",
-      tone: body.tone || null,
-      length: body.length || null,
-      no_reply_needed: result.no_reply_needed,
-      reply_length: result.reply_text.length,
-      had_thread_context: !!body.thread_context,
-      had_full_body: !!bodyFull,
-    },
-  });
+  // NB: the reply-generation event is tracked once, inside the usage callback
+  // of generateReply above (with real token counts). We deliberately do NOT log
+  // a second api_usage_logs row here — nor write email_classification_feedback:
+  // that table means "the user corrected the AI" and feeds the cross-org C2
+  // benchmark, /api/intelligence/stats and /api/cron/extract-patterns. Drafting
+  // a reply is not a correction.
 
   return NextResponse.json({
     success: true,

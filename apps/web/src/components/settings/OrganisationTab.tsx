@@ -28,7 +28,7 @@ export function OrganisationTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
+        <Loader2 className="h-5 w-5 animate-spin text-[#A1A1AA]" />
       </div>
     );
   }
@@ -38,11 +38,11 @@ export function OrganisationTab() {
     return (
       <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-6">
         <div className="flex flex-col items-center text-center py-8">
-          <Building2 className="h-10 w-10 text-[#52525B]" />
-          <h3 className="mt-3 text-[13px] font-medium text-[#71717A]">
+          <Building2 className="h-10 w-10 text-[#A1A1AA]" />
+          <h3 className="mt-3 text-[13px] font-medium text-[#A1A1AA]">
             {t("orgSoloTitle")}
           </h3>
-          <p className="mt-1 max-w-sm text-[11px] text-[#52525B]">
+          <p className="mt-1 max-w-sm text-[11px] text-[#A1A1AA]">
             {t("orgSoloDesc")}
           </p>
         </div>
@@ -54,10 +54,10 @@ export function OrganisationTab() {
     <div className="space-y-6">
       <div>
         <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
-          <Users className="h-4 w-4 text-[#71717A]" />
+          <Users className="h-4 w-4 text-[#A1A1AA]" />
           {t("teamMembers")}
         </div>
-        <p className="text-[13px] text-[#71717A] mb-3">
+        <p className="text-[13px] text-[#A1A1AA] mb-3">
           {memberCount} {t("membersCount")}
         </p>
         <Link

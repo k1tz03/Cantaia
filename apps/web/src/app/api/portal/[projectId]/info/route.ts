@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { verifyPortalToken } from "@/lib/portal/auth";
+import { requirePortalSession } from "@/lib/portal/session";
 
 export async function GET(
   _request: NextRequest,
@@ -8,21 +7,21 @@ export async function GET(
 ) {
   try {
     const { projectId } = await params;
-    const admin = createAdminClient();
+    const { valid, userName, project } = await requirePortalSession(projectId);
 
-    const { data: project } = await (admin as any)
-      .from("projects")
-      .select("id, name, code, address, city, status, portal_description, portal_pin_salt, portal_enabled")
-      .eq("id", projectId)
-      .single();
-
-    if (!project || !project.portal_enabled) {
+    // No project / portal disabled → 404 (never leak that the project exists).
+    if (!project) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const auth = await verifyPortalToken(projectId, project.portal_pin_salt || "");
-    if (!auth.valid) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Portal enabled but no valid session: the site name/code is not sensitive
+    // (the portal is already bound to the project URL) and lets the PIN screen
+    // show which site the crew is signing in to.
+    if (!valid) {
+      return NextResponse.json(
+        { error: "Unauthorized", projectName: project.name, projectCode: project.code },
+        { status: 401 },
+      );
     }
 
     return NextResponse.json({
@@ -31,8 +30,9 @@ export async function GET(
       address: project.address,
       city: project.city,
       status: project.status,
-      description: project.portal_description,
-      userName: auth.userName,
+      description: project.description,
+      client_name: project.clientName,
+      userName,
     });
   } catch (error) {
     console.error("[Portal Info] Error:", error);

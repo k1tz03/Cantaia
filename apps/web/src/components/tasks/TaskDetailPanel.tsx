@@ -18,6 +18,8 @@ import {
   Send,
   Download,
 } from "lucide-react";
+import { AssigneePicker, useOrgMembers } from "./AssigneePicker";
+import { isOverdue } from "./task-utils";
 import type { Task, TaskComment, Project } from "@cantaia/database";
 
 const projects: Project[] = [];
@@ -28,6 +30,15 @@ interface TaskDetailPanelProps {
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
   onStatusChange: (taskId: string, status: Task["status"]) => void;
+  /**
+   * Persists a change of owner. Optional so the panel keeps working on the
+   * surfaces that only render it read-only (project tabs).
+   */
+  onAssigneeChange?: (
+    taskId: string,
+    assignedTo: string | null,
+    assignedToName: string | null
+  ) => void | Promise<void>;
 }
 
 type DetailTab = "detail" | "comments" | "history" | "attachments";
@@ -55,11 +66,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
-function isOverdue(task: Task): boolean {
-  if (!task.due_date || task.status === "done" || task.status === "cancelled") return false;
-  return task.due_date < new Date().toISOString().split("T")[0];
-}
-
 const PRIORITY_STYLES: Record<string, { dot: string; text: string }> = {
   urgent: { dot: "bg-red-500", text: "text-red-700 dark:text-red-400" },
   high: { dot: "bg-red-400", text: "text-red-600" },
@@ -81,10 +87,13 @@ export function TaskDetailPanel({
   onEdit,
   onDelete,
   onStatusChange,
+  onAssigneeChange,
 }: TaskDetailPanelProps) {
   const t = useTranslations("tasks");
   const [activeTab, setActiveTab] = useState<DetailTab>("detail");
   const [newComment, setNewComment] = useState("");
+  const [savingAssignee, setSavingAssignee] = useState(false);
+  const { members } = useOrgMembers(!!onAssigneeChange);
 
   const project = projects.find((p) => p.id === task.project_id);
   const overdue = isOverdue(task);
@@ -127,7 +136,7 @@ export function TaskDetailPanel({
             <button
               type="button"
               onClick={() => onEdit(task)}
-              className="rounded p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+              className="rounded p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
               title={t("editTask")}
             >
               <Edit3 className="h-4 w-4" />
@@ -135,7 +144,7 @@ export function TaskDetailPanel({
             <button
               type="button"
               onClick={() => onDelete(task.id)}
-              className="rounded p-1.5 text-[#71717A] hover:bg-red-500/10 hover:text-red-500"
+              className="rounded p-1.5 text-[#A1A1AA] hover:bg-red-500/10 hover:text-red-500"
               title={t("deleteTask")}
             >
               <Trash2 className="h-4 w-4" />
@@ -143,7 +152,7 @@ export function TaskDetailPanel({
             <button
               type="button"
               onClick={onClose}
-              className="rounded p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+              className="rounded p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
             >
               <X className="h-4 w-4" />
             </button>
@@ -187,14 +196,14 @@ export function TaskDetailPanel({
               className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 py-2.5 text-xs font-medium transition-colors ${
                 isActive
                   ? "border-brand text-brand"
-                  : "border-transparent text-[#71717A] hover:text-[#FAFAFA]"
+                  : "border-transparent text-[#A1A1AA] hover:text-[#FAFAFA]"
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
               {t(tabKey)}
               {tab.count !== undefined && tab.count > 0 && (
                 <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
-                  isActive ? "bg-brand/10 text-brand" : "bg-[#27272A] text-[#71717A]"
+                  isActive ? "bg-brand/10 text-brand" : "bg-[#27272A] text-[#A1A1AA]"
                 }`}>
                   {tab.count}
                 </span>
@@ -225,7 +234,7 @@ export function TaskDetailPanel({
             {/* Description */}
             {task.description && (
               <div>
-                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskDescription")}</h4>
+                <h4 className="mb-1 text-xs font-medium text-[#A1A1AA]">{t("taskDescription")}</h4>
                 <p className="text-sm leading-relaxed text-[#FAFAFA]">{task.description}</p>
               </div>
             )}
@@ -234,20 +243,20 @@ export function TaskDetailPanel({
             <div className="grid grid-cols-2 gap-3">
               {/* Project */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskProject")}</h4>
+                <h4 className="mb-1 text-xs font-medium text-[#A1A1AA]">{t("taskProject")}</h4>
                 {project ? (
                   <div className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: project.color }} />
                     <span className="text-sm text-[#FAFAFA]">{project.name}</span>
                   </div>
                 ) : (
-                  <span className="text-sm text-[#71717A]">—</span>
+                  <span className="text-sm text-[#A1A1AA]">—</span>
                 )}
               </div>
 
               {/* Deadline */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskDeadline")}</h4>
+                <h4 className="mb-1 text-xs font-medium text-[#A1A1AA]">{t("taskDeadline")}</h4>
                 {task.due_date ? (
                   <span className={`flex items-center gap-1 text-sm font-medium ${
                     overdue ? "text-red-600" : task.status === "done" ? "text-green-600" : "text-[#FAFAFA]"
@@ -257,45 +266,60 @@ export function TaskDetailPanel({
                     {overdue && " (en retard)"}
                   </span>
                 ) : (
-                  <span className="text-sm text-[#71717A]">—</span>
+                  <span className="text-sm text-[#A1A1AA]">—</span>
                 )}
               </div>
 
-              {/* Assigned */}
+              {/* Assigned — editable when the host page can persist it */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskAssigned")}</h4>
-                <span className="text-sm text-[#FAFAFA]">
-                  {task.assigned_to_name || "—"}
-                </span>
+                <h4 className="mb-1 text-xs font-medium text-[#A1A1AA]">{t("taskAssigned")}</h4>
+                {onAssigneeChange ? (
+                  <AssigneePicker
+                    members={members}
+                    value={task.assigned_to}
+                    disabled={savingAssignee}
+                    className="w-full rounded-md border border-[#27272A] bg-[#18181B] px-2 py-1.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none disabled:opacity-50"
+                    onChange={async (userId, displayName) => {
+                      setSavingAssignee(true);
+                      try {
+                        await onAssigneeChange(task.id, userId, displayName);
+                      } finally {
+                        setSavingAssignee(false);
+                      }
+                    }}
+                  />
+                ) : (
+                  <span className="text-sm text-[#FAFAFA]">{task.assigned_to_name || "—"}</span>
+                )}
                 {task.assigned_to_company && (
-                  <p className="text-xs text-[#71717A]">{task.assigned_to_company}</p>
+                  <p className="mt-1 text-xs text-[#A1A1AA]">{task.assigned_to_company}</p>
                 )}
               </div>
 
               {/* Lot / CFC */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskLot")}</h4>
+                <h4 className="mb-1 text-xs font-medium text-[#A1A1AA]">{t("taskLot")}</h4>
                 <span className="text-sm text-[#FAFAFA]">
                   {task.lot_code || task.cfc_code || "—"}
-                  {task.lot_name && <span className="text-[#71717A]"> — {task.lot_name}</span>}
+                  {task.lot_name && <span className="text-[#A1A1AA]"> — {task.lot_name}</span>}
                 </span>
               </div>
 
               {/* Source */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("source")}</h4>
+                <h4 className="mb-1 text-xs font-medium text-[#A1A1AA]">{t("source")}</h4>
                 <span className="flex items-center gap-1 text-sm text-[#FAFAFA]">
-                  <SourceIcon className="h-3.5 w-3.5 text-[#71717A]" />
+                  <SourceIcon className="h-3.5 w-3.5 text-[#A1A1AA]" />
                   {t(`source${task.source.charAt(0).toUpperCase() + task.source.slice(1)}` as "sourceEmail")}
                 </span>
                 {task.source_reference && (
-                  <p className="mt-0.5 text-xs text-[#71717A]">{task.source_reference}</p>
+                  <p className="mt-0.5 text-xs text-[#A1A1AA]">{task.source_reference}</p>
                 )}
               </div>
 
               {/* Reminder */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskReminder")}</h4>
+                <h4 className="mb-1 text-xs font-medium text-[#A1A1AA]">{t("taskReminder")}</h4>
                 <span className="text-sm text-[#FAFAFA]">
                   {t(`reminder${task.reminder === "none" ? "None" : task.reminder === "1_day" ? "1Day" : task.reminder === "3_days" ? "3Days" : "1Week"}` as "reminderNone")}
                 </span>
@@ -304,7 +328,7 @@ export function TaskDetailPanel({
 
             {/* Dates */}
             <div className="rounded-md bg-[#27272A] px-3 py-2">
-              <div className="flex items-center justify-between text-xs text-[#71717A]">
+              <div className="flex items-center justify-between text-xs text-[#A1A1AA]">
                 <span>Créé : {formatDateTime(task.created_at)}</span>
                 <span>Modifié : {formatDateTime(task.updated_at)}</span>
               </div>
@@ -328,17 +352,17 @@ export function TaskDetailPanel({
                       <span className="text-xs font-semibold text-[#FAFAFA]">
                         {comment.user_name}
                       </span>
-                      <span className="text-[10px] text-[#71717A]">
+                      <span className="text-[10px] text-[#A1A1AA]">
                         {formatDateTime(comment.created_at)}
                       </span>
                     </div>
-                    <p className="mt-1.5 text-sm leading-relaxed text-[#71717A]">
+                    <p className="mt-1.5 text-sm leading-relaxed text-[#A1A1AA]">
                       {comment.text}
                     </p>
                   </div>
                 ))
               ) : (
-                <p className="py-8 text-center text-sm text-[#71717A]">
+                <p className="py-8 text-center text-sm text-[#A1A1AA]">
                   Aucun commentaire
                 </p>
               )}
@@ -359,7 +383,7 @@ export function TaskDetailPanel({
                     }
                   }}
                 />
-                <button
+                <button aria-label="Envoyer"
                   type="button"
                   onClick={handleAddComment}
                   disabled={!newComment.trim()}
@@ -384,7 +408,7 @@ export function TaskDetailPanel({
                   <div key={i} className="relative flex gap-3">
                     <div className="absolute -left-2.5 top-1 h-2 w-2 rounded-full bg-gray-400" />
                     <div>
-                      <p className="text-xs text-[#71717A]">
+                      <p className="text-xs text-[#A1A1AA]">
                         {formatDateTime(entry.created_at)}
                       </p>
                       <p className="mt-0.5 text-sm text-[#FAFAFA]">
@@ -394,7 +418,7 @@ export function TaskDetailPanel({
                           <>
                             {" "}a modifié <span className="font-medium">{entry.field}</span>
                             {entry.old_value && (
-                              <> de <span className="line-through text-[#71717A]">{entry.old_value}</span></>
+                              <> de <span className="line-through text-[#A1A1AA]">{entry.old_value}</span></>
                             )}
                             {entry.new_value && (
                               <> à <span className="font-medium text-brand">{entry.new_value}</span></>
@@ -409,7 +433,7 @@ export function TaskDetailPanel({
                 ))}
               </div>
             ) : (
-              <p className="py-8 text-center text-sm text-[#71717A]">
+              <p className="py-8 text-center text-sm text-[#A1A1AA]">
                 Aucun historique
               </p>
             )}
@@ -427,19 +451,19 @@ export function TaskDetailPanel({
                     className="flex items-center gap-3 rounded-md border border-[#27272A] bg-[#0F0F11] p-3 transition-colors hover:bg-[#27272A]"
                   >
                     <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#27272A]">
-                      <Paperclip className="h-4 w-4 text-[#71717A]" />
+                      <Paperclip className="h-4 w-4 text-[#A1A1AA]" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-[#FAFAFA]">
                         {attachment.name}
                       </p>
-                      <p className="text-xs text-[#71717A]">
+                      <p className="text-xs text-[#A1A1AA]">
                         {formatFileSize(attachment.size)}
                       </p>
                     </div>
-                    <button
+                    <button aria-label="Télécharger"
                       type="button"
-                      className="rounded p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+                      className="rounded p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
                       title="Télécharger"
                     >
                       <Download className="h-4 w-4" />
@@ -448,7 +472,7 @@ export function TaskDetailPanel({
                 ))}
               </div>
             ) : (
-              <p className="py-8 text-center text-sm text-[#71717A]">
+              <p className="py-8 text-center text-sm text-[#A1A1AA]">
                 Aucune pièce jointe
               </p>
             )}

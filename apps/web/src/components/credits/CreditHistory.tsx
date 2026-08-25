@@ -78,14 +78,14 @@ export function CreditHistory() {
   return (
     <section>
       <div className="mb-3 flex items-center gap-2">
-        <History className="h-4 w-4 text-[#71717A]" />
+        <History className="h-4 w-4 text-[#A1A1AA]" />
         <h3 className="font-display text-[15px] font-bold text-[#FAFAFA]">
           {t("historyTitle")}
         </h3>
       </div>
 
       {transactions.length === 0 ? (
-        <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] px-5 py-8 text-center text-[12px] text-[#71717A]">
+        <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] px-5 py-8 text-center text-[12px] text-[#A1A1AA]">
           {t("historyEmpty")}
         </div>
       ) : (
@@ -93,7 +93,7 @@ export function CreditHistory() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[12px]">
               <thead>
-                <tr className="border-b border-[#27272A] text-[10px] uppercase tracking-wide text-[#71717A]">
+                <tr className="border-b border-[#27272A] text-[10px] uppercase tracking-wide text-[#A1A1AA]">
                   <th className="px-4 py-2.5 font-medium">{t("colDate")}</th>
                   <th className="px-4 py-2.5 font-medium">{t("colKind")}</th>
                   <th className="px-4 py-2.5 font-medium">{t("colAction")}</th>
@@ -119,7 +119,7 @@ export function CreditHistory() {
                       <td className="px-4 py-2.5 text-[#FAFAFA]">
                         {kindLabel(tx.kind)}
                       </td>
-                      <td className="px-4 py-2.5 text-[#71717A]">
+                      <td className="px-4 py-2.5 text-[#A1A1AA]">
                         {tx.action_type ? (
                           <span className="rounded bg-[#27272A] px-1.5 py-0.5 text-[10px] text-[#A1A1AA]">
                             {tx.action_type}
@@ -136,7 +136,7 @@ export function CreditHistory() {
                         {positive ? "+" : ""}
                         {tx.amount}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-right tabular-nums text-[#71717A]">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-right tabular-nums text-[#A1A1AA]">
                         {tx.balance_after}
                       </td>
                     </tr>

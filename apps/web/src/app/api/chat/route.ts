@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildChatSystemPrompt,
-  streamChatResponse,
+  streamChatResponseWithTools,
   MODEL_FOR_TASK,
   type ChatMessage,
 } from "@cantaia/core/ai";
@@ -11,8 +11,16 @@ import { classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 import { insufficientCreditsResponse } from "@/lib/credits";
+import {
+  CHAT_TOOLS,
+  CHAT_TOOLS_PROMPT_SECTION,
+  executeChatTool,
+  type ChatToolContext,
+} from "./chat-tools";
 
-export const maxDuration = 60;
+// Tool-use adds up to 5 model round-trips plus DB queries between them, so
+// the old 60s ceiling could kill a legitimate multi-tool answer mid-stream.
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
@@ -53,7 +61,8 @@ export async function POST(request: NextRequest) {
     message: string;
     project_id?: string;
     attachments?: Array<{
-      file_url: string;
+      file_url?: string;
+      storage_path?: string;
       file_name: string;
       file_type: string;
       extracted_text?: string;
@@ -72,6 +81,46 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify({ error: "Message required" }), {
       status: 400,
     });
+  }
+
+  // ── Server-side attachment bounds ──────────────────────────────
+  // The client sends attachment metadata (incl. client-supplied
+  // `extracted_text`). Cap count and text so one request can't blow the
+  // context window / token bill — /api/chat/upload enforces the same 50k cap
+  // but a direct POST would otherwise bypass it entirely.
+  const MAX_ATTACHMENTS = 3;
+  const MAX_EXTRACTED_TEXT = 50_000;
+  const attachments = (Array.isArray(body.attachments) ? body.attachments : [])
+    .slice(0, MAX_ATTACHMENTS)
+    .map((a) => ({
+      file_url: typeof a.file_url === "string" ? a.file_url : undefined,
+      storage_path: typeof a.storage_path === "string" ? a.storage_path : undefined,
+      file_name: String(a.file_name ?? "fichier"),
+      file_type: String(a.file_type ?? ""),
+      extracted_text:
+        typeof a.extracted_text === "string"
+          ? a.extracted_text.slice(0, MAX_EXTRACTED_TEXT)
+          : undefined,
+      is_image: a.is_image === true,
+    }));
+
+  // Get org name + check usage limit BEFORE any write, so a 402 never leaves
+  // an orphan conversation / user message persisted with no answer.
+  const { data: org } = await (admin as any)
+    .from("organizations")
+    .select("name, subscription_plan")
+    .eq("id", userOrg.organization_id)
+    .maybeSingle();
+
+  const usageCheck = await checkUsageLimit(admin, userOrg.organization_id, org?.subscription_plan || "trial", "chat_message");
+  if (!usageCheck.allowed) {
+    if (usageCheck.insufficient_credits) {
+      return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+    }
+    return new Response(
+      JSON.stringify({ error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan }),
+      { status: 429 }
+    );
   }
 
   // Get or create conversation
@@ -119,23 +168,39 @@ export async function POST(request: NextRequest) {
     conversationId = conv.id;
   }
 
-  // Save user message
-  await (admin as any).from("chat_messages").insert({
-    conversation_id: conversationId,
-    role: "user",
-    content: body.message,
-    attachments: body.attachments || [],
-  });
+  // Save user message — supabase-js does not throw, so the {error} must be
+  // read. A dropped insert would otherwise let the stream answer a stale
+  // context (the just-asked question missing from the reloaded history).
+  const { error: userMsgError } = await (admin as any)
+    .from("chat_messages")
+    .insert({
+      conversation_id: conversationId,
+      role: "user",
+      content: body.message,
+      attachments,
+    });
+  if (userMsgError) {
+    console.error("[chat] Failed to save user message:", userMsgError);
+    return new Response(
+      JSON.stringify({ error: "Failed to save message" }),
+      { status: 500 },
+    );
+  }
 
-  // Load last 20 messages for context (reduced from 50 to control token costs)
-  const { data: history } = await (admin as any)
+  // Load the last 20 messages for context (reduced from 50 to control token
+  // costs). Order DESC + reverse so we keep the 20 MOST RECENT messages —
+  // ascending+limit would keep the 20 OLDEST and drop the current question
+  // once the conversation grows past 20 messages.
+  const { data: historyDesc } = await (admin as any)
     .from("chat_messages")
     .select("role, content")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(20);
 
-  const messages: ChatMessage[] = (history || []).map(
+  const history = (historyDesc || []).slice().reverse();
+
+  const messages: ChatMessage[] = history.map(
     (m: { role: "user" | "assistant"; content: string }) => ({
       role: m.role,
       content: m.content,
@@ -143,16 +208,35 @@ export async function POST(request: NextRequest) {
   );
 
   // If attachments are present, replace the last user message with multi-content
-  if (body.attachments && body.attachments.length > 0 && messages.length > 0) {
+  if (attachments.length > 0 && messages.length > 0) {
     const lastIdx = messages.length - 1;
     if (messages[lastIdx].role === "user") {
       const userContent: any[] = [];
 
-      for (const att of body.attachments) {
+      for (const att of attachments) {
         if (att.is_image) {
-          // Vision: send image directly as base64
+          // Vision: send image directly as base64.
+          // SSRF guard: NEVER fetch a client-supplied URL. The image is loaded
+          // exclusively from its Storage object path (scoped to the caller's
+          // org) via a server-generated signed URL — a foreign or internal URL
+          // in the request body can never make the server issue a request.
+          const path = att.storage_path;
+          const belongsToOrg =
+            typeof path === "string" &&
+            path.startsWith(`${userOrg.organization_id}/`);
+          if (!belongsToOrg) {
+            userContent.push({
+              type: "text",
+              text: `[Image: ${att.file_name} - source non autorisée, ignorée]`,
+            });
+            continue;
+          }
           try {
-            const imgRes = await fetch(att.file_url);
+            const { data: signed } = await admin.storage
+              .from("chat-attachments")
+              .createSignedUrl(path!, 300);
+            if (!signed?.signedUrl) throw new Error("no signed url");
+            const imgRes = await fetch(signed.signedUrl);
             const imgBuf = await imgRes.arrayBuffer();
             const base64 = Buffer.from(imgBuf).toString("base64");
             const mediaType = att.file_type as
@@ -188,64 +272,68 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Build context for system prompt
+  // Build context for system prompt.
+  // `resolvedProjectId` is the project the tools default to — only set once
+  // the project has been verified to belong to the caller's organisation.
   let projectName: string | undefined;
   let projectCode: string | undefined;
+  let resolvedProjectId: string | null = null;
 
-  if (body.project_id) {
-    const { data: proj } = await (admin as any)
-      .from("projects")
-      .select("name, code")
-      .eq("id", body.project_id)
-      .maybeSingle();
-    if (proj) {
-      projectName = proj.name;
-      projectCode = proj.code;
-    }
-  } else {
-    // Check if conversation has a linked project
+  // Explicit project_id from the request wins, else the conversation's own.
+  let candidateProjectId: string | null = body.project_id || null;
+  if (!candidateProjectId) {
     const { data: conv } = await (admin as any)
       .from("chat_conversations")
       .select("project_id")
       .eq("id", conversationId)
       .maybeSingle();
-    if (conv?.project_id) {
-      const { data: proj } = await (admin as any)
-        .from("projects")
-        .select("name, code")
-        .eq("id", conv.project_id)
-        .maybeSingle();
-      if (proj) {
-        projectName = proj.name;
-        projectCode = proj.code;
-      }
+    candidateProjectId = conv?.project_id || null;
+  }
+
+  if (candidateProjectId) {
+    const { data: proj } = await (admin as any)
+      .from("projects")
+      .select("id, name, code, organization_id")
+      .eq("id", candidateProjectId)
+      .maybeSingle();
+    // IDOR guard: the admin client bypasses RLS, so a foreign project_id in
+    // the request body must not become the tools' default scope.
+    if (proj && proj.organization_id === userOrg.organization_id) {
+      projectName = proj.name;
+      projectCode = proj.code;
+      resolvedProjectId = proj.id;
     }
   }
 
-  // Get org name + check usage limit
-  const { data: org } = await (admin as any)
-    .from("organizations")
-    .select("name, subscription_plan")
-    .eq("id", userOrg.organization_id)
-    .maybeSingle();
-
-  const usageCheck = await checkUsageLimit(admin, userOrg.organization_id, org?.subscription_plan || "trial", "chat_message");
-  if (!usageCheck.allowed) {
-    if (usageCheck.insufficient_credits) {
-      return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
-    }
-    return new Response(
-      JSON.stringify({ error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan }),
-      { status: 429 }
-    );
+  // Keep the conversation's project in sync when the user switches context.
+  if (resolvedProjectId && body.project_id) {
+    await (admin as any)
+      .from("chat_conversations")
+      .update({ project_id: resolvedProjectId })
+      .eq("id", conversationId)
+      .then(
+        () => {},
+        () => {},
+      );
   }
 
-  const systemPrompt = buildChatSystemPrompt({
-    userName: `${userOrg.first_name || ""} ${userOrg.last_name || ""}`.trim(),
-    organizationName: org?.name,
-    projectName,
-    projectCode,
-  });
+  // The SIA/construction expertise prompt stays intact; the tool contract is
+  // appended so the model knows it can read real data instead of guessing.
+  const systemPrompt =
+    buildChatSystemPrompt({
+      userName: `${userOrg.first_name || ""} ${userOrg.last_name || ""}`.trim(),
+      organizationName: org?.name,
+      projectName,
+      projectCode,
+    }) + CHAT_TOOLS_PROMPT_SECTION;
+
+  // Tools are READ-ONLY and scoped to this user's organisation.
+  const toolContext: ChatToolContext = {
+    admin,
+    organizationId: userOrg.organization_id,
+    userId: user.id,
+    defaultProjectId: resolvedProjectId,
+  };
 
   // ── Stream response via SSE ─────────────────────────────────
   // Uses TransformStream instead of ReadableStream.start() because
@@ -256,6 +344,7 @@ export async function POST(request: NextRequest) {
 
   let fullResponse = "";
   let finalUsage = { input_tokens: 0, output_tokens: 0 };
+  const toolsUsed: string[] = [];
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
@@ -278,16 +367,31 @@ export async function POST(request: NextRequest) {
         ),
       );
 
-      for await (const chunk of streamChatResponse(
+      for await (const chunk of streamChatResponseWithTools(
         anthropicApiKey,
         systemPrompt,
         messages,
+        CHAT_TOOLS,
+        (name, input) => executeChatTool(name, input, toolContext),
       )) {
+        // Client hung up (Stop button / navigation) — stop consuming the
+        // generator so we don't keep paying for tokens nobody will read.
+        // Breaking here runs the generator's cleanup and ends the loop.
+        if (request.signal.aborted) break;
         if (chunk.type === "text") {
-          fullResponse += chunk.data;
+          fullResponse += chunk.data as string;
           await writer.write(
             encoder.encode(
               `data: ${JSON.stringify({ type: "text", data: chunk.data })}\n\n`,
+            ),
+          );
+        } else if (chunk.type === "tool") {
+          // Surfaced so the UI can show "consultation des données…" instead of
+          // an unexplained pause while a tool round-trip runs.
+          toolsUsed.push((chunk.data as { name: string }).name);
+          await writer.write(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "tool", data: chunk.data })}\n\n`,
             ),
           );
         } else if (chunk.type === "done") {
@@ -345,7 +449,11 @@ export async function POST(request: NextRequest) {
           model: MODEL_FOR_TASK.chat,
           inputTokens: finalUsage.input_tokens,
           outputTokens: finalUsage.output_tokens,
-          metadata: { conversation_id: conversationId },
+          metadata: {
+            conversation_id: conversationId,
+            tools_used: toolsUsed,
+            tool_calls: toolsUsed.length,
+          },
         }).catch(() => {});
       }
 

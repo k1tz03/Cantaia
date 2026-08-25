@@ -37,6 +37,8 @@ pnpm-debug.log*
 # Testing
 coverage/
 nul
+# Sortie de compilation de la suite Scene3D (cf. plans/scene/__tests__/run.ts)
+.test-build/
 
 # TypeScript incremental build info
 *.tsbuildinfo

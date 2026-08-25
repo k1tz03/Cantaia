@@ -61,7 +61,7 @@ export function UpdateModal({ open, onClose, updateState, onUpdate, onDismiss }:
                 ? "Téléchargement en cours…"
                 : "Mise à jour disponible"}
             </h2>
-            <p className="text-[13px] text-[#71717A] mt-0.5">
+            <p className="text-[13px] text-[#A1A1AA] mt-0.5">
               {newVersion && (
                 <>
                   Cantaia{" "}
@@ -77,7 +77,7 @@ export function UpdateModal({ open, onClose, updateState, onUpdate, onDismiss }:
             onClick={onClose}
             className="w-7 h-7 rounded-lg bg-[#27272A] hover:bg-[#3F3F46] flex items-center justify-center transition-colors flex-shrink-0"
           >
-            <X className="w-4 h-4 text-[#71717A]" />
+            <X className="w-4 h-4 text-[#A1A1AA]" />
           </button>
         </div>
 
@@ -89,7 +89,7 @@ export function UpdateModal({ open, onClose, updateState, onUpdate, onDismiss }:
               <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-[13px] font-semibold text-[#FAFAFA] mb-1">Tout est prêt !</p>
-                <p className="text-[12px] text-[#71717A] leading-relaxed">
+                <p className="text-[12px] text-[#A1A1AA] leading-relaxed">
                   {isDesktop
                     ? "La mise à jour est installée. Redémarrez l'application pour commencer à utiliser les nouvelles fonctionnalités."
                     : "La nouvelle version est déployée. Rechargez la page pour en bénéficier."}
@@ -109,7 +109,7 @@ export function UpdateModal({ open, onClose, updateState, onUpdate, onDismiss }:
                   <span className={step.done ? "text-emerald-400" : step.active ? "text-[#F97316]" : "text-[#3F3F46]"}>
                     {step.done ? "✓" : step.active ? "⟳" : "○"}
                   </span>
-                  <span className={step.done ? "text-[#71717A]" : step.active ? "text-[#FAFAFA]" : "text-[#3F3F46]"}>
+                  <span className={step.done ? "text-[#A1A1AA]" : step.active ? "text-[#FAFAFA]" : "text-[#3F3F46]"}>
                     {step.text}
                   </span>
                 </div>
@@ -118,7 +118,7 @@ export function UpdateModal({ open, onClose, updateState, onUpdate, onDismiss }:
           ) : (
             /* État : nouveautés */
             <>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#52525B] mb-3">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#A1A1AA] mb-3">
                 Nouveautés
               </p>
               <div className="space-y-2.5">
@@ -138,7 +138,7 @@ export function UpdateModal({ open, onClose, updateState, onUpdate, onDismiss }:
               </div>
 
               {!isDesktop && (
-                <p className="mt-4 text-[12px] text-[#52525B] bg-[#111113] rounded-lg px-3 py-2 border border-[#1C1C1F]">
+                <p className="mt-4 text-[12px] text-[#A1A1AA] bg-[#111113] rounded-lg px-3 py-2 border border-[#1C1C1F]">
                   La mise à jour se fait en rechargeant la page. Vos données sont sauvegardées.
                 </p>
               )}
@@ -150,7 +150,7 @@ export function UpdateModal({ open, onClose, updateState, onUpdate, onDismiss }:
         {isDownloading && (
           <div className="px-6 pb-4">
             <div className="flex justify-between text-[11px] mb-1.5">
-              <span className="text-[#71717A]">Téléchargement…</span>
+              <span className="text-[#A1A1AA]">Téléchargement…</span>
               <span className="text-[#F97316] font-mono">{progress}%</span>
             </div>
             <div className="h-1 bg-[#27272A] rounded-full overflow-hidden">
@@ -172,14 +172,14 @@ export function UpdateModal({ open, onClose, updateState, onUpdate, onDismiss }:
           {!isDownloading && !isReady && (
             <button
               onClick={onDismiss}
-              className="text-[13px] text-[#71717A] hover:text-[#A1A1AA] transition-colors px-3 py-2"
+              className="text-[13px] text-[#A1A1AA] hover:text-[#A1A1AA] transition-colors px-3 py-2"
             >
               Ignorer (7 jours)
             </button>
           )}
 
           {isDownloading && (
-            <span className="text-[12px] text-[#52525B] mr-auto">
+            <span className="text-[12px] text-[#A1A1AA] mr-auto">
               L'app continue de fonctionner…
             </span>
           )}
@@ -188,10 +188,10 @@ export function UpdateModal({ open, onClose, updateState, onUpdate, onDismiss }:
             <button
               onClick={onUpdate}
               className={[
-                "flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-lg text-white transition-colors",
+                "flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-lg transition-colors",
                 isReady
-                  ? "bg-emerald-500 hover:bg-emerald-600"
-                  : "bg-[#F97316] hover:bg-[#EA580C]",
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "bg-[#F97316] text-[#0F0F11] hover:bg-[#EA580C]",
               ].join(" ")}
             >
               {isReady ? (

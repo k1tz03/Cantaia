@@ -7,15 +7,17 @@
 
 import { useTranslations } from "next-intl";
 import { MousePointerClick } from "lucide-react";
-import type { SceneElement } from "./types";
+import type { SceneElement, ValidationIssue } from "./types";
 import { Inspector } from "./Inspector";
 
 interface RightPanelProps {
   selected: SceneElement | null;
+  /** Défauts de validation de la scène — l'inspecteur filtre sur l'élément. */
+  validationIssues?: ValidationIssue[];
   onCorrect: (elementId: string) => void;
 }
 
-export function RightPanel({ selected, onCorrect }: RightPanelProps) {
+export function RightPanel({ selected, validationIssues, onCorrect }: RightPanelProps) {
   const t = useTranslations("scene3d");
 
   return (
@@ -25,11 +27,15 @@ export function RightPanel({ selected, onCorrect }: RightPanelProps) {
       aria-live="polite"
     >
       {selected ? (
-        <Inspector element={selected} onCorrect={onCorrect} />
+        <Inspector
+          element={selected}
+          validationIssues={validationIssues}
+          onCorrect={onCorrect}
+        />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <div className="w-16 h-16 rounded-full bg-[#27272A] flex items-center justify-center">
-            <MousePointerClick className="w-8 h-8 text-[#71717A]" aria-hidden="true" />
+            <MousePointerClick className="w-8 h-8 text-[#A1A1AA]" aria-hidden="true" />
           </div>
           <h3 className="mt-4 font-display text-lg font-semibold text-[#FAFAFA]">
             {t("rightPanel.emptyTitle")}
@@ -37,7 +43,7 @@ export function RightPanel({ selected, onCorrect }: RightPanelProps) {
           <p className="mt-2 text-sm text-[#A1A1AA] max-w-xs">
             {t("rightPanel.emptyDesc")}
           </p>
-          <ul className="mt-5 space-y-1.5 text-xs text-[#71717A] text-left">
+          <ul className="mt-5 space-y-1.5 text-xs text-[#A1A1AA] text-left">
             <li className="flex items-center gap-2">
               <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#27272A] border border-[#3F3F46] text-[#A1A1AA]">
                 {t("rightPanel.keyClick")}

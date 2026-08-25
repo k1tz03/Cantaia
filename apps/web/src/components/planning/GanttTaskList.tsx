@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { PlanningPhase, PlanningTask } from "./planning-types";
 import { ROW_HEIGHT } from "./planning-types";
+import { addIsoDays } from "./date-utils";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -61,9 +62,7 @@ function phaseTotalDuration(phase: PlanningPhase): number {
 }
 
 function addDaysToDate(dateStr: string, days: number): string {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
+  return addIsoDays(dateStr, days);
 }
 
 function daysBetween(a: string, b: string): number {
@@ -86,23 +85,22 @@ function daysSuffix(t: (key: string) => string): string {
 // WBS calculation
 // ---------------------------------------------------------------------------
 
-/** Calculate WBS numbers for phases and tasks */
+/**
+ * Calculate WBS numbers for phases and their (non-milestone) tasks.
+ * Milestones are numbered once, in the dedicated Milestones section — numbering
+ * them here as well double-counted them (5 milestones showed as J6..J10).
+ */
 function calculateWBS(phases: PlanningPhase[]): Map<string, string> {
   const wbs = new Map<string, string>();
-  let milestoneCount = 0;
 
   phases.forEach((phase, pi) => {
     wbs.set(phase.id, `${pi + 1}`);
     if (phase.isExpanded) {
       let taskIndex = 0;
       phase.tasks.forEach((task) => {
-        if (task.is_milestone) {
-          milestoneCount++;
-          wbs.set(task.id, `J${milestoneCount}`);
-        } else {
-          taskIndex++;
-          wbs.set(task.id, `${pi + 1}.${taskIndex}`);
-        }
+        if (task.is_milestone) return; // numbered in the Milestones section
+        taskIndex++;
+        wbs.set(task.id, `${pi + 1}.${taskIndex}`);
       });
     }
   });
@@ -150,17 +148,6 @@ export default function GanttTaskList({
     [highlightedCriticalChain],
   );
   const hasChain = chainSet.size > 0;
-
-  // Count milestones inside phases for continuing numbering in milestones section
-  const phaseMilestoneCount = useMemo(() => {
-    let count = 0;
-    phases.forEach((phase) => {
-      phase.tasks.forEach((task) => {
-        if (task.is_milestone) count++;
-      });
-    });
-    return count;
-  }, [phases]);
 
   // Inline editing state
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -352,7 +339,7 @@ export default function GanttTaskList({
     }
     return (
       <span
-        className="text-xs text-[#71717A] cursor-text hover:text-[#F97316] hover:underline"
+        className="text-xs text-[#A1A1AA] cursor-text hover:text-[#F97316] hover:underline"
         onDoubleClick={(e) => {
           e.stopPropagation();
           startEditing(task.id, "duration", String(task.duration_days));
@@ -384,7 +371,7 @@ export default function GanttTaskList({
     }
     return (
       <span
-        className="text-xs text-[#71717A] cursor-text hover:text-[#F97316] hover:underline"
+        className="text-xs text-[#A1A1AA] cursor-text hover:text-[#F97316] hover:underline"
         onDoubleClick={(e) => {
           e.stopPropagation();
           startEditing(task.id, field, toDateInputValue(dateStr));
@@ -409,7 +396,7 @@ export default function GanttTaskList({
     >
       {/* Header */}
       <div
-        className="sticky top-0 z-20 flex items-center bg-[#27272A] border-b border-[#27272A] text-xs font-medium text-[#71717A] uppercase tracking-wider"
+        className="sticky top-0 z-20 flex items-center bg-[#27272A] border-b border-[#27272A] text-xs font-medium text-[#A1A1AA] uppercase tracking-wider"
         style={{ height: ROW_HEIGHT + 8 }}
       >
         <div className="w-12 text-center shrink-0 px-1">{t("wbs.column")}</div>
@@ -445,9 +432,9 @@ export default function GanttTaskList({
             <div className="flex items-center flex-1 px-2 gap-1.5 min-w-0">
               {/* Expand/collapse */}
               {phase.isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-[#71717A] shrink-0" />
+                <ChevronDown className="h-4 w-4 text-[#A1A1AA] shrink-0" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-[#71717A] shrink-0" />
+                <ChevronRight className="h-4 w-4 text-[#A1A1AA] shrink-0" />
               )}
               {/* Phase color dot */}
               <div
@@ -479,13 +466,13 @@ export default function GanttTaskList({
                 </span>
               )}
             </div>
-            <div className="w-16 text-center text-xs text-[#71717A] font-medium">
+            <div className="w-16 text-center text-xs text-[#A1A1AA] font-medium">
               {phaseTotalDuration(phase)}{daysSuffix(t)}
             </div>
-            <div className="w-[68px] text-center text-xs text-[#71717A]">
+            <div className="w-[68px] text-center text-xs text-[#A1A1AA]">
               {formatShortDate(phase.start_date)}
             </div>
-            <div className="w-[68px] text-center text-xs text-[#71717A]">
+            <div className="w-[68px] text-center text-xs text-[#A1A1AA]">
               {formatShortDate(phase.end_date)}
             </div>
             {!readOnly && onOpenSidePanel && <div className="w-7" />}
@@ -502,19 +489,27 @@ export default function GanttTaskList({
                   key={task.id}
                   className={[
                     "group flex items-center border-b border-[#27272A] cursor-pointer hover:bg-[#27272A]/80 transition-colors",
-                    isTaskSelected(task.id) ? "bg-[#F97316]/10/70" : "",
-                    hasChain && isInChain ? "bg-red-50/50" : "",
+                    isTaskSelected(task.id) ? "bg-[#F97316]/10" : "",
+                    hasChain && isInChain ? "bg-[#EF4444]/10" : "",
                     hasChain && !isInChain ? "opacity-50" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
                   style={{ height: ROW_HEIGHT }}
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => onSelectTask(task.id, e)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelectTask(task.id);
+                    }
+                  }}
                   onContextMenu={onContextMenu ? (e) => onContextMenu(e, "task", task) : undefined}
                 >
                   {/* WBS column */}
                   <div className="w-12 text-center shrink-0 px-1">
-                    <span className="text-[11px] text-[#71717A] font-mono">
+                    <span className="text-[11px] text-[#A1A1AA] font-mono">
                       {wbsMap.get(task.id) || ""}
                     </span>
                   </div>
@@ -554,7 +549,7 @@ export default function GanttTaskList({
                           e.stopPropagation();
                           onOpenSidePanel(task.id);
                         }}
-                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#F97316]/10 text-[#71717A] hover:text-[#F97316] transition-all"
+                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#F97316]/10 text-[#A1A1AA] hover:text-[#F97316] transition-all"
                         title={t("contextMenu.edit")}
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -571,13 +566,13 @@ export default function GanttTaskList({
       {milestones.length > 0 && (
         <>
           <div
-            className="flex items-center border-b border-[#27272A] bg-amber-50/50"
+            className="flex items-center border-b border-[#27272A] bg-[#F59E0B]/10"
             style={{ height: ROW_HEIGHT }}
           >
             <div className="w-12 shrink-0" />
             <div className="flex items-center flex-1 px-3 gap-2">
               <Diamond className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-              <span className="text-sm font-semibold text-amber-800">
+              <span className="text-sm font-semibold text-[#F59E0B]">
                 {t("taskList.milestones")}
               </span>
             </div>
@@ -586,8 +581,8 @@ export default function GanttTaskList({
             <div
               key={ms.id}
               className={[
-                "group flex items-center border-b border-[#27272A] cursor-pointer hover:bg-amber-50/30 transition-colors",
-                isTaskSelected(ms.id) ? "bg-[#F97316]/10/70" : "",
+                "group flex items-center border-b border-[#27272A] cursor-pointer hover:bg-[#27272A] transition-colors",
+                isTaskSelected(ms.id) ? "bg-[#F97316]/10" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -597,8 +592,8 @@ export default function GanttTaskList({
             >
               {/* WBS column */}
               <div className="w-12 text-center shrink-0 px-1">
-                <span className="text-[11px] text-amber-600 font-mono font-medium">
-                  J{phaseMilestoneCount + msIdx + 1}
+                <span className="text-[11px] text-[#F59E0B] font-mono font-medium">
+                  J{msIdx + 1}
                 </span>
               </div>
               <div className="flex items-center flex-1 px-2 pl-8 gap-1.5 min-w-0">
@@ -614,7 +609,7 @@ export default function GanttTaskList({
               <div className="w-16 text-center text-xs text-amber-600 font-medium">
                 &mdash;
               </div>
-              <div className="w-[68px] text-center text-xs text-[#71717A]">
+              <div className="w-[68px] text-center text-xs text-[#A1A1AA]">
                 {formatShortDate(ms.start_date)}
               </div>
               <div className="w-20" />
@@ -625,7 +620,7 @@ export default function GanttTaskList({
                       e.stopPropagation();
                       onOpenSidePanel(ms.id);
                     }}
-                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#F97316]/10 text-[#71717A] hover:text-[#F97316] transition-all"
+                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#F97316]/10 text-[#A1A1AA] hover:text-[#F97316] transition-all"
                     title={t("contextMenu.edit")}
                   >
                     <Pencil className="h-3.5 w-3.5" />

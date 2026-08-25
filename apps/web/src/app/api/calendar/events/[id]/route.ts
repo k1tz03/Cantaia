@@ -5,9 +5,37 @@ import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import {
   updateGraphCalendarEvent,
   deleteGraphCalendarEvent,
+  shouldQueuePrep,
 } from "@cantaia/core/calendar";
 
 export const maxDuration = 60;
+
+/**
+ * The calendar now serves two synthetic id shapes alongside real rows:
+ *   • "virt:<source>:<uuid>" — a read-only projection of another module
+ *     (submission deadline, PV, task…). It has no row here.
+ *   • "<uuid>@<iso>"         — an expanded occurrence of a recurring event.
+ *     Reads and writes target the master row.
+ */
+function resolveEventId(
+  raw: string
+): { kind: "virtual" } | { kind: "event"; id: string; occurrence: string | null } {
+  if (raw.startsWith("virt:")) return { kind: "virtual" };
+  const [id, occurrence] = raw.split("@");
+  return { kind: "event", id, occurrence: occurrence || null };
+}
+
+/** Built per call — a NextResponse body can only be consumed once. */
+function virtualEventResponse() {
+  return NextResponse.json(
+    {
+      error: "virtual_event",
+      message:
+        "Cet élément provient d'un autre module (soumission, PV, tâche…). Ouvrez-le dans son module pour le modifier.",
+    },
+    { status: 400 }
+  );
+}
 
 /**
  * GET /api/calendar/events/[id]
@@ -18,7 +46,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const resolved = resolveEventId(rawId);
+    if (resolved.kind === "virtual") return virtualEventResponse();
+    const id = resolved.id;
+
     const supabase = await createClient();
     const {
       data: { user },
@@ -104,7 +136,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const resolved = resolveEventId(rawId);
+    if (resolved.kind === "virtual") return virtualEventResponse();
+    const id = resolved.id;
+
     const supabase = await createClient();
     const {
       data: { user },
@@ -128,7 +164,9 @@ export async function PATCH(
     // Verify event belongs to org
     const { data: existing } = await (admin as any)
       .from("calendar_events")
-      .select("id, organization_id, outlook_event_id, user_id")
+      .select(
+        "id, organization_id, outlook_event_id, user_id, project_id, event_type, start_at, ai_prep_status, recurrence_rule, recurrence_end, timezone"
+      )
       .eq("id", id)
       .eq("organization_id", profile.organization_id)
       .single();
@@ -198,6 +236,21 @@ export async function PATCH(
 
     updates.updated_at = new Date().toISOString();
 
+    // AGT — meeting-prep trigger. Linking a meeting to a project (or moving
+    // it into the future) is the moment its prep becomes worth generating.
+    // Only ever moves none → pending; a ready/delivered prep is left alone.
+    if (
+      shouldQueuePrep({
+        eventType: (updates.event_type as string) ?? existing.event_type,
+        projectId: (updates.project_id as string) ?? existing.project_id,
+        startAt: (updates.start_at as string) ?? existing.start_at,
+        currentStatus: existing.ai_prep_status,
+        now: Date.now(),
+      })
+    ) {
+      updates.ai_prep_status = "pending";
+    }
+
     // Push changes to Microsoft Graph if connected
     if (existing.outlook_event_id && body.sync_to_outlook !== false) {
       try {
@@ -213,6 +266,17 @@ export async function PATCH(
               start_at: updates.start_at as string | undefined,
               end_at: updates.end_at as string | undefined,
               all_day: updates.all_day as boolean | undefined,
+              // CAL: the recurrence used to stay local — Outlook kept the
+              // stale series (or none at all).
+              ...(updates.recurrence_rule !== undefined
+                ? {
+                    recurrence_rule: updates.recurrence_rule as string | undefined,
+                    recurrence_end: existing.recurrence_end || undefined,
+                    start_at:
+                      (updates.start_at as string | undefined) ?? existing.start_at,
+                    timezone: existing.timezone || "Europe/Zurich",
+                  }
+                : {}),
             }
           );
           updates.outlook_change_key = graphResult.changeKey;
@@ -262,7 +326,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const resolved = resolveEventId(rawId);
+    if (resolved.kind === "virtual") return virtualEventResponse();
+    const id = resolved.id;
+
     const supabase = await createClient();
     const {
       data: { user },

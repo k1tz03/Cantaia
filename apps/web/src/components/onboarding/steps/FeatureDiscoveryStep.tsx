@@ -66,7 +66,7 @@ export function FeatureDiscoveryStep({ onContinue }: FeatureDiscoveryStepProps) 
               <h3 className="text-sm font-semibold text-[#FAFAFA]">
                 {t(`${mod.key}.title`)}
               </h3>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#71717A]">
+              <p className="mt-1 text-[11px] leading-relaxed text-[#A1A1AA]">
                 {t(`${mod.key}.description`)}
               </p>
             </motion.div>
@@ -77,7 +77,7 @@ export function FeatureDiscoveryStep({ onContinue }: FeatureDiscoveryStepProps) 
       <motion.button
         type="button"
         onClick={onContinue}
-        className="mt-8 rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-white transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
+        className="mt-8 rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-[#0F0F11] transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}

@@ -30,13 +30,13 @@ function getStatusBadge(status: string | null) {
       );
     case "void":
       return (
-        <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#71717A]">
+        <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#A1A1AA]">
           Annulee
         </span>
       );
     default:
       return (
-        <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#71717A]">
+        <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#A1A1AA]">
           {status || "—"}
         </span>
       );
@@ -65,7 +65,7 @@ export default function InvoicesList() {
 
   if (invoices.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-[#71717A]">
+      <div className="flex flex-col items-center justify-center py-8 text-[#A1A1AA]">
         <Inbox className="mb-2 h-8 w-8" />
         <p className="text-sm">Aucune facture</p>
       </div>
@@ -74,64 +74,66 @@ export default function InvoicesList() {
 
   return (
     <div className="overflow-hidden rounded-lg border border-[#27272A]">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-[#27272A] bg-[#27272A]">
-            <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">
-              Date
-            </th>
-            <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">
-              Numero
-            </th>
-            <th className="px-4 py-2.5 text-right text-xs font-medium text-[#71717A]">
-              Montant
-            </th>
-            <th className="px-4 py-2.5 text-center text-xs font-medium text-[#71717A]">
-              Statut
-            </th>
-            <th className="px-4 py-2.5 text-center text-xs font-medium text-[#71717A]">
-              PDF
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {invoices.map((invoice) => (
-            <tr key={invoice.id} className="hover:bg-[#27272A]">
-              <td className="px-4 py-2.5 text-[#FAFAFA]">
-                {new Date(invoice.date * 1000).toLocaleDateString("fr-CH", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })}
-              </td>
-              <td className="px-4 py-2.5 font-mono text-xs text-[#71717A]">
-                {invoice.number || "—"}
-              </td>
-              <td className="px-4 py-2.5 text-right font-medium text-[#FAFAFA]">
-                {invoice.amount.toFixed(2)} {(invoice.currency || "chf").toUpperCase()}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                {getStatusBadge(invoice.status)}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                {invoice.pdf_url ? (
-                  <a
-                    href={invoice.pdf_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-[#F97316] hover:text-[#F97316]/80"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                ) : (
-                  <span className="text-[#71717A]">—</span>
-                )}
-              </td>
+      <div className="w-full overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#27272A] bg-[#27272A]">
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-[#A1A1AA]">
+                Date
+              </th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-[#A1A1AA]">
+                Numero
+              </th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-[#A1A1AA]">
+                Montant
+              </th>
+              <th className="px-4 py-2.5 text-center text-xs font-medium text-[#A1A1AA]">
+                Statut
+              </th>
+              <th className="px-4 py-2.5 text-center text-xs font-medium text-[#A1A1AA]">
+                PDF
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {invoices.map((invoice) => (
+              <tr key={invoice.id} className="hover:bg-[#27272A]">
+                <td className="px-4 py-2.5 text-[#FAFAFA]">
+                  {new Date(invoice.date * 1000).toLocaleDateString("fr-CH", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })}
+                </td>
+                <td className="px-4 py-2.5 font-mono text-xs text-[#A1A1AA]">
+                  {invoice.number || "—"}
+                </td>
+                <td className="px-4 py-2.5 text-right font-medium text-[#FAFAFA]">
+                  {invoice.amount.toFixed(2)} {(invoice.currency || "chf").toUpperCase()}
+                </td>
+                <td className="px-4 py-2.5 text-center">
+                  {getStatusBadge(invoice.status)}
+                </td>
+                <td className="px-4 py-2.5 text-center">
+                  {invoice.pdf_url ? (
+                    <a
+                      href={invoice.pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-[#F97316] hover:text-[#F97316]/80"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <span className="text-[#A1A1AA]">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

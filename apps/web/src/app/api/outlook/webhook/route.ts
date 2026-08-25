@@ -1,8 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAppUrl } from "@/lib/env";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
+import { syncAndClassifyConnection, loadActiveConnection, loadConnectionBySubscriptionId } from "@/lib/email/connection-sync";
+import { createOutlookWebhook } from "@/lib/email/webhook-subscription";
 import { timingSafeEqual } from "node:crypto";
+
+/**
+ * Graph demands a response within 3 s, so the notification handler only ACKs
+ * and hands the real work to `after()`. Give that background pass room.
+ */
+export const maxDuration = 300;
+
+/** Per-notification classification budget for the targeted mini-sync. */
+const NOTIFICATION_BUDGET_MS = 120_000;
 
 /**
  * Constant-time comparison of a notification clientState against the configured
@@ -58,6 +70,10 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createAdminClient();
+    // Map each affected user to the exact subscription (i.e. the exact mailbox)
+    // that fired the notification, so the mini-sync targets THAT connection and
+    // never the user's newest (possibly unrelated Gmail/IMAP) connection.
+    const subscriptionByUser = new Map<string, string>();
 
     // Process each notification
     for (const notification of notifications) {
@@ -76,11 +92,56 @@ export async function POST(request: NextRequest) {
 
       if (!connection?.user_id) continue;
 
-      // Mark user as needing sync (debounced — don't sync inline)
-      await (admin as any)
+      // Mark user as needing sync (kept for observability / legacy consumers)
+      const { error: markErr } = await (admin as any)
         .from("users")
         .update({ outlook_needs_sync: true })
         .eq("id", connection.user_id);
+      if (markErr) {
+        console.warn(`[outlook-webhook] outlook_needs_sync update failed for ${connection.user_id}: ${markErr.message}`);
+      }
+
+      subscriptionByUser.set(connection.user_id, notification.subscriptionId);
+    }
+
+    // D-FIX4 — a notification now actually DOES something: a targeted mini-sync
+    // through the same shared pipeline as the cron. Deduplicated per user so a
+    // burst of notifications produces one pass, and deferred with `after()` so
+    // Graph still gets its 202 within 3 s.
+    if (subscriptionByUser.size > 0) {
+      const entries = Array.from(subscriptionByUser.entries());
+      after(async () => {
+        const deadlineAt = Date.now() + NOTIFICATION_BUDGET_MS;
+        for (const [userId, subscriptionId] of entries) {
+          if (Date.now() > deadlineAt) break;
+          try {
+            // Resolve the connection the notification actually targeted; fall
+            // back to the newest active connection only if the subscription row
+            // has since disappeared.
+            const connection =
+              (await loadConnectionBySubscriptionId(admin, subscriptionId)) ||
+              (await loadActiveConnection(admin, userId));
+            if (!connection) continue;
+            const result = await syncAndClassifyConnection(admin, connection, {
+              deadlineAt,
+              classify: true,
+              classifyLimit: 50,
+            });
+            const { error: clearErr } = await (admin as any)
+              .from("users")
+              .update({ outlook_needs_sync: false })
+              .eq("id", userId);
+            if (clearErr) {
+              console.warn(`[outlook-webhook] could not clear outlook_needs_sync for ${userId}: ${clearErr.message}`);
+            }
+            console.log(
+              `[outlook-webhook] notification sync for ${userId}: ${result.synced} synced, ${result.classified} classified`
+            );
+          } catch (syncErr) {
+            console.error(`[outlook-webhook] notification sync failed for ${userId}:`, syncErr);
+          }
+        }
+      });
     }
 
     // Return 202 quickly — Graph requires response within 3 seconds
@@ -93,8 +154,12 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * POST /api/outlook/webhook/subscribe
- * Create a webhook subscription for a user's mailbox.
+ * PUT /api/outlook/webhook
+ * Create a Graph change-notification subscription for the caller's mailbox.
+ *
+ * `accessToken` is now optional: when omitted the route resolves a valid token
+ * server-side. Handing a raw Graph token through the browser was the only way
+ * to call this endpoint, which is one reason nothing ever did.
  */
 export async function PUT(request: NextRequest) {
   // Auth check — only authenticated users can create webhook subscriptions
@@ -104,75 +169,41 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { userId, accessToken } = await request.json();
-
-  if (!userId || !accessToken) {
-    return NextResponse.json({ error: "Missing userId or accessToken" }, { status: 400 });
-  }
+  const body = await request.json().catch(() => ({} as Record<string, unknown>));
+  const userId = (body as { userId?: string }).userId || user.id;
+  let accessToken = (body as { accessToken?: string }).accessToken;
 
   // Ensure user can only create subscriptions for themselves
   if (userId !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const webhookUrl = `${getAppUrl()}/api/outlook/webhook`;
-  const clientState = process.env.OUTLOOK_WEBHOOK_SECRET;
-
-  if (!clientState) {
+  if (!process.env.OUTLOOK_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "OUTLOOK_WEBHOOK_SECRET not configured" }, { status: 500 });
   }
 
-  // Subscription expires after max 4230 minutes (~3 days) for mail
-  const expiration = new Date();
-  expiration.setMinutes(expiration.getMinutes() + 4200);
-
-  try {
-    const response = await fetch("https://graph.microsoft.com/v1.0/subscriptions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        changeType: "created",
-        notificationUrl: webhookUrl,
-        resource: "me/mailFolders/inbox/messages",
-        expirationDateTime: expiration.toISOString(),
-        clientState,
-      }),
-    });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
+  if (!accessToken) {
+    const tokenResult = await getValidMicrosoftToken(user.id);
+    if ("error" in tokenResult || !tokenResult.accessToken) {
       return NextResponse.json(
-        { error: errData.error?.message || "Failed to create subscription" },
-        { status: response.status }
+        { error: ("error" in tokenResult && tokenResult.error) || "No valid Microsoft token" },
+        { status: 400 }
       );
     }
-
-    const subscription = await response.json();
-
-    // Store subscription ID for notification → user mapping
-    const admin = createAdminClient();
-    await (admin as any)
-      .from("email_connections")
-      .update({
-        webhook_subscription_id: subscription.id,
-        webhook_expiration: subscription.expirationDateTime,
-      })
-      .eq("user_id", userId);
-
-    return NextResponse.json({
-      subscriptionId: subscription.id,
-      expirationDateTime: subscription.expirationDateTime,
-    });
-  } catch (err) {
-    console.error("[outlook-webhook] Subscription error:", err);
-    return NextResponse.json(
-      { error: "Failed to create webhook subscription" },
-      { status: 500 }
-    );
+    accessToken = tokenResult.accessToken;
   }
+
+  const admin = createAdminClient();
+  const outcome = await createOutlookWebhook(admin, user.id, accessToken);
+
+  if (!outcome.ok) {
+    return NextResponse.json({ error: outcome.reason || "Failed to create webhook subscription" }, { status: 502 });
+  }
+
+  return NextResponse.json({
+    subscriptionId: outcome.subscriptionId,
+    expirationDateTime: outcome.expiration,
+  });
 }
 
 interface GraphNotification {

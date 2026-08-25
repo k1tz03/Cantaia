@@ -37,7 +37,7 @@ export function CreditBalanceCard({
   if (unavailable) {
     return (
       <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] px-5 py-4">
-        <div className="flex items-center gap-2 text-[12px] text-[#71717A]">
+        <div className="flex items-center gap-2 text-[12px] text-[#A1A1AA]">
           <Coins className="h-4 w-4" />
           {t("unavailable")}
         </div>
@@ -73,7 +73,7 @@ export function CreditBalanceCard({
             <Coins className={`h-5 w-5 ${colors.text}`} />
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-[#71717A]">
+            <div className="text-[11px] uppercase tracking-wide text-[#A1A1AA]">
               {t("totalCredits")}
             </div>
             <div className={`font-display text-[28px] font-extrabold leading-tight ${colors.text}`}>
@@ -104,7 +104,7 @@ export function CreditBalanceCard({
           <div className="mt-1 font-display text-[20px] font-bold tabular-nums text-[#FAFAFA]">
             {balance.subscription_credits}
           </div>
-          <div className="mt-0.5 text-[10px] text-[#52525B]">
+          <div className="mt-0.5 text-[10px] text-[#A1A1AA]">
             {t("subscriptionCreditsHint")}
           </div>
         </div>
@@ -117,7 +117,7 @@ export function CreditBalanceCard({
           <div className="mt-1 font-display text-[20px] font-bold tabular-nums text-[#FAFAFA]">
             {balance.purchased_credits}
           </div>
-          <div className="mt-0.5 text-[10px] text-[#52525B]">
+          <div className="mt-0.5 text-[10px] text-[#A1A1AA]">
             {t("purchasedCreditsHint")}
           </div>
         </div>
@@ -127,7 +127,7 @@ export function CreditBalanceCard({
         <div className="mt-4">
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-[#A1A1AA]">{t("monthlyAllocation")}</span>
-            <span className="tabular-nums text-[#71717A]">
+            <span className="tabular-nums text-[#A1A1AA]">
               {t("allocationUsed", { used: consumed, total: allocation })}
             </span>
           </div>

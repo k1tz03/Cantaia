@@ -54,7 +54,7 @@ export function WelcomeStep({ firstName, onContinue }: WelcomeStepProps) {
       <motion.button
         type="button"
         onClick={onContinue}
-        className="mt-8 rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-white transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
+        className="mt-8 rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-[#0F0F11] transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.4, duration: 0.5 }}

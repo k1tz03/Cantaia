@@ -66,16 +66,16 @@ export function LeftPanel({
         <header className="flex items-center justify-between px-4 py-3">
           <h3
             id="scene3d-levels-heading"
-            className="font-display text-xs font-semibold uppercase tracking-wider text-[#71717A]"
+            className="font-display text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]"
           >
             <Building2 className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" aria-hidden="true" />
             {t("leftPanel.levels")}
           </h3>
-          <span className="font-mono text-xs text-[#52525B]">{levels.length}</span>
+          <span className="font-mono text-xs text-[#A1A1AA]">{levels.length}</span>
         </header>
         <ul className="px-2 pb-2 space-y-0.5 max-h-48 overflow-y-auto" role="listbox">
           {levels.length === 0 ? (
-            <li className="px-3 py-2 text-xs text-[#52525B] italic">
+            <li className="px-3 py-2 text-xs text-[#A1A1AA] italic">
               {t("leftPanel.noLevels")}
             </li>
           ) : (
@@ -95,7 +95,7 @@ export function LeftPanel({
                     }`}
                   >
                     <span className="truncate font-medium">{level.name}</span>
-                    <span className="font-mono text-xs text-[#71717A] ml-2 flex-shrink-0">
+                    <span className="font-mono text-xs text-[#A1A1AA] ml-2 flex-shrink-0">
                       {level.element_count}
                     </span>
                   </button>
@@ -111,7 +111,7 @@ export function LeftPanel({
         <header className="flex items-center justify-between px-4 py-3">
           <h3
             id="scene3d-layers-heading"
-            className="font-display text-xs font-semibold uppercase tracking-wider text-[#71717A]"
+            className="font-display text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]"
           >
             <Layers className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" aria-hidden="true" />
             {t("leftPanel.layers")}
@@ -130,7 +130,7 @@ export function LeftPanel({
                     className="h-4 w-4 rounded border-[#27272A] bg-[#0F0F11] text-[#F97316] focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:outline-none cursor-pointer"
                   />
                   <Icon
-                    className={`w-4 h-4 ${checked ? "text-[#F97316]" : "text-[#71717A]"}`}
+                    className={`w-4 h-4 ${checked ? "text-[#F97316]" : "text-[#A1A1AA]"}`}
                     aria-hidden="true"
                   />
                   <span className="flex-1 font-medium">{t(`layers.${key}`)}</span>
@@ -146,7 +146,7 @@ export function LeftPanel({
         <header className="flex items-center justify-between px-4 py-3">
           <h3
             id="scene3d-conf-heading"
-            className="font-display text-xs font-semibold uppercase tracking-wider text-[#71717A]"
+            className="font-display text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]"
           >
             <SlidersHorizontal
               className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5"
@@ -184,7 +184,7 @@ export function LeftPanel({
 
       {/* Footer hint */}
       <div className="mt-auto px-4 py-3 border-t border-[#27272A] bg-[#0F0F11]">
-        <p className="text-[11px] text-[#52525B] leading-relaxed">
+        <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
           {t("leftPanel.footerHint")}
         </p>
       </div>

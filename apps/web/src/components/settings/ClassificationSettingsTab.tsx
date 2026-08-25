@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  Info,
 } from "lucide-react";
 
 // ─── Types ───
@@ -85,7 +86,7 @@ function Checkbox({
           onClick={() => onChange(!checked)}
           className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
             checked
-              ? "border-[#F97316] bg-[#F97316] text-white"
+              ? "border-[#F97316] bg-[#F97316] text-[#0F0F11]"
               : "border-[#27272A] bg-[#18181B] hover:border-[#27272A]"
           }`}
         >
@@ -95,7 +96,7 @@ function Checkbox({
       <div className="flex-1" onClick={() => onChange(!checked)}>
         <p className="text-sm font-medium text-[#FAFAFA]">{label}</p>
         {description && (
-          <p className="mt-0.5 text-xs text-[#71717A]">{description}</p>
+          <p className="mt-0.5 text-xs text-[#A1A1AA]">{description}</p>
         )}
       </div>
     </label>
@@ -188,10 +189,18 @@ export function ClassificationSettingsTab() {
 
   return (
     <div className="space-y-6">
+      {/* Placebo notice — these settings are stored in localStorage only and are
+          NOT yet wired into server-side email classification. Surface the state
+          honestly instead of implying they take effect. */}
+      <div className="flex items-start gap-2 rounded-[10px] border border-[#F59E0B]/25 bg-[#F59E0B]/10 px-4 py-3 text-[12px] text-[#A1A1AA]">
+        <Info className="mt-[1px] h-4 w-4 shrink-0 text-[#F59E0B]" />
+        <span>{t("classificationPlaceboNotice")}</span>
+      </div>
+
       {/* ─── Section 1: Automatic Classification ─── */}
       <div>
         <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
-          <Settings className="h-4 w-4 text-[#71717A]" />
+          <Settings className="h-4 w-4 text-[#A1A1AA]" />
           {t("classificationAutoTitle")}
         </div>
 
@@ -221,7 +230,7 @@ export function ClassificationSettingsTab() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A1A1AA]" />
               </div>
             )}
           </div>
@@ -247,10 +256,10 @@ export function ClassificationSettingsTab() {
       {/* ─── Section 2: Ignored Categories ─── */}
       <div>
         <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
-          <Shield className="h-4 w-4 text-[#71717A]" />
+          <Shield className="h-4 w-4 text-[#A1A1AA]" />
           {t("classificationIgnoredCategories")}
         </div>
-        <p className="mb-4 text-[12px] text-[#71717A]">
+        <p className="mb-4 text-[12px] text-[#A1A1AA]">
           {t("classificationIgnoredCategoriesDesc")}
         </p>
 
@@ -277,10 +286,10 @@ export function ClassificationSettingsTab() {
       {/* ─── Section 3: Ignored Domains ─── */}
       <div>
         <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
-          <Globe className="h-4 w-4 text-[#71717A]" />
+          <Globe className="h-4 w-4 text-[#A1A1AA]" />
           {t("classificationIgnoredDomains")}
         </div>
-        <p className="mb-4 text-[12px] text-[#71717A]">
+        <p className="mb-4 text-[12px] text-[#A1A1AA]">
           {t("classificationIgnoredDomainsDesc")}
         </p>
 
@@ -294,7 +303,7 @@ export function ClassificationSettingsTab() {
               <button
                 type="button"
                 onClick={() => removeIgnoredDomain(domain)}
-                className="rounded-full p-0.5 text-[#71717A] transition-colors hover:bg-[#27272A] hover:text-[#71717A]"
+                className="rounded-full p-0.5 text-[#A1A1AA] transition-colors hover:bg-[#27272A] hover:text-[#A1A1AA]"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -318,10 +327,10 @@ export function ClassificationSettingsTab() {
                 className="rounded-md border border-[#3F3F46] bg-[#18181B] px-2.5 py-1.5 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                 autoFocus
               />
-              <button
+              <button aria-label="Valider"
                 type="button"
                 onClick={addIgnoredDomain}
-                className="rounded-md bg-[#F97316] px-2.5 py-1.5 text-sm font-medium text-white hover:bg-[#EA580C]"
+                className="rounded-md bg-[#F97316] px-2.5 py-1.5 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C]"
               >
                 <Check className="h-4 w-4" />
               </button>
@@ -331,7 +340,7 @@ export function ClassificationSettingsTab() {
                   setShowIgnoredDomainInput(false);
                   setNewIgnoredDomain("");
                 }}
-                className="rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#71717A] hover:bg-[#27272A]"
+                className="rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#A1A1AA] hover:bg-[#27272A]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -340,7 +349,7 @@ export function ClassificationSettingsTab() {
             <button
               type="button"
               onClick={() => setShowIgnoredDomainInput(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#27272A] px-3 py-1.5 text-sm text-[#71717A] transition-colors hover:border-[#27272A] hover:text-[#FAFAFA]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#27272A] px-3 py-1.5 text-sm text-[#A1A1AA] transition-colors hover:border-[#27272A] hover:text-[#FAFAFA]"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("classificationAddDomain")}
@@ -352,10 +361,10 @@ export function ClassificationSettingsTab() {
       {/* ─── Section 4: Mapped Domains (Site Contacts) ─── */}
       <div>
         <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
-          <Mail className="h-4 w-4 text-[#71717A]" />
+          <Mail className="h-4 w-4 text-[#A1A1AA]" />
           {t("classificationMappedDomains")}
         </div>
-        <p className="mb-4 text-[12px] text-[#71717A]">
+        <p className="mb-4 text-[12px] text-[#A1A1AA]">
           {t("classificationMappedDomainsDesc")}
         </p>
 
@@ -368,7 +377,7 @@ export function ClassificationSettingsTab() {
               <span className="text-sm font-medium text-[#FAFAFA]">
                 {mapping.domain}
               </span>
-              <ArrowRight className="h-3.5 w-3.5 text-[#71717A]" />
+              <ArrowRight className="h-3.5 w-3.5 text-[#A1A1AA]" />
               <span className="text-sm text-[#F97316] font-medium">
                 {mapping.project}
               </span>
@@ -376,7 +385,7 @@ export function ClassificationSettingsTab() {
               <button
                 type="button"
                 onClick={() => removeMappedDomain(mapping.domain)}
-                className="rounded-full p-1 text-[#71717A] transition-colors hover:bg-[#27272A] hover:text-[#71717A]"
+                className="rounded-full p-1 text-[#A1A1AA] transition-colors hover:bg-[#27272A] hover:text-[#A1A1AA]"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -393,7 +402,7 @@ export function ClassificationSettingsTab() {
                 className="w-40 rounded-md border border-[#3F3F46] bg-[#18181B] px-2.5 py-1.5 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                 autoFocus
               />
-              <ArrowRight className="h-3.5 w-3.5 text-[#71717A]" />
+              <ArrowRight className="h-3.5 w-3.5 text-[#A1A1AA]" />
               <input
                 type="text"
                 value={newMappedProject}
@@ -409,10 +418,10 @@ export function ClassificationSettingsTab() {
                 placeholder={t("classificationMappedProjectPlaceholder")}
                 className="w-40 rounded-md border border-[#3F3F46] bg-[#18181B] px-2.5 py-1.5 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
               />
-              <button
+              <button aria-label="Valider"
                 type="button"
                 onClick={addMappedDomain}
-                className="rounded-md bg-[#F97316] px-2.5 py-1.5 text-sm font-medium text-white hover:bg-[#EA580C]"
+                className="rounded-md bg-[#F97316] px-2.5 py-1.5 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C]"
               >
                 <Check className="h-4 w-4" />
               </button>
@@ -423,7 +432,7 @@ export function ClassificationSettingsTab() {
                   setNewMappedDomain("");
                   setNewMappedProject("");
                 }}
-                className="rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#71717A] hover:bg-[#27272A]"
+                className="rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#A1A1AA] hover:bg-[#27272A]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -432,7 +441,7 @@ export function ClassificationSettingsTab() {
             <button
               type="button"
               onClick={() => setShowMappedDomainInput(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-[#27272A] px-3 py-2.5 text-sm text-[#71717A] transition-colors hover:border-[#27272A] hover:bg-[#27272A] hover:text-[#FAFAFA]"
+              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-[#27272A] px-3 py-2.5 text-sm text-[#A1A1AA] transition-colors hover:border-[#27272A] hover:bg-[#27272A] hover:text-[#FAFAFA]"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("classificationAddMapping")}

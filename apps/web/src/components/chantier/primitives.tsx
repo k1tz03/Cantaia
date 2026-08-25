@@ -139,7 +139,7 @@ export function MetricTag({
           {code}
         </span>
         {source && (
-          <span className="font-tech text-[9px] tracking-[0.18em] text-[#52525B]">
+          <span className="font-tech text-[9px] tracking-[0.18em] text-[#A1A1AA]">
             {source}
           </span>
         )}
@@ -183,7 +183,7 @@ export function SiteStamp({
         {number}
       </div>
       {subtitle && (
-        <div className="mt-2 font-tech text-[11px] font-semibold tracking-[0.3em] text-[#52525B]">
+        <div className="mt-2 font-tech text-[11px] font-semibold tracking-[0.3em] text-[#A1A1AA]">
           {subtitle}
         </div>
       )}
@@ -268,7 +268,7 @@ export function FicheRow({
 }) {
   return (
     <div className="grid grid-cols-[110px_1fr] items-baseline gap-3 border-b border-dashed border-[#27272A] py-2.5 last:border-b-0">
-      <span className="font-tech text-[10px] font-semibold uppercase tracking-[0.18em] text-[#52525B]">
+      <span className="font-tech text-[10px] font-semibold uppercase tracking-[0.18em] text-[#A1A1AA]">
         {k}
       </span>
       <span

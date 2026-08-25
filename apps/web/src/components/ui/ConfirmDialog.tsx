@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { ConfirmDialog as UIConfirmDialog } from "@cantaia/ui";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -11,9 +11,18 @@ interface ConfirmDialogProps {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** `danger` is kept as an alias of the shared `destructive` variant. */
   variant?: "danger" | "default";
+  children?: React.ReactNode;
 }
 
+/**
+ * Thin i18n wrapper over the shared @cantaia/ui ConfirmDialog.
+ *
+ * The shared primitive owns the behaviour (portal, focus trap, Escape,
+ * in-flight locking); this file only supplies translated default labels
+ * and keeps the historic `variant="danger"` name working at call sites.
+ */
 export function ConfirmDialog({
   open,
   onClose,
@@ -23,49 +32,22 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   variant = "default",
+  children,
 }: ConfirmDialogProps) {
   const t = useTranslations("common");
-  const [loading, setLoading] = useState(false);
-
-  if (!open) return null;
-
-  const handleConfirm = async () => {
-    setLoading(true);
-    try {
-      await onConfirm();
-    } finally {
-      setLoading(false);
-      onClose();
-    }
-  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-[#0F0F11] rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <h3 className="text-lg font-semibold text-[#FAFAFA] mb-2">{title}</h3>
-        <p className="text-sm text-[#71717A] mb-6">{description}</p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-[#FAFAFA] bg-[#27272A] rounded-md hover:bg-[#27272A]/80 transition-colors"
-            disabled={loading}
-          >
-            {cancelLabel || t("cancel")}
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={loading}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50 ${
-              variant === "danger"
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-[#F97316] hover:bg-[#F97316]/90"
-            }`}
-          >
-            {loading ? t("loading") : confirmLabel || t("confirm")}
-          </button>
-        </div>
-      </div>
-    </div>
+    <UIConfirmDialog
+      open={open}
+      onClose={onClose}
+      onConfirm={onConfirm}
+      title={title}
+      description={description}
+      confirmLabel={confirmLabel || t("confirm")}
+      cancelLabel={cancelLabel || t("cancel")}
+      variant={variant === "danger" ? "destructive" : "default"}
+    >
+      {children}
+    </UIConfirmDialog>
   );
 }

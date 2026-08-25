@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { verifyPortalToken } from "@/lib/portal/auth";
+import { requirePortalSession } from "@/lib/portal/session";
 
 export async function GET(
   _request: NextRequest,
@@ -8,24 +7,10 @@ export async function GET(
 ) {
   try {
     const { projectId } = await params;
-    const admin = createAdminClient();
+    const { valid, admin, project } = await requirePortalSession(projectId);
+    if (!valid || !project) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: project } = await (admin as any)
-      .from("projects")
-      .select("portal_submission_id, portal_pin_salt, portal_enabled")
-      .eq("id", projectId)
-      .single();
-
-    if (!project || !project.portal_enabled) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    const auth = await verifyPortalToken(projectId, project.portal_pin_salt || "");
-    if (!auth.valid) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (!project.portal_submission_id) {
+    if (!project.submissionId) {
       return NextResponse.json({ items: [], groups: [] });
     }
 
@@ -33,7 +18,7 @@ export async function GET(
     const { data: items } = await (admin as any)
       .from("submission_items")
       .select("id, item_number, description, unit, quantity, material_group, cfc_code, product_name")
-      .eq("submission_id", project.portal_submission_id)
+      .eq("submission_id", project.submissionId)
       .order("item_number", { ascending: true });
 
     // Group by material_group

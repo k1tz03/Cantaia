@@ -27,12 +27,13 @@ export function ProjectSwitcher() {
       const res = await fetch("/api/projects/list");
       if (res.ok) {
         const data = await res.json();
-        const sorted = (data.projects || [])
-          .sort(
-            (a: ProjectListItem, b: ProjectListItem) =>
-              new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-          )
-          .slice(0, 5);
+        // Keep the full list here — the search below filters it. Truncating
+        // before the filter made search blind to everything past the 5 most
+        // recent projects.
+        const sorted = (data.projects || []).sort(
+          (a: ProjectListItem, b: ProjectListItem) =>
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        );
         setProjects(sorted);
       }
     } catch (err) {
@@ -61,11 +62,15 @@ export function ProjectSwitcher() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isOpen]);
 
-  const filteredProjects = search
-    ? projects.filter((p) =>
-        p.name.toLowerCase().includes(search.toLowerCase())
-      )
-    : projects;
+  // Filter first, then cap the rendered list — so a search can reach any
+  // project, while the idle dropdown still shows a short recent list.
+  const filteredProjects = (
+    search
+      ? projects.filter((p) =>
+          p.name.toLowerCase().includes(search.toLowerCase())
+        )
+      : projects
+  ).slice(0, 8);
 
   const handleSelect = (projectId: string) => {
     setActiveProject(projectId);
@@ -109,7 +114,7 @@ export function ProjectSwitcher() {
         />
         <span className="truncate">{activeProject.name}</span>
         <ChevronDown
-          className={`ml-auto h-3 w-3 shrink-0 text-[#71717A] transition-transform ${
+          className={`ml-auto h-3 w-3 shrink-0 text-[#A1A1AA] transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -150,22 +155,22 @@ function ProjectDropdown({
     <div className="absolute left-[6px] right-[6px] top-full z-50 mt-1 rounded-md border border-[#27272A] bg-[#18181B] shadow-md">
       <div className="p-2">
         <div className="flex items-center gap-2 rounded-md border border-[#27272A] px-2">
-          <Search className="h-3.5 w-3.5 text-[#71717A]" />
+          <Search className="h-3.5 w-3.5 text-[#A1A1AA]" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder={t("projectSearch")}
-            className="flex-1 bg-transparent py-1.5 text-sm text-[#D4D4D8] outline-none placeholder:text-[#52525B]"
+            className="flex-1 bg-transparent py-1.5 text-sm text-[#D4D4D8] outline-none placeholder:text-[#71717A]"
             autoFocus
           />
         </div>
       </div>
       <div className="max-h-[200px] overflow-y-auto px-1 pb-2">
         {loading ? (
-          <p className="px-3 py-2 text-xs text-[#71717A]">...</p>
+          <p className="px-3 py-2 text-xs text-[#A1A1AA]">...</p>
         ) : projects.length === 0 ? (
-          <p className="px-3 py-2 text-xs text-[#71717A]">
+          <p className="px-3 py-2 text-xs text-[#A1A1AA]">
             {t("selectProject")}
           </p>
         ) : (
@@ -189,7 +194,7 @@ function ProjectDropdown({
       <div className="border-t border-[#27272A] px-1 py-1">
         <Link
           href="/projects"
-          className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-xs text-[#71717A] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
+          className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-xs text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
         >
           <FolderKanban className="h-3 w-3" />
           {t("seeAll")}

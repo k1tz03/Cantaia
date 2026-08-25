@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Coins, X, Zap, ArrowRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { creditCostFor } from "./credit-config";
+import { RETURN_PARAM, sanitizeReturnPath } from "./credit-checkout";
 
 /**
  * Paywall shown when an AI route answers 402 { error: 'insufficient_credits' }.
@@ -81,7 +82,6 @@ export function PaywallDialog({
   onClose,
   required,
   remaining,
-  message,
   actionType,
 }: PaywallDialogProps) {
   const t = useTranslations("credits");
@@ -102,6 +102,16 @@ export function PaywallDialog({
 
   const cost = typeof required === "number" ? required : creditCostFor(actionType);
   const left = typeof remaining === "number" ? remaining : 0;
+
+  // Remember the page the paywall interrupted so the settings tab can offer
+  // "Reprendre" once the top-up completes. Same-origin path only — the value
+  // travels to Stripe and back, and the server re-validates it.
+  const returnPath = sanitizeReturnPath(
+    `${window.location.pathname}${window.location.search}`
+  );
+  const returnQuery = returnPath
+    ? `&${RETURN_PARAM}=${encodeURIComponent(returnPath)}`
+    : "";
 
   return createPortal(
     <div
@@ -127,19 +137,23 @@ export function PaywallDialog({
             type="button"
             onClick={onClose}
             aria-label={t("paywallClose")}
-            className="rounded-md p-1 text-[#71717A] transition-colors hover:bg-[#27272A] hover:text-[#FAFAFA]"
+            className="rounded-md p-1 text-[#A1A1AA] transition-colors hover:bg-[#27272A] hover:text-[#FAFAFA]"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
+        {/* Always the locale-aware description: the server 402 payload carries a
+            French-only message, so trusting it here showed FR copy to EN/DE
+            users. The specifics (cost / remaining) are rendered in the tiles
+            below, so nothing is lost by ignoring the server string. */}
         <p className="mt-4 text-[13px] leading-relaxed text-[#A1A1AA]">
-          {message || t("paywallDescription")}
+          {t("paywallDescription")}
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-3">
-            <div className="text-[10px] uppercase tracking-wide text-[#71717A]">
+            <div className="text-[10px] uppercase tracking-wide text-[#A1A1AA]">
               {t("paywallRequired")}
             </div>
             <div className="mt-1 font-display text-[20px] font-extrabold text-[#FAFAFA]">
@@ -147,7 +161,7 @@ export function PaywallDialog({
             </div>
           </div>
           <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-3">
-            <div className="text-[10px] uppercase tracking-wide text-[#71717A]">
+            <div className="text-[10px] uppercase tracking-wide text-[#A1A1AA]">
               {t("paywallRemaining")}
             </div>
             <div className="mt-1 font-display text-[20px] font-extrabold text-[#EF4444]">
@@ -158,15 +172,15 @@ export function PaywallDialog({
 
         <div className="mt-5 flex flex-col gap-2">
           <Link
-            href="/settings?tab=subscription&section=packs"
+            href={`/settings?tab=subscription&section=packs${returnQuery}`}
             onClick={onClose}
-            className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#F97316] to-[#EA580C] px-4 py-2.5 text-[13px] font-medium text-white shadow-lg shadow-[#F97316]/25 transition-shadow hover:shadow-xl"
+            className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#F97316] to-[#EA580C] px-4 py-2.5 text-[13px] font-medium text-[#0F0F11] shadow-lg shadow-[#F97316]/25 transition-shadow hover:shadow-xl"
           >
             <Zap className="h-4 w-4" />
             {t("paywallTopUp")}
           </Link>
           <Link
-            href="/settings?tab=subscription&section=plans"
+            href={`/settings?tab=subscription&section=plans${returnQuery}`}
             onClick={onClose}
             className="flex items-center justify-center gap-2 rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-[13px] font-medium text-[#FAFAFA] transition-colors hover:bg-[#27272A]"
           >
@@ -175,7 +189,7 @@ export function PaywallDialog({
           </Link>
         </div>
 
-        <p className="mt-3 text-center text-[11px] text-[#71717A]">
+        <p className="mt-3 text-center text-[11px] text-[#A1A1AA]">
           {t("paywallCheaper")}
         </p>
       </div>

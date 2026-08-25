@@ -117,7 +117,7 @@ export default function IntelligenceScore({
         ? "text-blue-600"
         : totalScore >= 25
           ? "text-amber-600"
-          : "text-[#71717A]";
+          : "text-[#A1A1AA]";
 
   const ringColor =
     totalScore >= 80
@@ -143,10 +143,10 @@ export default function IntelligenceScore({
             <div className={`font-display text-2xl font-bold ${scoreColor}`}>
               {totalScore}
             </div>
-            <div className="text-[9px] text-[#71717A] -mt-0.5">/100</div>
+            <div className="text-[9px] text-[#A1A1AA] -mt-0.5">/100</div>
           </div>
         </div>
-        <p className="mt-2 text-xs text-[#71717A]">
+        <p className="mt-2 text-xs text-[#A1A1AA]">
           {totalScore >= 80
             ? t("levelExpert")
             : totalScore >= 50
@@ -178,7 +178,7 @@ export default function IntelligenceScore({
                   <span className="text-xs font-medium text-[#FAFAFA]">
                     {t(`dim_${cfg.key}`)}
                   </span>
-                  <span className="text-[10px] text-[#71717A]">
+                  <span className="text-[10px] text-[#A1A1AA]">
                     {score}/20
                   </span>
                 </div>
@@ -188,7 +188,7 @@ export default function IntelligenceScore({
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="mt-0.5 text-[10px] text-[#71717A]">
+                <div className="mt-0.5 text-[10px] text-[#A1A1AA]">
                   {dim.count}/{dim.threshold}
                 </div>
               </div>

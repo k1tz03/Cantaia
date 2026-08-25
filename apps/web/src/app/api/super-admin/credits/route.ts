@@ -20,25 +20,40 @@ export async function GET(request: NextRequest) {
     }
 
     const admin = createAdminClient();
-    const limitParam = parseInt(new URL(request.url).searchParams.get("limit") || "", 10);
+    const params = new URL(request.url).searchParams;
+    const limitParam = parseInt(params.get("limit") || "", 10);
     const limit = Number.isFinite(limitParam)
       ? Math.min(Math.max(1, limitParam), MAX_ORGS)
       : MAX_ORGS;
 
-    const { data: orgs, error: orgsError } = await (admin as any)
+    // Single-org mode: the org detail page only needs one row — avoid pulling
+    // every organization and every credit_balances row just to filter client-
+    // side (the detail page used to download all 500).
+    const orgIdFilter = params.get("organization_id");
+
+    let orgsQuery = (admin as any)
       .from("organizations")
       .select("id, name, subscription_plan, plan_status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+      .order("created_at", { ascending: false });
+    orgsQuery = orgIdFilter
+      ? orgsQuery.eq("id", orgIdFilter)
+      : orgsQuery.limit(limit);
+
+    const { data: orgs, error: orgsError } = await orgsQuery;
 
     if (orgsError) {
       console.error("[super-admin/credits] organizations query failed:", orgsError.message);
       return NextResponse.json({ error: "Failed to load organizations" }, { status: 500 });
     }
 
-    const { data: balances, error: balancesError } = await (admin as any)
+    let balancesQuery = (admin as any)
       .from("credit_balances")
       .select("organization_id, subscription_credits, purchased_credits, updated_at");
+    if (orgIdFilter) {
+      balancesQuery = balancesQuery.eq("organization_id", orgIdFilter);
+    }
+
+    const { data: balances, error: balancesError } = await balancesQuery;
 
     if (balancesError) {
       // Migration 090 not applied → report every org as unmetered instead of 500.

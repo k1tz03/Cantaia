@@ -81,7 +81,7 @@ export function OnboardingShell({
                 <button
                   type="button"
                   onClick={onSkip}
-                  className="text-sm text-[#52525B] transition-colors hover:text-[#A1A1AA]"
+                  className="text-sm text-[#A1A1AA] transition-colors hover:text-[#A1A1AA]"
                 >
                   {t("skip")}
                 </button>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { PLAN_PRICING, type PlanName } from "@cantaia/config/plan-features";
+import { subscriptionRevenueFor } from "@cantaia/config/credit-costs";
 import {
   Building2,
   ArrowLeft,
@@ -105,10 +105,13 @@ export default function OrganizationDetailPage() {
   async function loadCredits() {
     setCreditsLoading(true);
     try {
-      // GET /api/super-admin/credits returns every org (superadmin-scoped);
-      // pick this one. Orgs with no `credit_balances` row come back with
+      // GET /api/super-admin/credits?organization_id= returns only this org
+      // (superadmin-scoped). Orgs with no `credit_balances` row come back with
       // has_balance=false → we show "—" but still allow a manual adjustment.
-      const res = await fetch("/api/super-admin/credits", { cache: "no-store" });
+      const res = await fetch(
+        `/api/super-admin/credits?organization_id=${encodeURIComponent(orgId)}`,
+        { cache: "no-store" }
+      );
       if (!res.ok) {
         setCredits(null);
         return;
@@ -273,7 +276,7 @@ export default function OrganizationDetailPage() {
   if (!org) {
     return (
       <div className="p-6 text-center">
-        <p className="text-[#71717A]">Organisation introuvable.</p>
+        <p className="text-[#A1A1AA]">Organisation introuvable.</p>
       </div>
     );
   }
@@ -293,7 +296,7 @@ export default function OrganizationDetailPage() {
       {/* Header */}
       <button
         onClick={() => router.push("/super-admin/organizations")}
-        className="mb-3 flex items-center gap-1.5 text-sm text-[#71717A] hover:text-[#A1A1AA]"
+        className="mb-3 flex items-center gap-1.5 text-sm text-[#A1A1AA] hover:text-[#A1A1AA]"
       >
         <ArrowLeft className="h-4 w-4" />
         {t("organizations")}
@@ -345,7 +348,7 @@ export default function OrganizationDetailPage() {
             className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               activeTab === key
                 ? "border-amber-500 text-amber-400"
-                : "border-transparent text-[#71717A] hover:text-[#A1A1AA]"
+                : "border-transparent text-[#A1A1AA] hover:text-[#A1A1AA]"
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -361,11 +364,11 @@ export default function OrganizationDetailPage() {
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
               <p className="text-xs text-[#A1A1AA]">{t("tabMembers")}</p>
-              <p className="text-2xl font-bold text-[#FAFAFA]">{members.length}<span className="text-sm font-normal text-[#71717A]">/{org.max_users}</span></p>
+              <p className="text-2xl font-bold text-[#FAFAFA]">{members.length}<span className="text-sm font-normal text-[#A1A1AA]">/{org.max_users}</span></p>
             </div>
             <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
               <p className="text-xs text-[#A1A1AA]">{t("projects")}</p>
-              <p className="text-2xl font-bold text-[#FAFAFA]">{projectCount}<span className="text-sm font-normal text-[#71717A]">/{org.max_projects}</span></p>
+              <p className="text-2xl font-bold text-[#FAFAFA]">{projectCount}<span className="text-sm font-normal text-[#A1A1AA]">/{org.max_projects}</span></p>
             </div>
             <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
               <p className="text-xs text-[#A1A1AA]">{t("plan")}</p>
@@ -413,7 +416,7 @@ export default function OrganizationDetailPage() {
           {/* Members list */}
           <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
             {members.length === 0 ? (
-              <div className="py-8 text-center text-sm text-[#71717A]">Aucun membre</div>
+              <div className="py-8 text-center text-sm text-[#A1A1AA]">Aucun membre</div>
             ) : (
               <div className="divide-y divide-[#27272A]">
                 {members.map((member) => (
@@ -424,14 +427,14 @@ export default function OrganizationDetailPage() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-[#FAFAFA]">{member.first_name} {member.last_name}</p>
-                        <p className="text-xs text-[#71717A]">{member.email}</p>
+                        <p className="text-xs text-[#A1A1AA]">{member.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#A1A1AA] capitalize">
                         {member.role}
                       </span>
-                      <span className="text-xs text-[#71717A]">
+                      <span className="text-xs text-[#A1A1AA]">
                         {member.last_sync_at ? formatDate(member.last_sync_at) : t("never")}
                       </span>
                     </div>
@@ -450,10 +453,10 @@ export default function OrganizationDetailPage() {
                   {invites.map((invite) => (
                     <div key={invite.id} className="flex items-center justify-between px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <Mail className="h-4 w-4 text-[#71717A]" />
+                        <Mail className="h-4 w-4 text-[#A1A1AA]" />
                         <div>
                           <p className="text-sm text-[#A1A1AA]">{invite.email}</p>
-                          <p className="text-xs text-[#71717A]">
+                          <p className="text-xs text-[#A1A1AA]">
                             {t("invitedOn")} {formatDate(invite.created_at)} — {t("expiresOn")} {formatDate(invite.expires_at)}
                           </p>
                         </div>
@@ -489,7 +492,7 @@ export default function OrganizationDetailPage() {
                   key={p}
                   onClick={() => setStatsPeriod(p)}
                   className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    statsPeriod === p ? "bg-[#18181B] text-[#FAFAFA] shadow-sm" : "text-[#71717A] hover:text-[#A1A1AA]"
+                    statsPeriod === p ? "bg-[#18181B] text-[#FAFAFA] shadow-sm" : "text-[#A1A1AA] hover:text-[#A1A1AA]"
                   }`}
                 >
                   {p === "7d" ? "7 jours" : p === "30d" ? "30 jours" : "90 jours"}
@@ -528,12 +531,9 @@ export default function OrganizationDetailPage() {
 
               {/* Profitability banner */}
               {(() => {
-                // Per-user pricing estimate: pricePerUser × max(membres, minUsers).
-                // NOTE: interim — replaced by the credits-based billing model later.
-                const pricing = PLAN_PRICING[orgPlan as PlanName];
-                const revenue = pricing && pricing.pricePerUser > 0
-                  ? pricing.pricePerUser * Math.max(members.length, pricing.minUsers)
-                  : 0;
+                // Flat plan price per organization (credits model) — the seat
+                // count no longer multiplies anything.
+                const revenue = subscriptionRevenueFor(orgPlan);
                 const costMonthly = statsData.overview.projected_monthly;
                 const margin = revenue > 0 ? ((revenue - costMonthly) / revenue) * 100 : 0;
                 const profitable = revenue >= costMonthly;
@@ -582,28 +582,30 @@ export default function OrganizationDetailPage() {
                   <div className="border-b border-[#27272A] px-5 py-3">
                     <h4 className="text-sm font-semibold text-[#A1A1AA]">Par fonction IA</h4>
                   </div>
-                  <table className="w-full text-sm">
-                    <thead className="bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
-                      <tr>
-                        <th className="px-5 py-2 font-medium">Action</th>
-                        <th className="px-3 py-2 font-medium text-right">Appels</th>
-                        <th className="px-3 py-2 font-medium text-right">Coût (CHF)</th>
-                        <th className="px-5 py-2 font-medium text-right">% du total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#27272A]">
-                      {statsData.per_action.map((a: any) => (
-                        <tr key={a.action_type} className="hover:bg-[#27272A]">
-                          <td className="px-5 py-2 font-medium text-[#FAFAFA]">{a.action_type.replace(/_/g, " ")}</td>
-                          <td className="px-3 py-2 text-right text-[#A1A1AA]">{a.calls}</td>
-                          <td className="px-3 py-2 text-right text-[#A1A1AA]">{a.cost.toFixed(4)}</td>
-                          <td className="px-5 py-2 text-right text-[#71717A]">
-                            {statsData.overview.total_cost_chf > 0 ? ((a.cost / statsData.overview.total_cost_chf) * 100).toFixed(1) : "0"}%
-                          </td>
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
+                        <tr>
+                          <th className="px-5 py-2 font-medium">Action</th>
+                          <th className="px-3 py-2 font-medium text-right">Appels</th>
+                          <th className="px-3 py-2 font-medium text-right">Coût (CHF)</th>
+                          <th className="px-5 py-2 font-medium text-right">% du total</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-[#27272A]">
+                        {statsData.per_action.map((a: any) => (
+                          <tr key={a.action_type} className="hover:bg-[#27272A]">
+                            <td className="px-5 py-2 font-medium text-[#FAFAFA]">{a.action_type.replace(/_/g, " ")}</td>
+                            <td className="px-3 py-2 text-right text-[#A1A1AA]">{a.calls}</td>
+                            <td className="px-3 py-2 text-right text-[#A1A1AA]">{a.cost.toFixed(4)}</td>
+                            <td className="px-5 py-2 text-right text-[#A1A1AA]">
+                              {statsData.overview.total_cost_chf > 0 ? ((a.cost / statsData.overview.total_cost_chf) * 100).toFixed(1) : "0"}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
@@ -613,45 +615,47 @@ export default function OrganizationDetailPage() {
                   <div className="border-b border-[#27272A] px-5 py-3">
                     <h4 className="text-sm font-semibold text-[#A1A1AA]">Par membre</h4>
                   </div>
-                  <table className="w-full text-sm">
-                    <thead className="bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
-                      <tr>
-                        <th className="px-5 py-2 font-medium">Membre</th>
-                        <th className="px-3 py-2 font-medium text-right">Appels</th>
-                        <th className="px-3 py-2 font-medium text-right">Coût (CHF)</th>
-                        <th className="px-5 py-2 font-medium text-right">% du total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#27272A]">
-                      {statsData.per_user.map((u: any) => (
-                        <tr key={u.user_id} className="hover:bg-[#27272A]">
-                          <td className="px-5 py-2">
-                            <p className="font-medium text-[#FAFAFA]">{u.name}</p>
-                            <p className="text-xs text-[#71717A]">{u.email}</p>
-                          </td>
-                          <td className="px-3 py-2 text-right text-[#A1A1AA]">{u.calls}</td>
-                          <td className="px-3 py-2 text-right text-[#A1A1AA]">{u.cost.toFixed(4)}</td>
-                          <td className="px-5 py-2 text-right text-[#71717A]">
-                            {statsData.overview.total_cost_chf > 0 ? ((u.cost / statsData.overview.total_cost_chf) * 100).toFixed(1) : "0"}%
-                          </td>
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
+                        <tr>
+                          <th className="px-5 py-2 font-medium">Membre</th>
+                          <th className="px-3 py-2 font-medium text-right">Appels</th>
+                          <th className="px-3 py-2 font-medium text-right">Coût (CHF)</th>
+                          <th className="px-5 py-2 font-medium text-right">% du total</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-[#27272A]">
+                        {statsData.per_user.map((u: any) => (
+                          <tr key={u.user_id} className="hover:bg-[#27272A]">
+                            <td className="px-5 py-2">
+                              <p className="font-medium text-[#FAFAFA]">{u.name}</p>
+                              <p className="text-xs text-[#A1A1AA]">{u.email}</p>
+                            </td>
+                            <td className="px-3 py-2 text-right text-[#A1A1AA]">{u.calls}</td>
+                            <td className="px-3 py-2 text-right text-[#A1A1AA]">{u.cost.toFixed(4)}</td>
+                            <td className="px-5 py-2 text-right text-[#A1A1AA]">
+                              {statsData.overview.total_cost_chf > 0 ? ((u.cost / statsData.overview.total_cost_chf) * 100).toFixed(1) : "0"}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
               {statsData.overview.total_calls === 0 && (
                 <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-8 text-center">
-                  <Sparkles className="mx-auto h-10 w-10 text-[#52525B]" />
-                  <p className="mt-3 text-sm text-[#71717A]">Aucune activité IA sur cette période</p>
+                  <Sparkles className="mx-auto h-10 w-10 text-[#A1A1AA]" />
+                  <p className="mt-3 text-sm text-[#A1A1AA]">Aucune activité IA sur cette période</p>
                 </div>
               )}
             </>
           ) : (
             <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-8 text-center">
-              <BarChart3 className="mx-auto h-10 w-10 text-[#52525B]" />
-              <p className="mt-3 text-sm text-[#71717A]">Impossible de charger les statistiques</p>
+              <BarChart3 className="mx-auto h-10 w-10 text-[#A1A1AA]" />
+              <p className="mt-3 text-sm text-[#A1A1AA]">Impossible de charger les statistiques</p>
             </div>
           )}
         </div>
@@ -684,7 +688,7 @@ export default function OrganizationDetailPage() {
                 { label: tCredits("purchasedCredits"), value: credits?.purchased_credits, accent: "text-[#FAFAFA]" },
               ].map((card) => (
                 <div key={card.label} className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-3">
-                  <div className="text-[10px] uppercase tracking-wide text-[#71717A]">{card.label}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-[#A1A1AA]">{card.label}</div>
                   <div className={`mt-1 font-display text-[22px] font-extrabold tabular-nums ${card.accent}`}>
                     {typeof card.value === "number" ? card.value : "—"}
                   </div>
@@ -720,7 +724,7 @@ export default function OrganizationDetailPage() {
                     value={adjustAmount}
                     onChange={(e) => setAdjustAmount(e.target.value)}
                     placeholder="+100 / -50"
-                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder:text-[#52525B] focus:border-[#F97316] focus:outline-none"
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-[#F97316] focus:outline-none"
                   />
                 </div>
                 <div className="flex-1">
@@ -737,7 +741,7 @@ export default function OrganizationDetailPage() {
                   type="button"
                   onClick={handleAdjustCredits}
                   disabled={adjusting || !adjustAmount || Number(adjustAmount) === 0}
-                  className="flex items-center justify-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50"
                 >
                   {adjusting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {tCredits("adjustSubmit")}
@@ -747,8 +751,8 @@ export default function OrganizationDetailPage() {
           </div>
 
           <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-8 text-center">
-            <CreditCard className="mx-auto h-10 w-10 text-[#52525B]" />
-            <p className="mt-3 text-sm text-[#71717A]">Historique de facturation — bientôt disponible (Stripe)</p>
+            <CreditCard className="mx-auto h-10 w-10 text-[#A1A1AA]" />
+            <p className="mt-3 text-sm text-[#A1A1AA]">Historique de facturation — bientôt disponible (Stripe)</p>
           </div>
         </div>
       )}
@@ -759,7 +763,7 @@ export default function OrganizationDetailPage() {
           <div className="w-full max-w-md rounded-lg bg-[#18181B] p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-[#FAFAFA]">{t("sendInvitation")}</h3>
-              <button onClick={() => setShowInviteModal(false)} className="text-[#71717A] hover:text-[#A1A1AA]">
+              <button onClick={() => setShowInviteModal(false)} className="text-[#A1A1AA] hover:text-[#A1A1AA]">
                 <X className="h-5 w-5" />
               </button>
             </div>

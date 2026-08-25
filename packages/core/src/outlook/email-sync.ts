@@ -20,6 +20,12 @@ export interface SyncDependencies {
 
 export interface EmailInsertData {
   user_id: string;
+  /**
+   * Owning organization. email_records is org-scoped everywhere it is READ
+   * (anti-IDOR pattern), so a row inserted with a null org silently escapes
+   * those filters. The sync path now stamps it explicitly.
+   */
+  organization_id: string | null;
   outlook_message_id: string;
   subject: string;
   sender_email: string;
@@ -46,7 +52,8 @@ export interface SyncResult {
  */
 export async function syncUserEmails(
   userId: string,
-  deps: SyncDependencies
+  deps: SyncDependencies,
+  organizationId: string | null = null
 ): Promise<SyncResult> {
   // 1. Get valid Microsoft token
   const tokenResult = await deps.getValidToken(userId);
@@ -100,6 +107,7 @@ export async function syncUserEmails(
 
       await deps.insertEmail({
         user_id: userId,
+        organization_id: organizationId,
         outlook_message_id: email.id,
         subject: email.subject || "(Sans objet)",
         sender_email: email.from?.emailAddress?.address || "",

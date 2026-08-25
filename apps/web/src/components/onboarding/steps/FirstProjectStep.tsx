@@ -10,6 +10,8 @@ import {
   Wrench,
   Factory,
   Palette,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 
 interface FirstProjectStepProps {
@@ -21,7 +23,9 @@ interface FirstProjectStepProps {
     type: string;
     color: string;
   }) => void;
-  onSkip: () => void;
+  /** Creation failure to surface — the step no longer advances blindly. */
+  error?: string | null;
+  saving?: boolean;
 }
 
 const PROJECT_COLORS = [
@@ -68,7 +72,7 @@ const CITY_KEYS = [
   "stgallen",
 ] as const;
 
-export function FirstProjectStep({ onContinue, onSkip }: FirstProjectStepProps) {
+export function FirstProjectStep({ onContinue, error, saving }: FirstProjectStepProps) {
   const t = useTranslations("onboarding.project");
   const tTypes = useTranslations("onboarding.profile.types");
   const tProgress = useTranslations("onboarding.progress");
@@ -95,7 +99,7 @@ export function FirstProjectStep({ onContinue, onSkip }: FirstProjectStepProps) 
   }, [name, code, client, city, type, color, onContinue]);
 
   const inputClass =
-    "w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors";
+    "w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors";
 
   return (
     <div className="grid gap-8 lg:grid-cols-2">
@@ -130,7 +134,7 @@ export function FirstProjectStep({ onContinue, onSkip }: FirstProjectStepProps) 
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={placeholderIdx}
-                    className="text-sm text-[#52525B]"
+                    className="text-sm text-[#A1A1AA]"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
@@ -204,7 +208,7 @@ export function FirstProjectStep({ onContinue, onSkip }: FirstProjectStepProps) 
                 className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 transition-all ${
                   type === key
                     ? "border-[#F97316] bg-[#F97316]/10 text-[#F97316]"
-                    : "border-[#27272A] bg-[#0F0F11] text-[#71717A] hover:border-[#3F3F46]"
+                    : "border-[#27272A] bg-[#0F0F11] text-[#A1A1AA] hover:border-[#3F3F46]"
                 }`}
               >
                 <Icon className="h-5 w-5" />
@@ -237,22 +241,30 @@ export function FirstProjectStep({ onContinue, onSkip }: FirstProjectStepProps) 
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!name.trim()}
-          className="w-full rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-white transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25 disabled:opacity-40"
-        >
-          {tProgress("continue")}
-        </button>
+        {error && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2.5 text-[13px] text-[#FCA5A5]"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
         <button
           type="button"
-          onClick={onSkip}
-          className="w-full text-center text-sm text-[#52525B] transition-colors hover:text-[#A1A1AA]"
+          onClick={handleSubmit}
+          disabled={!name.trim() || saving}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-[#0F0F11] transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25 disabled:opacity-40"
         >
-          {t("skipNote")}
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          {tProgress("continue")}
         </button>
+
+        <p className="w-full text-center text-xs text-[#A1A1AA]">
+          {t("skipNote")}
+        </p>
+        {/* The single skip control lives in the onboarding shell header. */}
       </motion.div>
 
       {/* Live preview (desktop) */}
@@ -286,7 +298,7 @@ export function FirstProjectStep({ onContinue, onSkip }: FirstProjectStepProps) 
             {["0", "0", "0", "0"].map((val, i) => (
               <div key={i} className="text-center">
                 <p className="text-lg font-bold text-[#FAFAFA]">{val}</p>
-                <p className="text-[10px] text-[#71717A]">
+                <p className="text-[10px] text-[#A1A1AA]">
                   {["Emails", "Plans", "Tasks", "PV"][i]}
                 </p>
               </div>

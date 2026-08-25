@@ -1,318 +1,415 @@
 "use client";
 
+/**
+ * Field portal — public surface, PIN-authenticated.
+ *
+ * Deliberately independent from the app shell: no next-intl (FR/DE come from a
+ * local dictionary, see portal-i18n.tsx), no sidebar, no session. Everything is
+ * sized for a phone held with gloves: 44px targets, 16px inputs, safe-area
+ * padding under the bottom navigation.
+ */
+
 import { useState, useEffect, use } from "react";
-import { useTranslations } from "next-intl";
-import { FileText, Loader2, AlertCircle } from "lucide-react";
+import {
+  AlertCircle,
+  Ambulance,
+  Biohazard,
+  ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
+  FileText,
+  Flame,
+  HardHat,
+  Loader2,
+  MapPin,
+  Plane,
+  Search,
+  Shield,
+  ShieldAlert,
+} from "lucide-react";
 import { ReportForm } from "@/components/portal/ReportForm";
+import {
+  PortalI18nProvider,
+  usePortalI18n,
+  PORTAL_LANGS,
+  type PortalLang,
+  type PortalKey,
+} from "@/components/portal/portal-i18n";
 
-// ─── Tab 1: Chantier ────────────────────────────────────────────────
-function SiteTab({ projectId }: { projectId: string }) {
-  const t = useTranslations("portal");
-  const [info, setInfo] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+// ── Language switch ─────────────────────────────────────────────────
 
-  useEffect(() => {
-    fetch(`/api/portal/${projectId}/info`)
-      .then(r => r.json())
-      .then(d => setInfo(d))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [projectId]);
-
-  if (loading) return (
-    <div className="flex justify-center py-12">
-      <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#F97316" }} />
-    </div>
-  );
-  if (!info || info.error) return (
-    <div className="p-4 text-center" style={{ color: "#71717A" }}>Erreur de chargement</div>
-  );
-
-  const mapsUrl = info.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${info.address}, ${info.city || ""}`)}`
-    : null;
-
+function LangSwitch({ compact = false }: { compact?: boolean }) {
+  const { lang, setLang } = usePortalI18n();
   return (
-    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-      {/* Project card */}
-      <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, padding: "14px 16px" }}>
-        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, marginBottom: 6 }}>
-          Projet
-        </div>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 700, color: "#FAFAFA" }}>
-          {info.name}
-        </div>
-        {info.code && (
-          <div style={{ fontSize: 12, color: "#71717A", marginTop: 2 }}>
-            {info.code}{info.client_name ? ` · ${info.client_name}` : ""}
-          </div>
-        )}
-        {info.address && (
-          mapsUrl ? (
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "flex", alignItems: "center", gap: 6, marginTop: 8,
-                padding: "8px 12px", background: "#27272A", borderRadius: 8,
-                textDecoration: "none",
-              }}
-            >
-              <span style={{ fontSize: 16 }}>📍</span>
-              <span style={{ fontSize: 13, color: "#60A5FA", flex: 1 }}>
-                {info.address}{info.city ? `, ${info.city}` : ""}
-              </span>
-              <span style={{ color: "#52525B", fontSize: 12 }}>›</span>
-            </a>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: "8px 12px", background: "#27272A", borderRadius: 8 }}>
-              <span style={{ fontSize: 16 }}>📍</span>
-              <span style={{ fontSize: 13, color: "#A1A1AA", flex: 1 }}>
-                {info.address}{info.city ? `, ${info.city}` : ""}
-              </span>
-            </div>
-          )
-        )}
-      </div>
-
-      {/* Instructions card */}
-      {info.description && (
-        <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, padding: "14px 16px" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, marginBottom: 6 }}>
-            {t("instructions")}
-          </div>
-          <div style={{ fontSize: 13, color: "#D4D4D8", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-            {info.description}
-          </div>
-        </div>
-      )}
-
-      {/* Emergency numbers */}
-      <div style={{
-        background: "linear-gradient(135deg, #1C0909, #1A0505)",
-        border: "1px solid rgba(239, 68, 68, 0.19)",
-        borderRadius: 10, padding: "14px 16px",
-      }}>
-        <div style={{
-          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700,
-          color: "#F87171", display: "flex", alignItems: "center", gap: 6, marginBottom: 8,
-        }}>
-          🚨 Num&eacute;ros d&apos;urgence
-        </div>
-        {[
-          { icon: "🚑", label: "Ambulance / Urgences", number: "144", tel: "144" },
-          { icon: "🚒", label: "Pompiers", number: "118", tel: "118" },
-          { icon: "👮", label: "Police", number: "117", tel: "117" },
-          { icon: "🛩️", label: "REGA", number: "1414", tel: "1414" },
-          { icon: "☠️", label: "Tox Info", number: "145", tel: "145" },
-        ].map(({ icon, label, number, tel }) => (
-          <div key={tel} style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "6px 0",
-            borderBottom: "1px solid rgba(239, 68, 68, 0.08)",
-          }}>
-            <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{icon}</span>
-            <span style={{ fontSize: 11, color: "#A1A1AA", flex: 1 }}>{label}</span>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>
-              <a href={`tel:${tel}`} style={{ color: "#60A5FA", textDecoration: "none" }}>{number}</a>
-            </span>
-          </div>
-        ))}
-        {/* Conductor phone if available */}
-        {info.conductor_phone && (
-          <div style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "6px 0",
-          }}>
-            <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>📞</span>
-            <span style={{ fontSize: 11, color: "#A1A1AA", flex: 1 }}>
-              Conducteur{info.conductor_name ? ` (${info.conductor_name})` : ""}
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>
-              <a href={`tel:${info.conductor_phone}`} style={{ color: "#60A5FA", textDecoration: "none" }}>
-                {info.conductor_phone}
-              </a>
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* SUVA safety rules */}
-      <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, padding: "14px 16px" }}>
-        <div style={{
-          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700,
-          color: "#FBBF24", display: "flex", alignItems: "center", gap: 6, marginBottom: 8,
-        }}>
-          ⚠️ R&egrave;gles SUVA — S&eacute;curit&eacute; chantier
-        </div>
-        {[
-          "Port du casque obligatoire en toutes circonstances",
-          "Chaussures de sécurité S3 obligatoires",
-          "Gilet haute visibilité obligatoire",
-          "Protection auditive en zone de bruit > 85 dB",
-          "Lunettes de protection pour travaux de meulage/découpe",
-          "Harnais obligatoire au-dessus de 2 mètres",
-          "Interdiction de travailler sous l'emprise d'alcool ou drogues",
-          "Signaler tout accident/incident immédiatement",
-        ].map((rule, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0", fontSize: 12, color: "#D4D4D8", lineHeight: 1.4 }}>
-            <span style={{ color: "#FBBF24", fontSize: 12, marginTop: 1, flexShrink: 0 }}>☑</span>
-            <span>{rule}</span>
-          </div>
-        ))}
-        <div style={{ fontSize: 11, color: "#D97706", textAlign: "center", marginTop: 10 }}>
-          Chaque collaborateur a le droit de dire STOP en cas de danger
-        </div>
-      </div>
-
-      <p style={{ textAlign: "center", fontSize: 11, color: "#3F3F46", marginTop: 8 }}>
-        {t("welcome")}
-      </p>
+    <div
+      role="group"
+      aria-label="Langue / Sprache"
+      className="flex shrink-0 overflow-hidden rounded-lg border border-[#3F3F46]"
+    >
+      {PORTAL_LANGS.map((code: PortalLang) => (
+        <button
+          key={code}
+          type="button"
+          onClick={() => setLang(code)}
+          aria-pressed={lang === code}
+          className={
+            (compact ? "min-h-[36px] px-2.5" : "min-h-[44px] px-3") +
+            " text-[13px] font-bold uppercase transition-colors " +
+            (lang === code
+              ? "bg-[#F97316] text-[#0F0F11]"
+              : "bg-[#18181B] text-[#A1A1AA]")
+          }
+        >
+          {code}
+        </button>
+      ))}
     </div>
   );
 }
 
-// ─── Tab 2: Soumission ──────────────────────────────────────────────
-function SubmissionTab({ projectId }: { projectId: string }) {
-  const t = useTranslations("portal");
+// ── Tab 1: Chantier ─────────────────────────────────────────────────
+
+function SiteTab({ projectId, onSessionExpired }: { projectId: string; onSessionExpired?: () => void }) {
+  const { t } = usePortalI18n();
+  const [info, setInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/portal/${projectId}/info`)
+      .then(async (r) => {
+        if (r.status === 401) {
+          if (!cancelled) onSessionExpired?.();
+          return null;
+        }
+        return r.json();
+      })
+      .then((d) => d && !cancelled && setInfo(d))
+      .catch((e) => console.error("[portal] failed to load project info:", e))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" aria-hidden="true" />
+      </div>
+    );
+  }
+  if (!info || info.error) {
+    return <p className="p-4 text-center text-[14px] text-[#A1A1AA]">{t("loadError")}</p>;
+  }
+
+  const mapsUrl = info.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        `${info.address}, ${info.city || ""}`,
+      )}`
+    : null;
+
+  const emergencies: Array<{ icon: React.ReactNode; label: PortalKey; number: string }> = [
+    { icon: <Ambulance className="h-5 w-5" />, label: "emergencyAmbulance", number: "144" },
+    { icon: <Flame className="h-5 w-5" />, label: "emergencyFire", number: "118" },
+    { icon: <Shield className="h-5 w-5" />, label: "emergencyPolice", number: "117" },
+    { icon: <Plane className="h-5 w-5" />, label: "emergencyRega", number: "1414" },
+    { icon: <Biohazard className="h-5 w-5" />, label: "emergencyTox", number: "145" },
+  ];
+
+  const suvaRules: PortalKey[] = [
+    "suvaRule1",
+    "suvaRule2",
+    "suvaRule3",
+    "suvaRule4",
+    "suvaRule5",
+    "suvaRule6",
+    "suvaRule7",
+    "suvaRule8",
+  ];
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      {/* Project card */}
+      <section className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
+        <h2 className="text-[13px] font-bold uppercase tracking-wide text-[#A1A1AA]">
+          {t("project")}
+        </h2>
+        <p className="mt-1 font-display text-[19px] font-bold text-[#FAFAFA]">{info.name}</p>
+        {info.code && (
+          <p className="mt-0.5 text-[14px] text-[#A1A1AA]">
+            {info.code}
+            {info.client_name ? ` · ${info.client_name}` : ""}
+          </p>
+        )}
+        {info.address &&
+          (mapsUrl ? (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex min-h-[48px] items-center gap-2 rounded-lg bg-[#27272A] px-3 text-[14px] text-[#93C5FD]"
+            >
+              <MapPin className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="flex-1">
+                {info.address}
+                {info.city ? `, ${info.city}` : ""}
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[#A1A1AA]" aria-hidden="true" />
+              <span className="sr-only">{t("openInMaps")}</span>
+            </a>
+          ) : (
+            <p className="mt-3 flex min-h-[48px] items-center gap-2 rounded-lg bg-[#27272A] px-3 text-[14px] text-[#D4D4D8]">
+              <MapPin className="h-5 w-5 shrink-0" aria-hidden="true" />
+              {info.address}
+              {info.city ? `, ${info.city}` : ""}
+            </p>
+          ))}
+      </section>
+
+      {/* Instructions */}
+      {info.description && (
+        <section className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
+          <h2 className="text-[13px] font-bold uppercase tracking-wide text-[#A1A1AA]">
+            {t("instructions")}
+          </h2>
+          <p className="mt-2 whitespace-pre-wrap text-[14px] leading-relaxed text-[#D4D4D8]">
+            {info.description}
+          </p>
+        </section>
+      )}
+
+      {/* Emergency numbers */}
+      <section className="rounded-xl border border-[#EF4444]/25 bg-[#EF4444]/[0.07] p-4">
+        <h2 className="flex items-center gap-2 font-display text-[15px] font-bold text-[#FCA5A5]">
+          <AlertCircle className="h-5 w-5" aria-hidden="true" />
+          {t("emergencyNumbers")}
+        </h2>
+        <ul className="mt-2">
+          {emergencies.map(({ icon, label, number }) => (
+            <li key={number} className="border-b border-[#EF4444]/10 last:border-0">
+              <a
+                href={`tel:${number}`}
+                className="flex min-h-[48px] items-center gap-3 text-[14px] text-[#D4D4D8]"
+              >
+                <span className="text-[#FCA5A5]" aria-hidden="true">
+                  {icon}
+                </span>
+                <span className="flex-1">{t(label)}</span>
+                <span className="font-display text-[16px] font-bold text-[#93C5FD]">{number}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* SUVA rules */}
+      <section className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
+        <h2 className="flex items-center gap-2 font-display text-[15px] font-bold text-[#FBBF24]">
+          <ShieldAlert className="h-5 w-5" aria-hidden="true" />
+          {t("suvaTitle")}
+        </h2>
+        <ul className="mt-2 space-y-1.5">
+          {suvaRules.map((rule) => (
+            <li key={rule} className="flex items-start gap-2 text-[14px] leading-snug text-[#D4D4D8]">
+              <span className="mt-[3px] h-2 w-2 shrink-0 rounded-full bg-[#FBBF24]" aria-hidden="true" />
+              {t(rule)}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 rounded-lg bg-[#F59E0B]/10 px-3 py-2 text-center text-[13px] font-semibold text-[#FBBF24]">
+          {t("suvaStop")}
+        </p>
+      </section>
+
+      <p className="pb-2 text-center text-[13px] text-[#A1A1AA]">{t("welcome")}</p>
+    </div>
+  );
+}
+
+// ── Tab 2: Soumission ───────────────────────────────────────────────
+
+function SubmissionTab({ projectId, onSessionExpired }: { projectId: string; onSessionExpired?: () => void }) {
+  const { t } = usePortalI18n();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     fetch(`/api/portal/${projectId}/submission`)
-      .then(r => r.json())
-      .then(d => setData(d))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then(async (r) => {
+        if (r.status === 401) {
+          if (!cancelled) onSessionExpired?.();
+          return null;
+        }
+        return r.json();
+      })
+      .then((d) => d && !cancelled && setData(d))
+      .catch((e) => console.error("[portal] failed to load data:", e))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  if (loading) return (
-    <div className="flex justify-center py-12">
-      <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#F97316" }} />
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" aria-hidden="true" />
+      </div>
+    );
+  }
   if (!data || !data.groups || data.groups.length === 0) {
-    return <div style={{ padding: 16, textAlign: "center", color: "#71717A" }}>{t("noSubmission")}</div>;
+    return <p className="p-4 text-center text-[14px] text-[#A1A1AA]">{t("noSubmission")}</p>;
   }
 
-  const filtered = search.trim()
-    ? data.groups.map((g: any) => ({
-        ...g,
-        items: g.items.filter((i: any) =>
-          i.description?.toLowerCase().includes(search.toLowerCase()) ||
-          i.number?.toLowerCase().includes(search.toLowerCase())
-        ),
-      })).filter((g: any) => g.items.length > 0)
+  const needle = search.trim().toLowerCase();
+  const filtered = needle
+    ? data.groups
+        .map((g: any) => ({
+          ...g,
+          items: g.items.filter(
+            (i: any) =>
+              i.description?.toLowerCase().includes(needle) ||
+              i.number?.toLowerCase().includes(needle) ||
+              i.cfc_code?.toLowerCase().includes(needle),
+          ),
+        }))
+        .filter((g: any) => g.items.length > 0)
     : data.groups;
 
   return (
-    <div style={{ padding: 16 }}>
-      <input
-        type="text"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        placeholder={"🔍 " + t("searchPosts")}
-        style={{
-          width: "100%", background: "#18181B", border: "1px solid #3F3F46",
-          borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#D4D4D8",
-          outline: "none", marginBottom: 12,
-        }}
-      />
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {filtered.map((group: any) => (
-          <div key={group.name} style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 8, overflow: "hidden" }}>
-            <button
-              onClick={() => setOpenGroup(openGroup === group.name ? null : group.name)}
-              type="button"
-              style={{
-                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "10px 12px", cursor: "pointer", background: "none", border: "none", color: "inherit",
-              }}
+    <div className="p-4">
+      <div className="relative mb-3">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A1A1AA]"
+          aria-hidden="true"
+        />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t("searchPosts")}
+          aria-label={t("searchPosts")}
+          className="min-h-[48px] w-full rounded-lg border border-[#3F3F46] bg-[#18181B] pl-9 pr-3 text-[16px] text-[#FAFAFA] placeholder:text-[#A1A1AA] outline-none focus-visible:border-[#F97316]"
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {filtered.map((group: any) => {
+          const open = openGroup === group.name;
+          return (
+            <div
+              key={group.name}
+              className="overflow-hidden rounded-xl border border-[#27272A] bg-[#18181B]"
             >
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#FAFAFA" }}>{group.name}</span>
-              <span style={{ fontSize: 10, color: "#71717A", background: "#27272A", padding: "2px 6px", borderRadius: 4 }}>
-                {group.count} {t("posts")}
-              </span>
-            </button>
-            {openGroup === group.name && group.items.map((item: any) => (
-              <div key={item.id} style={{ padding: "8px 12px", borderTop: "1px solid #27272A" }}>
-                <div style={{ fontSize: 10, color: "#71717A", fontFamily: "monospace" }}>{item.number}</div>
-                <div style={{ fontSize: 12, color: "#D4D4D8", marginTop: 2, lineHeight: 1.4 }}>{item.description}</div>
-                <div style={{ fontSize: 11, color: "#A1A1AA", marginTop: 3 }}>
-                  {item.quantity || "—"} {item.unit || ""}
-                </div>
-              </div>
-            ))}
-          </div>
-        ))}
+              <button
+                type="button"
+                onClick={() => setOpenGroup(open ? null : group.name)}
+                aria-expanded={open}
+                className="flex min-h-[52px] w-full items-center justify-between gap-3 px-4 text-left"
+              >
+                <span className="text-[15px] font-semibold text-[#FAFAFA]">{group.name}</span>
+                <span className="shrink-0 rounded-md bg-[#27272A] px-2 py-0.5 text-[13px] text-[#D4D4D8]">
+                  {group.count} {t("posts")}
+                </span>
+              </button>
+              {open &&
+                group.items.map((item: any) => (
+                  <div key={item.id} className="border-t border-[#27272A] px-4 py-3">
+                    <p className="font-mono text-[13px] text-[#A1A1AA]">
+                      {item.number}
+                      {item.cfc_code ? ` · CFC ${item.cfc_code}` : ""}
+                    </p>
+                    <p className="mt-1 text-[14px] leading-snug text-[#D4D4D8]">
+                      {item.description}
+                    </p>
+                    <p className="mt-1 text-[13px] text-[#A1A1AA]">
+                      {item.quantity ?? "—"} {item.unit || ""}
+                    </p>
+                  </div>
+                ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ─── Tab 3: Plans ───────────────────────────────────────────────────
-function PlansTab({ projectId }: { projectId: string }) {
+// ── Tab 3: Plans ────────────────────────────────────────────────────
+
+function PlansTab({ projectId, onSessionExpired }: { projectId: string; onSessionExpired?: () => void }) {
+  const { t } = usePortalI18n();
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     fetch(`/api/portal/${projectId}/plans`)
-      .then(r => r.json())
-      .then(d => setPlans(d.plans || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then(async (r) => {
+        if (r.status === 401) {
+          if (!cancelled) onSessionExpired?.();
+          return null;
+        }
+        return r.json();
+      })
+      .then((d) => d && !cancelled && setPlans(d.plans || []))
+      .catch((e) => console.error("[portal] failed to load plans:", e))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  if (loading) return (
-    <div className="flex justify-center py-12">
-      <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#F97316" }} />
-    </div>
-  );
-  if (plans.length === 0) return (
-    <div style={{ padding: 16, textAlign: "center", color: "#71717A" }}>Aucun plan disponible</div>
-  );
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" aria-hidden="true" />
+      </div>
+    );
+  }
+  if (plans.length === 0) {
+    return <p className="p-4 text-center text-[14px] text-[#A1A1AA]">{t("noPlans")}</p>;
+  }
 
   return (
-    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-      {plans.map(plan => (
+    <div className="flex flex-col gap-2 p-4">
+      {plans.map((plan) => (
         <a
           key={plan.id}
           href={plan.file_url || "#"}
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            display: "flex", alignItems: "center", gap: 12,
-            background: "#18181B", border: "1px solid #27272A", borderRadius: 10,
-            padding: "12px 16px", textDecoration: "none",
-          }}
+          className="flex min-h-[64px] items-center gap-3 rounded-xl border border-[#27272A] bg-[#18181B] px-4 py-3"
         >
-          <div style={{
-            height: 40, width: 40, borderRadius: 8,
-            background: "rgba(59, 130, 246, 0.1)",
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-          }}>
-            <FileText style={{ height: 20, width: 20, color: "#60A5FA" }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#FAFAFA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#3B82F6]/10">
+            <FileText className="h-5 w-5 text-[#60A5FA]" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] font-semibold text-[#FAFAFA]">
               {plan.plan_title || plan.plan_number}
-            </div>
-            <div style={{ fontSize: 11, color: "#71717A" }}>
+            </span>
+            <span className="block text-[13px] text-[#A1A1AA]">
               {plan.discipline || plan.plan_type || ""}
-            </div>
-          </div>
-          <span style={{ color: "#52525B", fontSize: 14 }}>›</span>
+            </span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-[#A1A1AA]" aria-hidden="true" />
         </a>
       ))}
     </div>
   );
 }
 
-// ─── Main Portal Page ───────────────────────────────────────────────
-export default function PortalPage({ params }: { params: Promise<{ projectId: string }> }) {
-  const { projectId } = use(params);
-  const t = useTranslations("portal");
+// ── Shell ───────────────────────────────────────────────────────────
+
+function PortalShell({ projectId }: { projectId: string }) {
+  const { t } = usePortalI18n();
   const [authenticated, setAuthenticated] = useState(false);
   const [checking, setChecking] = useState(true);
   const [pin, setPin] = useState("");
@@ -323,28 +420,37 @@ export default function PortalPage({ params }: { params: Promise<{ projectId: st
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("site");
 
-  // Check if already authenticated (cookie exists)
+  // Already authenticated? (the session cookie is project-scoped)
   useEffect(() => {
+    let cancelled = false;
     fetch(`/api/portal/${projectId}/info`)
-      .then(r => {
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (cancelled) return;
         if (r.ok) {
           setAuthenticated(true);
-          r.json().then(d => {
-            if (d.userName) setUserName(d.userName);
-            if (d.name) setProjectName(d.name);
-            if (d.code) setProjectCode(d.code);
-          });
+          if (d.userName) setUserName(d.userName);
+          if (d.name) setProjectName(d.name);
+          if (d.code) setProjectCode(d.code);
         } else {
-          // Try to get basic project info even when not authenticated
-          r.json().then(d => {
-            if (d.projectName) setProjectName(d.projectName);
-            if (d.projectCode) setProjectCode(d.projectCode);
-          }).catch(() => {});
+          if (d.projectName) setProjectName(d.projectName);
+          if (d.projectCode) setProjectCode(d.projectCode);
         }
       })
-      .catch(() => {})
-      .finally(() => setChecking(false));
+      .catch((e) => console.error("[portal] failed to check session:", e))
+      .finally(() => !cancelled && setChecking(false));
+    return () => {
+      cancelled = true;
+    };
   }, [projectId]);
+
+  // A portal request came back 401: the 7-day session expired. Drop back to the
+  // PIN screen with a clear message (localStorage drafts survive the reconnect).
+  function handleSessionExpired() {
+    setAuthenticated(false);
+    setPin("");
+    setError(t("sessionExpired"));
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -357,7 +463,7 @@ export default function PortalPage({ params }: { params: Promise<{ projectId: st
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin, userName: userName.trim() }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setAuthenticated(true);
         if (data.projectName) setProjectName(data.projectName);
@@ -365,223 +471,186 @@ export default function PortalPage({ params }: { params: Promise<{ projectId: st
         setError(data.code === "RATE_LIMITED" ? t("tooManyAttempts") : t("invalidPin"));
       }
     } catch {
-      setError("Erreur réseau");
+      setError(t("networkError"));
     } finally {
       setLoading(false);
     }
   }
 
-  // ── Loading state ──
   if (checking) {
     return (
-      <div style={{
-        minHeight: "100vh", background: "linear-gradient(180deg, #0F0F11, #18181B)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#F97316" }} />
+      <div className="flex min-h-screen items-center justify-center bg-[#0F0F11]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#F97316]" aria-hidden="true" />
       </div>
     );
   }
 
   // ── PIN screen ──
   if (!authenticated) {
+    const canSubmit = pin.length === 6 && userName.trim().length >= 2 && !loading;
     return (
-      <div style={{
-        minHeight: "100vh", display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", padding: 24,
-        background: "linear-gradient(180deg, #0F0F11, #18181B)",
-        maxWidth: 430, margin: "0 auto",
-      }}>
-        {/* Logo */}
-        <div style={{
-          width: 48, height: 48,
-          background: "linear-gradient(135deg, #F97316, #EF4444)",
-          borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 22, color: "white", fontWeight: 800,
-          fontFamily: "'Plus Jakarta Sans', sans-serif", marginBottom: 16,
-        }}>
-          C
+      <div className="mx-auto flex min-h-screen max-w-[430px] flex-col justify-center bg-gradient-to-b from-[#0F0F11] to-[#18181B] p-6">
+        <div className="mb-4 flex justify-end">
+          <LangSwitch compact />
         </div>
-        <div style={{
-          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800,
-          color: "#FAFAFA", textAlign: "center",
-        }}>
-          Portail Chantier
+
+        <div className="flex flex-col items-center">
+          <span
+            className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#F97316] to-[#EF4444] font-display text-[22px] font-extrabold text-[#0F0F11]"
+            aria-hidden="true"
+          >
+            C
+          </span>
+          <h1 className="text-center font-display text-[22px] font-extrabold text-[#FAFAFA]">
+            {t("portalTitle")}
+          </h1>
+          {(projectName || projectCode) && (
+            <p className="mt-1 text-center text-[14px] text-[#A1A1AA]">
+              {projectName}
+              {projectCode ? ` · ${projectCode}` : ""}
+            </p>
+          )}
         </div>
-        {(projectName || projectCode) && (
-          <div style={{ fontSize: 13, color: "#71717A", textAlign: "center", marginTop: 4, marginBottom: 24 }}>
-            {projectName}{projectCode ? ` · ${projectCode}` : ""}
-          </div>
-        )}
-        {!projectName && !projectCode && <div style={{ marginBottom: 24 }} />}
 
         {error && (
-          <div style={{
-            width: "100%", marginBottom: 12, display: "flex", alignItems: "center", gap: 8,
-            borderRadius: 10, background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)",
-            padding: "10px 14px", fontSize: 13, color: "#F87171",
-          }}>
-            <AlertCircle style={{ height: 16, width: 16, flexShrink: 0 }} />
+          <div
+            role="alert"
+            className="mt-4 flex items-center gap-2 rounded-xl border border-[#EF4444]/25 bg-[#EF4444]/10 px-4 py-3 text-[14px] text-[#F87171]"
+          >
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
             {error}
           </div>
         )}
 
-        <form onSubmit={handleLogin} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 0 }}>
-          {/* Name field */}
-          <div style={{ width: "100%", marginBottom: 12 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#A1A1AA", marginBottom: 4, display: "block" }}>
-              {t("yourNamePlaceholder") || "Votre nom"}
+        <form onSubmit={handleLogin} className="mt-5 flex flex-col gap-4">
+          <div>
+            <label
+              htmlFor="portal-name"
+              className="mb-1.5 block text-[13px] font-semibold text-[#D4D4D8]"
+            >
+              {t("yourName")}
             </label>
             <input
+              id="portal-name"
               type="text"
+              autoComplete="name"
               value={userName}
-              onChange={e => setUserName(e.target.value)}
-              placeholder="Ex: Edgar Cardoso"
-              style={{
-                width: "100%", background: "#27272A", border: "1px solid #3F3F46",
-                borderRadius: 10, padding: "12px 16px", fontSize: 14, color: "#FAFAFA",
-                outline: "none", fontFamily: "'Inter', sans-serif",
-              }}
+              onChange={(e) => setUserName(e.target.value)}
+              placeholder={t("yourNamePlaceholder")}
+              className="min-h-[52px] w-full rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 text-[16px] text-[#FAFAFA] placeholder:text-[#A1A1AA] outline-none focus-visible:border-[#F97316]"
             />
           </div>
 
-          {/* PIN field */}
-          <div style={{ width: "100%", marginBottom: 12 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#A1A1AA", marginBottom: 4, display: "block" }}>
-              Code PIN
+          <div>
+            <label
+              htmlFor="portal-pin"
+              className="mb-1.5 block text-[13px] font-semibold text-[#D4D4D8]"
+            >
+              {t("pinCode")}
             </label>
             <input
+              id="portal-pin"
               type="tel"
               inputMode="numeric"
+              autoComplete="one-time-code"
               maxLength={6}
               value={pin}
-              onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="• • • • • •"
-              style={{
-                width: "100%", background: "#27272A", border: "1px solid #3F3F46",
-                borderRadius: 10, padding: "12px 16px", fontSize: 15, color: "#FAFAFA",
-                textAlign: "center", letterSpacing: 8, fontWeight: 700,
-                fontFamily: "'Plus Jakarta Sans', sans-serif", outline: "none",
-              }}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder={t("pinPlaceholder")}
+              className="min-h-[52px] w-full rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 text-center font-display text-[18px] font-bold tracking-[0.5em] text-[#FAFAFA] placeholder:tracking-normal placeholder:text-[#A1A1AA] outline-none focus-visible:border-[#F97316]"
             />
           </div>
 
-          {/* Submit button */}
           <button
             type="submit"
-            disabled={pin.length !== 6 || !userName.trim() || loading}
-            style={{
-              width: "100%", padding: 14, borderRadius: 10,
-              background: pin.length === 6 && userName.trim() && !loading
-                ? "linear-gradient(135deg, #F97316, #EA580C)"
-                : "#3F3F46",
-              color: "white", fontSize: 15, fontWeight: 600, border: "none",
-              cursor: pin.length === 6 && userName.trim() && !loading ? "pointer" : "not-allowed",
-              fontFamily: "'Plus Jakarta Sans', sans-serif", marginTop: 8,
-              opacity: pin.length === 6 && userName.trim() && !loading ? 1 : 0.5,
-            }}
+            disabled={!canSubmit}
+            className={
+              "flex min-h-[52px] w-full items-center justify-center rounded-xl text-[16px] font-bold transition-opacity " +
+              (canSubmit
+                ? "bg-[#F97316] text-[#0F0F11]"
+                : "bg-[#3F3F46] text-[#A1A1AA] opacity-70")
+            }
           >
             {loading ? (
-              <Loader2 className="h-5 w-5 animate-spin" style={{ margin: "0 auto", display: "block" }} />
+              <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
             ) : (
-              t("access") || "Accéder au chantier"
+              t("access")
             )}
           </button>
         </form>
 
-        <div style={{ fontSize: 11, color: "#52525B", textAlign: "center", marginTop: 12 }}>
-          Code fourni par votre conducteur de travaux
-        </div>
+        <p className="mt-4 text-center text-[13px] text-[#A1A1AA]">{t("pinHelp")}</p>
       </div>
     );
   }
 
-  // ── Authenticated app shell ──
-  const tabs = [
-    { id: "site", icon: "🏗️", label: t("tabSite") || "Chantier" },
-    { id: "submission", icon: "📋", label: t("tabSubmission") || "Soumission" },
-    { id: "plans", icon: "📐", label: t("tabPlans") || "Plans" },
-    { id: "report", icon: "📝", label: t("tabReport") || "Rapport" },
+  // ── Authenticated shell ──
+  const tabs: Array<{ id: string; icon: React.ReactNode; label: PortalKey }> = [
+    { id: "site", icon: <HardHat className="h-5 w-5" />, label: "tabSite" },
+    { id: "submission", icon: <ClipboardList className="h-5 w-5" />, label: "tabSubmission" },
+    { id: "plans", icon: <FileText className="h-5 w-5" />, label: "tabPlans" },
+    { id: "report", icon: <ClipboardCheck className="h-5 w-5" />, label: "tabReport" },
   ];
 
   return (
-    <div style={{
-      minHeight: "100vh", display: "flex", flexDirection: "column",
-      background: "#0C0C0E", color: "#E4E4E7", maxWidth: 430, margin: "0 auto",
-      position: "relative",
-    }}>
-      {/* App header */}
-      <div style={{
-        background: "#09090B", padding: "12px 16px", display: "flex",
-        alignItems: "center", gap: 10, borderBottom: "1px solid #27272A",
-      }}>
-        <div style={{
-          width: 28, height: 28,
-          background: "linear-gradient(135deg, #F97316, #EF4444)",
-          borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14, color: "white", fontWeight: 800,
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
-        }}>
+    <div className="relative mx-auto flex min-h-screen max-w-[430px] flex-col bg-[#0F0F11] text-[#E4E4E7]">
+      <header className="flex items-center gap-3 border-b border-[#27272A] bg-[#09090B] px-4 py-3">
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#F97316] to-[#EF4444] font-display text-[15px] font-extrabold text-[#0F0F11]"
+          aria-hidden="true"
+        >
           C
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-[15px] font-bold text-[#FAFAFA]">
+            {projectName || t("site")}
+          </p>
+          {userName && <p className="truncate text-[13px] text-[#A1A1AA]">{userName}</p>}
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14,
-            fontWeight: 700, color: "#FAFAFA",
-          }}>
-            {projectName || "Chantier"}
-          </div>
-          <div style={{ fontSize: 11, color: "#71717A" }}>
-            {userName || ""}
-          </div>
-        </div>
-      </div>
+        <LangSwitch compact />
+      </header>
 
-      {/* Content area */}
-      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 68 }}>
-        {activeTab === "site" && <SiteTab projectId={projectId} />}
-        {activeTab === "submission" && <SubmissionTab projectId={projectId} />}
-        {activeTab === "plans" && <PlansTab projectId={projectId} />}
-        {activeTab === "report" && <ReportForm projectId={projectId} />}
-      </div>
+      <main className="flex-1 overflow-y-auto pb-[calc(76px+env(safe-area-inset-bottom))]">
+        {activeTab === "site" && <SiteTab projectId={projectId} onSessionExpired={handleSessionExpired} />}
+        {activeTab === "submission" && <SubmissionTab projectId={projectId} onSessionExpired={handleSessionExpired} />}
+        {activeTab === "plans" && <PlansTab projectId={projectId} onSessionExpired={handleSessionExpired} />}
+        {activeTab === "report" && (
+          <ReportForm projectId={projectId} userName={userName} onSessionExpired={handleSessionExpired} />
+        )}
+      </main>
 
-      {/* Bottom navigation */}
-      <nav style={{
-        position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
-        width: "100%", maxWidth: 430,
-        background: "#09090B", borderTop: "1px solid #27272A",
-        display: "flex", padding: "6px 0", zIndex: 50,
-      }}>
-        {tabs.map(tab => {
+      <nav
+        aria-label={t("portalTitle")}
+        className="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] -translate-x-1/2 border-t border-[#27272A] bg-[#09090B] pb-[env(safe-area-inset-bottom)]"
+      >
+        {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              style={{
-                flex: 1, display: "flex", flexDirection: "column",
-                alignItems: "center", gap: 2, padding: "6px 0",
-                cursor: "pointer", background: "none", border: "none",
-                transition: "all 0.12s",
-              }}
+              aria-current={isActive ? "page" : undefined}
+              className={
+                "flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 " +
+                (isActive ? "text-[#F97316]" : "text-[#A1A1AA]")
+              }
             >
-              <span style={{
-                fontSize: 18,
-                filter: isActive ? "drop-shadow(0 0 4px rgba(249,115,22,0.4))" : "none",
-              }}>
-                {tab.icon}
-              </span>
-              <span style={{
-                fontSize: 9, fontWeight: 500,
-                color: isActive ? "#F97316" : "#52525B",
-              }}>
-                {tab.label}
-              </span>
+              <span aria-hidden="true">{tab.icon}</span>
+              <span className="text-[11px] font-semibold">{t(tab.label)}</span>
             </button>
           );
         })}
       </nav>
     </div>
+  );
+}
+
+export default function PortalPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = use(params);
+  return (
+    <PortalI18nProvider>
+      <PortalShell projectId={projectId} />
+    </PortalI18nProvider>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   X,
   Loader2,
@@ -12,6 +12,7 @@ import {
   Phone,
   Mail,
   AlertCircle,
+  AlertTriangle,
   Search,
 } from "lucide-react";
 import {
@@ -20,6 +21,8 @@ import {
   GEO_ZONES,
   type SupplierSpecialty,
 } from "@cantaia/core/suppliers";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 interface AISuggestion {
   company_name: string;
@@ -70,6 +73,21 @@ export function AISearchDialog({
   const [importingIdx, setImportingIdx] = useState<number | null>(null);
   const [importedIdxs, setImportedIdxs] = useState<Set<number>>(new Set());
   const [importError, setImportError] = useState("");
+  /** Per-suggestion email, editable before import (index → address). */
+  const [editedEmails, setEditedEmails] = useState<Record<number, string>>({});
+  /** Suggestions whose email the user explicitly confirmed. */
+  const [emailVerified, setEmailVerified] = useState<Set<number>>(new Set());
+
+  // Escape to close (this modal does not go through the shared Dialog).
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && importingIdx === null) handleClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, importingIdx]);
 
   if (!open) return null;
 
@@ -110,6 +128,12 @@ export function AISearchDialog({
         }),
       });
 
+      if (res.status === 402 && (await handleInsufficientCredits(res))) {
+        setSearching(false);
+        setHasSearched(false);
+        return;
+      }
+
       if (!res.ok) {
         const text = await res.text();
         let msg = `Erreur serveur (${res.status})`;
@@ -129,6 +153,8 @@ export function AISearchDialog({
       setSuggestions(data.suggestions || []);
       setSearching(false);
       setHasSearched(true);
+      // AI action consumed credits — refresh the badge.
+      notifyCreditsChanged();
     } catch (err) {
       console.error("[AISearchDialog] Search error:", err);
       setSearchError("Erreur reseau, veuillez reessayer");
@@ -152,20 +178,34 @@ export function AISearchDialog({
     setImportError("");
 
     try {
+      // UNVERIFIED CONTACT DATA.
+      // The model produces these addresses from memory, with no source: importing
+      // them as-is meant a price request could leave for an address that never
+      // existed, over the user's own signature. The email is only stored once the
+      // user has explicitly confirmed it in the field below the card.
+      const confirmedEmail = emailVerified.has(idx)
+        ? (editedEmails[idx] ?? getContact(suggestion, "email") ?? "").trim() || null
+        : null;
+
+      const provenance = confirmedEmail
+        ? "Source: Recherche IA — email confirmé par l'utilisateur."
+        : "Source: Recherche IA — coordonnées NON VÉRIFIÉES, email à confirmer avant tout envoi.";
+
       const payload: Record<string, any> = {
         company_name: suggestion.company_name,
-        email: getContact(suggestion, "email") || null,
+        email: confirmedEmail,
         phone: getContact(suggestion, "phone") || null,
         website: getContact(suggestion, "website") || null,
         city: getContact(suggestion, "city") || null,
+        postal_code: getContact(suggestion, "postal_code") || null,
         address: getContact(suggestion, "address") || null,
         specialties: suggestion.specialties || [],
         cfc_codes: suggestion.cfc_codes || [],
         geo_zone: suggestion.geo_zone || geoZone || null,
         status: "new",
         notes: (suggestion.reasoning || suggestion.reason)
-          ? `Source: Recherche IA. ${suggestion.reasoning || suggestion.reason}`
-          : "Source: Recherche IA",
+          ? `${provenance} ${suggestion.reasoning || suggestion.reason}`
+          : provenance,
       };
 
       const res = await fetch("/api/suppliers", {
@@ -219,11 +259,16 @@ export function AISearchDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-3xl rounded-lg bg-[#0F0F11] shadow-xl max-h-[90vh] flex flex-col">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Recherche IA de fournisseurs"
+        className="w-full max-w-3xl rounded-lg bg-[#0F0F11] shadow-xl max-h-[90vh] flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-3.5">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-brand" />
+            <Sparkles className="h-4 w-4 text-[#F97316]" />
             <h2 className="text-sm font-semibold text-[#FAFAFA]">
               Recherche IA de fournisseurs
             </h2>
@@ -231,7 +276,7 @@ export function AISearchDialog({
           <button
             type="button"
             onClick={handleClose}
-            className="rounded p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+            className="rounded p-1 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -253,7 +298,7 @@ export function AISearchDialog({
                 className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-gray-400 focus:border-[#F97316] focus:outline-none"
                 placeholder="Ex: grilles cunette, bordures beton, stores exterieurs..."
               />
-              <p className="mt-0.5 text-[10px] text-[#52525B]">
+              <p className="mt-0.5 text-[10px] text-[#A1A1AA]">
                 Recherche libre par nom de produit, materiau ou type de fournisseur
               </p>
             </div>
@@ -341,7 +386,7 @@ export function AISearchDialog({
               type="button"
               onClick={handleSearch}
               disabled={!canSearch || searching}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {searching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -354,14 +399,14 @@ export function AISearchDialog({
 
           {/* Error */}
           {searchError && (
-            <div className="mb-4 flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-200">
+            <div className="mb-4 flex items-center gap-2 rounded-md bg-[#EF4444]/10 px-3 py-2 text-sm text-[#F87171] ring-1 ring-inset ring-[#EF4444]/20">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {searchError}
             </div>
           )}
 
           {importError && (
-            <div className="mb-4 flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-200">
+            <div className="mb-4 flex items-center gap-2 rounded-md bg-[#EF4444]/10 px-3 py-2 text-sm text-[#F87171] ring-1 ring-inset ring-[#EF4444]/20">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {importError}
             </div>
@@ -370,7 +415,18 @@ export function AISearchDialog({
           {/* Results */}
           {hasSearched && !searching && (
             <div>
-              <p className="text-xs font-medium text-[#71717A] uppercase mb-3">
+              {suggestions.length > 0 && (
+                <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                  <div className="text-xs text-[#A1A1AA]">
+                    <span className="font-medium text-amber-400">Résultats non vérifiés.</span>{" "}
+                    Ces entreprises et leurs coordonnées sont produites par le modèle depuis ses
+                    connaissances, sans source ni annuaire consulté. Vérifiez chaque adresse email
+                    avant de l&apos;enregistrer — une demande de prix part de votre propre boîte mail.
+                  </div>
+                </div>
+              )}
+              <p className="text-xs font-medium text-[#A1A1AA] uppercase mb-3">
                 {suggestions.length > 0
                   ? `${suggestions.length} suggestion(s) trouvee(s)`
                   : "Aucune suggestion trouvee"}
@@ -386,7 +442,7 @@ export function AISearchDialog({
                       key={idx}
                       className={`rounded-lg border p-4 ${
                         isImported
-                          ? "border-green-200 bg-green-500/10"
+                          ? "border-[#10B981]/30 bg-[#10B981]/10"
                           : "border-[#27272A] bg-[#0F0F11]"
                       }`}
                     >
@@ -396,14 +452,14 @@ export function AISearchDialog({
                             <h3 className="text-sm font-semibold text-[#FAFAFA]">
                               {s.company_name}
                             </h3>
+                            {/* The confidence score is the model's own opinion of
+                                a memory it cannot cite — it is not evidence. */}
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              Non vérifié
+                            </span>
                             {s.confidence != null && (
-                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                                s.confidence >= 0.8
-                                  ? "bg-green-500/10 text-green-400"
-                                  : s.confidence >= 0.6
-                                    ? "bg-amber-500/10 text-amber-400"
-                                    : "bg-[#27272A] text-[#71717A]"
-                              }`}>
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#27272A] text-[#A1A1AA]">
                                 {Math.round(s.confidence * 100)}%
                               </span>
                             )}
@@ -418,21 +474,12 @@ export function AISearchDialog({
                           )}
 
                           {/* Contact info line */}
-                          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-[#71717A]">
+                          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-[#A1A1AA]">
                             {getContact(s, "phone") && (
                               <span className="flex items-center gap-1">
                                 <Phone className="h-3 w-3" />
                                 {getContact(s, "phone")}
                               </span>
-                            )}
-                            {getContact(s, "email") && (
-                              <a
-                                href={`mailto:${getContact(s, "email")}`}
-                                className="flex items-center gap-1 text-[#3B82F6] hover:underline"
-                              >
-                                <Mail className="h-3 w-3" />
-                                {getContact(s, "email")}
-                              </a>
                             )}
                             {getContact(s, "website") && (
                               <a
@@ -471,16 +518,70 @@ export function AISearchDialog({
 
                           {/* Reasoning */}
                           {(s.reasoning || s.reason) && (
-                            <p className="mt-2 text-xs text-[#71717A] italic">
+                            <p className="mt-2 text-xs text-[#A1A1AA] italic">
                               {s.reasoning || s.reason}
                             </p>
+                          )}
+
+                          {/* Email — proposed by the model, stored only once confirmed */}
+                          {!isImported && (
+                            <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
+                              <label
+                                htmlFor={`ai-email-${idx}`}
+                                className="flex items-center gap-1.5 text-[11px] font-medium text-amber-400"
+                              >
+                                <Mail className="h-3 w-3" />
+                                Email proposé — à vérifier avant tout envoi
+                              </label>
+                              <input
+                                id={`ai-email-${idx}`}
+                                type="email"
+                                value={editedEmails[idx] ?? getContact(s, "email") ?? ""}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setEditedEmails((prev) => ({ ...prev, [idx]: value }));
+                                  // Editing invalidates a previous confirmation.
+                                  setEmailVerified((prev) => {
+                                    if (!prev.has(idx)) return prev;
+                                    const next = new Set(prev);
+                                    next.delete(idx);
+                                    return next;
+                                  });
+                                }}
+                                placeholder="aucune adresse proposée"
+                                className="mt-1.5 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#F97316]/60 focus:outline-none"
+                              />
+                              <label className="mt-1.5 flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={emailVerified.has(idx)}
+                                  onChange={(e) => {
+                                    setEmailVerified((prev) => {
+                                      const next = new Set(prev);
+                                      if (e.target.checked) next.add(idx);
+                                      else next.delete(idx);
+                                      return next;
+                                    });
+                                  }}
+                                  className="h-3 w-3 accent-[#F97316]"
+                                />
+                                <span className="text-[11px] text-[#A1A1AA]">
+                                  J&apos;ai vérifié cette adresse — l&apos;enregistrer
+                                </span>
+                              </label>
+                              {!emailVerified.has(idx) && (
+                                <p className="mt-1 text-[10px] text-[#A1A1AA]">
+                                  Sans confirmation, le fournisseur est créé sans email.
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
 
                         {/* Import button */}
                         <div className="ml-4 shrink-0">
                           {isImported ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+                            <span className="inline-flex items-center gap-1 text-xs text-[#34D399] font-medium">
                               <CheckCircle2 className="h-4 w-4" />
                               Importe
                             </span>
@@ -489,7 +590,7 @@ export function AISearchDialog({
                               type="button"
                               onClick={() => handleImportSuggestion(s, idx)}
                               disabled={isImporting}
-                              className="inline-flex items-center gap-1 rounded-md bg-gold px-3 py-1.5 text-xs font-medium text-white hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center gap-1 rounded-md bg-[#F97316] px-3 py-1.5 text-xs font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {isImporting ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -511,11 +612,11 @@ export function AISearchDialog({
           {/* Loading state */}
           {searching && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-brand mb-3" />
-              <p className="text-sm text-[#71717A]">
+              <Loader2 className="h-8 w-8 animate-spin text-[#F97316] mb-3" />
+              <p className="text-sm text-[#A1A1AA]">
                 L&apos;IA recherche des fournisseurs correspondants...
               </p>
-              <p className="text-xs text-[#71717A] mt-1">
+              <p className="text-xs text-[#A1A1AA] mt-1">
                 Cela peut prendre quelques secondes
               </p>
             </div>
@@ -528,7 +629,7 @@ export function AISearchDialog({
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
+              className="rounded-md px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A]"
             >
               Fermer
             </button>

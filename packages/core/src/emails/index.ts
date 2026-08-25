@@ -1,5 +1,11 @@
-export { learnFromClassificationAction, checkLocalRules } from "./classification-learning";
+export { learnFromClassificationAction, checkLocalRules, checkRejectRules, type RejectRuleMatch } from "./classification-learning";
 export { detectSpamNewsletter, type SpamCheckResult } from "./spam-detector";
+export {
+  gateFolderSuggestion,
+  FOLDER_SUGGESTION_MIN_CONFIDENCE,
+  type FolderSuggestionCandidate,
+  type GatedFolderSuggestion,
+} from "./folder-suggestion";
 export { determineArchivePath, getDefaultFolderTree, buildArchiveFolderPrompt, type ArchiveEmailInput, type ArchivePathResult } from "./email-archiver";
 export { generateEml, type EmlEmailData, type EmlAttachment } from "./eml-generator";
 export {

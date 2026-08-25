@@ -18,11 +18,11 @@ export function ProjectPlansTab({
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("plansTitle")}</h3>
-            <p className="mt-1 text-xs text-[#71717A]">{t("plansDescription")}</p>
+            <p className="mt-1 text-xs text-[#A1A1AA]">{t("plansDescription")}</p>
           </div>
           <Link
             href="/plans"
-            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
           >
             <FileStack className="h-3.5 w-3.5" />
             {t("viewAllPlans")}
@@ -31,55 +31,57 @@ export function ProjectPlansTab({
         {plans.length === 0 ? (
           <div className="flex h-48 items-center justify-center rounded-md border border-dashed border-[#27272A] bg-[#27272A]">
             <div className="text-center">
-              <Map className="mx-auto h-10 w-10 text-[#71717A]" />
-              <p className="mt-3 text-sm font-medium text-[#71717A]">{t("noPlansYet")}</p>
-              <p className="mt-1 text-xs text-[#71717A]">{t("plansWillAppear")}</p>
+              <Map className="mx-auto h-10 w-10 text-[#A1A1AA]" />
+              <p className="mt-3 text-sm font-medium text-[#A1A1AA]">{t("noPlansYet")}</p>
+              <p className="mt-1 text-xs text-[#A1A1AA]">{t("plansWillAppear")}</p>
             </div>
           </div>
         ) : (
           <div className="overflow-hidden rounded-md border border-[#27272A]">
-            <table className="w-full text-sm">
-              <thead className="bg-[#27272A] text-left text-xs font-medium text-[#71717A]">
-                <tr>
-                  <th className="px-4 py-2">{t("planName")}</th>
-                  <th className="px-4 py-2">{t("planType")}</th>
-                  <th className="px-4 py-2">{t("planDiscipline")}</th>
-                  <th className="px-4 py-2">{t("planVersion")}</th>
-                  <th className="px-4 py-2">{t("planDate")}</th>
-                  <th className="px-4 py-2">{t("planStatus")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {plans.map((plan: any) => {
-                  const fileUrl = plan.current_version?.file_url;
-                  return (
-                    <tr
-                      key={plan.id}
-                      className={cn("hover:bg-[#27272A]", fileUrl && "cursor-pointer")}
-                      onClick={() => fileUrl && window.open(fileUrl, "_blank")}
-                    >
-                      <td className="px-4 py-2.5 font-medium text-[#FAFAFA]">
-                        {plan.plan_title || plan.plan_number || plan.current_version?.file_name || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-[#71717A]">{plan.plan_type || "—"}</td>
-                      <td className="px-4 py-2.5 text-[#71717A]">{plan.discipline || "—"}</td>
-                      <td className="px-4 py-2.5 text-[#71717A]">{plan.current_version?.version_code || plan.version_count || "1"}</td>
-                      <td className="px-4 py-2.5 text-[#71717A]">{plan.created_at ? new Date(plan.created_at).toLocaleDateString("fr-CH") : "—"}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={cn(
-                          "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
-                          plan.status === "active" ? "bg-green-500/10 text-green-400" :
-                          plan.status === "superseded" ? "bg-amber-500/10 text-amber-400" :
-                          "bg-[#27272A] text-[#71717A]"
-                        )}>
-                          {plan.status || "active"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-[#27272A] text-left text-xs font-medium text-[#A1A1AA]">
+                  <tr>
+                    <th className="px-4 py-2">{t("planName")}</th>
+                    <th className="px-4 py-2">{t("planType")}</th>
+                    <th className="px-4 py-2">{t("planDiscipline")}</th>
+                    <th className="px-4 py-2">{t("planVersion")}</th>
+                    <th className="px-4 py-2">{t("planDate")}</th>
+                    <th className="px-4 py-2">{t("planStatus")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {plans.map((plan: any) => {
+                    const fileUrl = plan.current_version?.file_url;
+                    return (
+                      <tr
+                        key={plan.id}
+                        className={cn("hover:bg-[#27272A]", fileUrl && "cursor-pointer")}
+                        onClick={() => fileUrl && window.open(fileUrl, "_blank")}
+                      >
+                        <td className="px-4 py-2.5 font-medium text-[#FAFAFA]">
+                          {plan.plan_title || plan.plan_number || plan.current_version?.file_name || "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-[#A1A1AA]">{plan.plan_type || "—"}</td>
+                        <td className="px-4 py-2.5 text-[#A1A1AA]">{plan.discipline || "—"}</td>
+                        <td className="px-4 py-2.5 text-[#A1A1AA]">{plan.current_version?.version_code || plan.version_count || "1"}</td>
+                        <td className="px-4 py-2.5 text-[#A1A1AA]">{plan.created_at ? new Date(plan.created_at).toLocaleDateString("fr-CH") : "—"}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={cn(
+                            "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
+                            plan.status === "active" ? "bg-green-500/10 text-green-400" :
+                            plan.status === "superseded" ? "bg-amber-500/10 text-amber-400" :
+                            "bg-[#27272A] text-[#A1A1AA]"
+                          )}>
+                            {plan.status || "active"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

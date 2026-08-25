@@ -144,5 +144,74 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
 
-  return NextResponse.json({ success: true, tasks: result.tasks });
+  // ── D-FIX5 — optional persistence ────────────────────────────────
+  // Callers used to throw the result away: the panel called this route on every
+  // open (paying Claude each time) and rendered a list of tasks that existed
+  // nowhere. With `persist: true` the extracted tasks are inserted right here,
+  // scoped to the email's project, and returned with their real ids.
+  const persist = body.persist === true || body.persist === "true";
+  const extracted = result.tasks || [];
+
+  if (!persist || extracted.length === 0) {
+    return NextResponse.json({ success: true, persisted: false, tasks: extracted });
+  }
+
+  if (!email.project_id) {
+    return NextResponse.json({
+      success: true,
+      persisted: false,
+      tasks: extracted,
+      error: "no_project",
+      message: "L'email n'est rattaché à aucun projet — impossible de créer les tâches.",
+    });
+  }
+
+  // Anti-IDOR: the email is already scoped to `user.id`, but the project it
+  // points at must belong to the caller's organisation before we write to it.
+  const { data: project } = await adminClient
+    .from("projects")
+    .select("id, organization_id")
+    .eq("id", email.project_id)
+    .maybeSingle();
+
+  if (!project || !userOrg?.organization_id || project.organization_id !== userOrg.organization_id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const rows = extracted
+    .filter((t: any) => t?.title)
+    .map((t: any) => ({
+      project_id: email.project_id,
+      created_by: user.id,
+      title: t.title,
+      description: t.description || null,
+      priority: t.priority || "medium",
+      status: "todo" as const,
+      source: "email" as const,
+      source_id: email.id,
+      source_reference: `Email: ${email.subject}`,
+      assigned_to_name: t.assigned_to_name || null,
+      assigned_to_company: t.assigned_to_company || null,
+      due_date: t.due_date || null,
+    }));
+
+  const { data: inserted, error: insertErr } = await (adminClient as any)
+    .from("tasks")
+    .insert(rows)
+    .select("id, title, assigned_to_name, due_date, priority, status");
+
+  if (insertErr) {
+    console.error("[extract-tasks] Task insert failed:", insertErr.message);
+    return NextResponse.json(
+      { success: false, persisted: false, tasks: extracted, error: insertErr.message },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    success: true,
+    persisted: true,
+    created: inserted?.length || 0,
+    tasks: inserted || [],
+  });
 }

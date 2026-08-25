@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
 import { parseBody } from "@/lib/api/parse-body";
+import {
+  aggregateSiteEntries,
+  computeProjectFinancials,
+  loadRateContext,
+  COUNTED_REPORT_STATUSES,
+  SITE_ENTRY_COLUMNS,
+  roundChf,
+} from "@cantaia/core/financials";
 
 /**
  * GET /api/projects/[id]/financials
- * Returns project financial summary: invoiced amount, purchase costs,
- * labor/machine hours, workers, delivery notes, reports, and calculated margins.
+ * Project P&L: invoiced, purchases, valued labour/machines, real margin.
+ *
+ * Margin = invoiced − purchases − laborCost − machineCost (core/financials).
+ * Only `submitted`/`locked` reports are counted — drafts are field notes, not
+ * financial facts (this route used to count every report, including drafts).
  */
 export async function GET(
   _request: NextRequest,
@@ -18,27 +29,16 @@ export async function GET(
     return NextResponse.json({ error: "Missing project ID" }, { status: 400 });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Project P&L (marges, montants facturés, coûts d'achat) = donnée financière
+  // sensible : lecture réservée aux admin/director/superadmin (requireOrgAdmin),
+  // pas à tout membre de l'org.
+  const auth = await requireOrgAdmin();
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+  const userRow = { organization_id: auth.profile.organization_id };
 
   const admin = createAdminClient();
-
-  // Get user's organization
-  const { data: userRow } = await admin
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!userRow?.organization_id) {
-    return NextResponse.json({ error: "No organization" }, { status: 403 });
-  }
 
   // Verify project belongs to user's org and get financial fields
   const { data: project, error: projError } = await (admin as any)
@@ -57,62 +57,60 @@ export async function GET(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Get all site reports for this project
-  const { data: reports } = await (admin as any)
+  // Only submitted/locked reports count (unified filter — see core/financials).
+  const { data: reports, error: reportsError } = await (admin as any)
     .from("site_reports")
     .select("id")
-    .eq("project_id", id);
+    .eq("project_id", id)
+    .in("status", COUNTED_REPORT_STATUSES as unknown as string[]);
+
+  if (reportsError) {
+    console.error("[financials] Reports fetch error:", reportsError.message);
+    return NextResponse.json({ error: "Failed to fetch site reports" }, { status: 500 });
+  }
 
   const reportIds = (reports || []).map((r: any) => r.id);
   const totalReports = reportIds.length;
 
-  let totalLaborHours = 0;
-  let totalMachineHours = 0;
-  let totalWorkers = 0;
-  let totalDeliveryNotes = 0;
-
+  let entries: any[] = [];
   if (reportIds.length > 0) {
-    // Get all entries for these reports
-    const { data: entries } = await (admin as any)
+    const { data: rows, error: entriesError } = await (admin as any)
       .from("site_report_entries")
-      .select("entry_type, duration_hours, crew_member_id")
+      .select(SITE_ENTRY_COLUMNS)
       .in("report_id", reportIds);
 
-    if (entries && entries.length > 0) {
-      const workerIds = new Set<string>();
-
-      for (const entry of entries) {
-        if (entry.entry_type === "labor") {
-          totalLaborHours += parseFloat(entry.duration_hours || "0");
-          if (entry.crew_member_id) {
-            workerIds.add(entry.crew_member_id);
-          }
-        } else if (entry.entry_type === "machine") {
-          totalMachineHours += parseFloat(entry.duration_hours || "0");
-        } else if (entry.entry_type === "delivery_note") {
-          totalDeliveryNotes += 1;
-        }
-      }
-
-      totalWorkers = workerIds.size;
+    if (entriesError) {
+      console.error("[financials] Entries fetch error:", entriesError.message);
+      return NextResponse.json({ error: "Failed to fetch site report entries" }, { status: 500 });
     }
+    entries = rows || [];
   }
 
-  // Calculate derived values
+  const rates = await loadRateContext(admin as any, userRow.organization_id, [id]);
+  const aggregates = aggregateSiteEntries(entries, rates);
+  const totalWorkers = aggregates.workers instanceof Set ? aggregates.workers.size : aggregates.workers;
+
   const invoicedAmount = parseFloat(project.invoiced_amount || "0");
   const purchaseCosts = parseFloat(project.purchase_costs || "0");
-  const margin = invoicedAmount - purchaseCosts;
-  const marginPct = invoicedAmount > 0 ? (margin / invoicedAmount) * 100 : 0;
-  const costPerHour = totalLaborHours > 0 ? invoicedAmount / totalLaborHours : 0;
-  const hoursPerThousand = invoicedAmount > 0 ? (totalLaborHours / invoicedAmount) * 1000 : 0;
+
+  const financials = computeProjectFinancials({
+    invoiced: invoicedAmount,
+    purchases: purchaseCosts,
+    laborHours: aggregates.laborHours,
+    machineHours: aggregates.machineHours,
+    hourlyRate: rates.defaultRate ?? 0,
+    machineRate: rates.machineRate,
+    laborCost: aggregates.laborCost,
+    machineCost: aggregates.machineCost,
+  });
+
+  const costPerHour = aggregates.laborHours > 0 ? invoicedAmount / aggregates.laborHours : 0;
+  const hoursPerThousand = invoicedAmount > 0 ? (aggregates.laborHours / invoicedAmount) * 1000 : 0;
 
   // ── Planning variance (planned vs actual days per CFC) ──────────────────────
-  // Not computable today: site_report_entries (migration 061) stores flat labor
-  // columns (work_description, duration_hours, crew_member_id) and carries NO
-  // CFC code — the previous implementation read `entry.data->cfc_code`, a column
-  // that does not exist, so every query 400'd into a silent catch and the array
-  // was always empty. Re-enable once field entries can be tagged with a CFC code
-  // (e.g. by linking site_report_entries to planning_tasks or submission_items).
+  // Still empty: it needs `site_report_entries.cfc_code` / `planning_task_id`
+  // (migration 093). Once the field entries carry a CFC, group the valued lines
+  // by cfc_code and compare against planning_tasks.duration_days.
   const planningVariance: Array<{
     cfc_code: string;
     planned_days: number;
@@ -126,15 +124,21 @@ export async function GET(
     invoiced_amount: project.invoiced_amount ? invoicedAmount : null,
     purchase_costs: project.purchase_costs ? purchaseCosts : null,
     closed_at: project.closed_at,
-    total_labor_hours: Math.round(totalLaborHours * 100) / 100,
-    total_machine_hours: Math.round(totalMachineHours * 100) / 100,
+    total_labor_hours: aggregates.laborHours,
+    total_machine_hours: aggregates.machineHours,
     total_workers: totalWorkers,
-    total_delivery_notes: totalDeliveryNotes,
+    total_delivery_notes: aggregates.deliveryNotes,
     total_reports: totalReports,
-    margin: Math.round(margin * 100) / 100,
-    margin_pct: Math.round(marginPct * 100) / 100,
-    cost_per_hour: Math.round(costPerHour * 100) / 100,
-    hours_per_thousand: Math.round(hoursPerThousand * 100) / 100,
+    // Valued labour/machines — the margin now subtracts them.
+    hourly_rate: rates.defaultRate ?? null,
+    machine_rate: rates.machineRate,
+    machine_valued: aggregates.machineValued === true,
+    labor_cost: financials.laborCost,
+    machine_cost: financials.machineCost,
+    margin: financials.margin,
+    margin_pct: financials.marginPct,
+    cost_per_hour: roundChf(costPerHour),
+    hours_per_thousand: roundChf(hoursPerThousand),
     planning_variance: planningVariance,
   });
 }
@@ -153,27 +157,14 @@ export async function POST(
     return NextResponse.json({ error: "Missing project ID" }, { status: 400 });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Écriture des champs financiers = réservée aux admin/director/superadmin.
+  const auth = await requireOrgAdmin();
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+  const userRow = { organization_id: auth.profile.organization_id };
 
   const admin = createAdminClient();
-
-  // Get user's organization
-  const { data: userRow } = await admin
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!userRow?.organization_id) {
-    return NextResponse.json({ error: "No organization" }, { status: 403 });
-  }
 
   // Verify project belongs to user's org
   const { data: existing } = await admin

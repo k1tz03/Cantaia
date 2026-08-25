@@ -1,6 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  alertSupportDesk,
+  alertTicketOwner,
+  displayName,
+} from "../../support-notifications";
+import { validateSupportAttachments } from "../../attachment-utils";
 
 export async function POST(
   request: NextRequest,
@@ -26,7 +32,7 @@ export async function POST(
     // Fetch ticket for IDOR check
     const { data: ticket } = await (admin as any)
       .from("support_tickets")
-      .select("id, user_id, status")
+      .select("id, user_id, status, subject, organization_id")
       .eq("id", id)
       .single();
 
@@ -45,6 +51,17 @@ export async function POST(
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
     }
 
+    // Validate attachments: file paths must belong to THIS ticket's org+ticket
+    // folder in the private `support` bucket — otherwise a crafted path leaks a
+    // cross-org file (signed later) or a foreign field reaches the superadmin.
+    const attCheck = validateSupportAttachments(attachments, {
+      organizationId: ticket.organization_id,
+      ticketId: ticket.id,
+    });
+    if (!attCheck.ok) {
+      return NextResponse.json({ error: attCheck.error }, { status: 400 });
+    }
+
     const senderRole = isSuperAdmin ? "admin" : "user";
 
     // Create message
@@ -55,7 +72,7 @@ export async function POST(
         sender_id: user.id,
         sender_role: senderRole,
         content: content.trim(),
-        attachments: attachments || [],
+        attachments: attCheck.attachments,
       })
       .select()
       .single();
@@ -77,10 +94,53 @@ export async function POST(
       }
     }
 
-    await (admin as any)
+    const { error: ticketUpdateError } = await (admin as any)
       .from("support_tickets")
       .update(ticketUpdates)
       .eq("id", id);
+
+    if (ticketUpdateError) {
+      // Non-fatal: the message IS stored. Only the unread badge is stale.
+      console.error("[Support] Ticket timestamp update failed:", ticketUpdateError.message);
+    }
+
+    // ── Notifications (support_reply) — never block the response ───────────
+    // Resend has a 10s timeout and alertSupportDesk emails every superadmin
+    // sequentially, so awaiting here added seconds of latency to the reply.
+    // after() runs it once the response is already flushed.
+    const body_text = content.trim();
+    after(async () => {
+      try {
+        if (senderRole === "admin") {
+          // The desk answered → tell the customer.
+          await alertTicketOwner(admin, {
+            recipientId: ticket.user_id,
+            actorId: user.id,
+            ticketId: id,
+            ticketSubject: ticket.subject || "",
+            message: body_text,
+          });
+        } else {
+          // The customer answered → wake the desk up.
+          const { data: authorProfile } = await (admin as any)
+            .from("users")
+            .select("first_name, last_name, email")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          await alertSupportDesk(admin, {
+            organizationId: ticket.organization_id ?? null,
+            ticketId: id,
+            ticketSubject: ticket.subject || "",
+            message: body_text,
+            kind: "replied",
+            authorName: displayName(authorProfile),
+          });
+        }
+      } catch (err) {
+        console.error("[Support] Notification failed:", err);
+      }
+    });
 
     return NextResponse.json({ success: true, message }, { status: 201 });
   } catch (error) {

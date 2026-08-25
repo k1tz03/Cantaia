@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
 import {
@@ -24,6 +25,7 @@ interface ProjectOption {
 type UploadStep = "idle" | "getting-url" | "uploading" | "creating" | "done";
 
 export default function NewSubmissionPage() {
+  const t = useTranslations("submissions");
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,16 +62,16 @@ export default function NewSubmissionPage() {
   const handleFile = useCallback((f: File) => {
     const ext = f.name.toLowerCase().split(".").pop();
     if (!ext || !["pdf", "xlsx", "xls"].includes(ext)) {
-      setError("Format non supporté. Utilisez PDF, XLSX ou XLS.");
+      setError(t("new.errorUnsupportedFormat"));
       return;
     }
     if (f.size > 50 * 1024 * 1024) {
-      setError("Fichier trop volumineux (50 Mo max).");
+      setError(t("new.errorFileTooLarge"));
       return;
     }
     setFile(f);
     setError(null);
-  }, []);
+  }, [t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -86,12 +88,14 @@ export default function NewSubmissionPage() {
         res.status === 413 || text.toLowerCase().includes("entity too large");
       if (isEntityTooLarge) {
         throw new Error(
-          `Fichier trop volumineux pour le serveur (${(file?.size ? (file.size / 1024 / 1024).toFixed(1) : "?") } Mo). Réessayez — l'upload direct est maintenant activé.`
+          t("new.errorServerFileTooLarge", {
+            size: file?.size ? (file.size / 1024 / 1024).toFixed(1) : "?",
+          })
         );
       }
       throw new Error(
         text.replace(/^\s*(<!DOCTYPE|<html)/i, "").slice(0, 200) ||
-          `Erreur serveur (${res.status})`
+          t("new.errorServer", { status: res.status })
       );
     }
     return res.json();
@@ -100,7 +104,7 @@ export default function NewSubmissionPage() {
   const handleSubmit = useCallback(async () => {
     if (!file) return;
     if (!projectId && !newProjectName) {
-      setError("Sélectionnez un projet ou créez-en un nouveau.");
+      setError(t("new.errorSelectProject"));
       return;
     }
     setSubmitting(true);
@@ -128,7 +132,9 @@ export default function NewSubmissionPage() {
 
       if (!uploadRes.ok) {
         const errText = await uploadRes.text().catch(() => "");
-        throw new Error(`Échec de l'upload vers le stockage (${uploadRes.status}): ${errText.slice(0, 200)}`);
+        throw new Error(
+          t("new.errorUploadFailed", { status: uploadRes.status, message: errText.slice(0, 200) })
+        );
       }
 
       // ── Step 3: Create submission record in DB (tiny JSON, no binary) ──
@@ -155,7 +161,7 @@ export default function NewSubmissionPage() {
 
       const json = await safeJson(res);
       if (!json.success) {
-        throw new Error(json.error || "Erreur lors de la création");
+        throw new Error(json.error || t("new.errorCreate"));
       }
 
       setUploadStep("done");
@@ -168,32 +174,37 @@ export default function NewSubmissionPage() {
       // (and drives) the full pipeline on mount.
       router.push(`/submissions/${submissionId}`);
     } catch (err: any) {
-      setError(err.message || "Erreur inattendue");
+      setError(err.message || t("new.errorUnexpected"));
       setSubmitting(false);
       setUploadStep("idle");
     }
-  }, [file, projectId, newProjectName, clientName, city, deadline, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file, projectId, newProjectName, clientName, city, deadline, router, t]);
 
   // Human-readable step labels
   const stepLabel: Record<UploadStep, string> = {
-    idle: "Importer et analyser",
-    "getting-url": "Préparation...",
-    uploading: "Envoi du fichier...",
-    creating: "Création de la soumission...",
-    done: "Redirection...",
+    idle: t("new.stepIdle"),
+    "getting-url": t("new.stepGettingUrl"),
+    uploading: t("new.stepUploading"),
+    creating: t("new.stepCreating"),
+    done: t("new.stepDone"),
   };
 
   const isValid = file && (projectId || newProjectName);
   const isLargeFile = file && file.size > 4 * 1024 * 1024;
+
+  // Timezone: min bound of the deadline picker must follow the local
+  // Europe/Zurich date — toISOString() flips to tomorrow at 22:00 UTC in summer.
+  const todayLocal = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-3xl mx-auto overflow-auto h-full">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/submissions" className="p-1 hover:bg-[#27272A] rounded">
-          <ArrowLeft className="h-4 w-4 text-[#71717A]" />
+          <ArrowLeft className="h-4 w-4 text-[#A1A1AA]" />
         </Link>
-        <h1 className="text-xl font-bold text-[#FAFAFA]">Nouvelle soumission</h1>
+        <h1 className="text-xl font-bold text-[#FAFAFA]">{t("new.title")}</h1>
       </div>
 
       <div className="space-y-6">
@@ -213,22 +224,22 @@ export default function NewSubmissionPage() {
 
         {/* Project selection */}
         <div className="bg-[#0F0F11] border border-[#27272A] rounded-xl p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-[#FAFAFA]">Projet</h2>
+          <h2 className="text-sm font-semibold text-[#FAFAFA]">{t("new.projectSection")}</h2>
 
           {!createNewProject ? (
             <>
               <div>
-                <label className="block text-xs font-medium text-[#71717A] mb-1">
-                  Projet existant
+                <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+                  {t("new.existingProjectLabel")}
                 </label>
                 <select
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] text-[#FAFAFA] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20"
                   disabled={loadingProjects}
                 >
                   <option value="">
-                    {loadingProjects ? "Chargement..." : "Sélectionner un projet"}
+                    {loadingProjects ? t("new.loadingProjects") : t("new.selectProjectPlaceholder")}
                   </option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -239,56 +250,56 @@ export default function NewSubmissionPage() {
               </div>
               <button
                 onClick={() => { setCreateNewProject(true); setProjectId(""); }}
-                className="text-xs text-brand hover:text-brand/80 flex items-center gap-1"
+                className="text-xs text-[#F97316] hover:text-[#EA580C] flex items-center gap-1"
               >
-                <Plus className="h-3 w-3" /> Créer un nouveau projet
+                <Plus className="h-3 w-3" /> {t("new.createProjectCta")}
               </button>
             </>
           ) : (
             <>
               <div>
-                <label className="block text-xs font-medium text-[#71717A] mb-1">
-                  Nom du projet *
+                <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+                  {t("new.projectNameLabel")}
                 </label>
                 <input
                   type="text"
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Les Cèdres — Gros-œuvre"
-                  className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  placeholder={t("new.projectNamePlaceholder")}
+                  className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-[#71717A] mb-1">
-                    Maître d'ouvrage
+                  <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+                    {t("new.clientLabel")}
                   </label>
                   <input
                     type="text"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    placeholder="SA Immobilière"
-                    className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    placeholder={t("new.clientPlaceholder")}
+                    className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#71717A] mb-1">
-                    Ville
+                  <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+                    {t("new.cityLabel")}
                   </label>
                   <input
                     type="text"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder="Lausanne"
-                    className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    placeholder={t("new.cityPlaceholder")}
+                    className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20"
                   />
                 </div>
               </div>
               <button
                 onClick={() => { setCreateNewProject(false); setNewProjectName(""); }}
-                className="text-xs text-[#71717A] hover:text-[#FAFAFA]"
+                className="text-xs text-[#A1A1AA] hover:text-[#FAFAFA]"
               >
-                Utiliser un projet existant
+                {t("new.useExistingProject")}
               </button>
             </>
           )}
@@ -296,25 +307,25 @@ export default function NewSubmissionPage() {
 
         {/* Deadline */}
         <div className="bg-[#0F0F11] border border-[#27272A] rounded-xl p-6 space-y-2">
-          <h2 className="text-sm font-semibold text-[#FAFAFA]">Deadline demandes de prix</h2>
-          <p className="text-xs text-[#71717A]">
-            Date limite pour recevoir les offres fournisseurs. Sera mentionnée dans les emails de demande de prix.
+          <h2 className="text-sm font-semibold text-[#FAFAFA]">{t("new.deadlineTitle")}</h2>
+          <p className="text-xs text-[#A1A1AA]">
+            {t("new.deadlineHint")}
           </p>
           <input
             type="date"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
-            min={new Date().toISOString().split("T")[0]}
-            className="w-full sm:w-64 px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] text-[#FAFAFA] focus:outline-none focus:ring-2 focus:ring-brand/20 [color-scheme:dark]"
+            min={todayLocal}
+            className="w-full sm:w-64 px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] text-[#FAFAFA] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 [color-scheme:dark]"
           />
         </div>
 
         {/* File upload */}
         <div
           className={`bg-[#0F0F11] border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
-            dragOver ? "border-brand bg-brand/5" :
+            dragOver ? "border-[#F97316] bg-[#F97316]/5" :
             file ? "border-green-300 bg-green-500/10" :
-            "border-[#27272A] hover:border-brand/50"
+            "border-[#27272A] hover:border-[#F97316]/50"
           }`}
           onDrop={handleDrop}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -338,12 +349,14 @@ export default function NewSubmissionPage() {
                 )}
               </div>
               <p className="text-sm font-medium text-[#FAFAFA]">{file.name}</p>
-              <p className="text-xs text-[#71717A] mt-1">{(file.size / 1024).toFixed(0)} KB</p>
+              <p className="text-xs text-[#A1A1AA] mt-1">
+                {t("new.fileSize", { size: (file.size / 1024).toFixed(0) })}
+              </p>
               {/* Warning for large files */}
               {isLargeFile && (
                 <p className="text-xs text-amber-400 mt-2 flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
-                  Fichier volumineux — l&apos;envoi peut prendre quelques secondes
+                  {t("new.largeFileWarning")}
                 </p>
               )}
               <button
@@ -353,20 +366,20 @@ export default function NewSubmissionPage() {
                   setFile(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
-                className="text-xs text-[#71717A] hover:text-red-500 mt-2"
+                className="text-xs text-[#A1A1AA] hover:text-red-500 mt-2"
               >
-                Supprimer
+                {t("new.removeFile")}
               </button>
             </div>
           ) : (
             <div className="flex flex-col items-center">
               <div className="w-12 h-12 rounded-xl bg-[#27272A] flex items-center justify-center mb-3">
-                <Upload className="h-6 w-6 text-[#71717A]" />
+                <Upload className="h-6 w-6 text-[#A1A1AA]" />
               </div>
               <p className="text-sm font-medium text-[#FAFAFA]">
-                Glissez un descriptif ici ou cliquez pour parcourir
+                {t("new.dropZoneTitle")}
               </p>
-              <p className="text-xs text-[#71717A] mt-1">PDF, XLSX, XLS — 50 Mo max</p>
+              <p className="text-xs text-[#A1A1AA] mt-1">{t("new.dropZoneFormats")}</p>
             </div>
           )}
         </div>
@@ -399,10 +412,10 @@ export default function NewSubmissionPage() {
                   </div>
                 );
               })}
-              <span className="text-xs text-[#71717A] ml-2">
-                {uploadStep === "getting-url" && "Préparation de l'espace de stockage"}
-                {uploadStep === "uploading" && "Envoi direct vers Supabase"}
-                {uploadStep === "creating" && "Enregistrement en base de données"}
+              <span className="text-xs text-[#A1A1AA] ml-2">
+                {uploadStep === "getting-url" && t("new.stepHintGettingUrl")}
+                {uploadStep === "uploading" && t("new.stepHintUploading")}
+                {uploadStep === "creating" && t("new.stepHintCreating")}
               </span>
             </div>
           </div>
@@ -414,16 +427,16 @@ export default function NewSubmissionPage() {
             href="/submissions"
             className="px-4 py-2 border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] hover:bg-[#27272A]"
           >
-            Annuler
+            {t("new.cancel")}
           </Link>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={!isValid || submitting}
-            className="px-6 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-6 py-2 bg-[#F97316] text-[#0F0F11] rounded-lg text-sm font-medium hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {submitting ? stepLabel[uploadStep] : "Importer et analyser"}
+            {submitting ? stepLabel[uploadStep] : t("new.stepIdle")}
           </button>
         </div>
       </div>

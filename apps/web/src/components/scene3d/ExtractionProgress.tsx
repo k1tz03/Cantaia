@@ -112,7 +112,7 @@ export function ExtractionProgress({
                       ? "bg-[#F97316]/10 text-[#FAFAFA]"
                       : done
                         ? "text-[#A1A1AA]"
-                        : "text-[#52525B]"
+                        : "text-[#A1A1AA]"
                   }`}
                 >
                   {done ? (
@@ -125,7 +125,7 @@ export function ExtractionProgress({
                   <span className="font-medium">
                     {t(`extraction.pass.${PASS_I18N_KEY[pass] ?? pass}.label`)}
                   </span>
-                  <span className="font-mono text-xs text-[#71717A]">
+                  <span className="font-mono text-xs text-[#A1A1AA]">
                     {t(`extraction.pass.${PASS_I18N_KEY[pass] ?? pass}.hint`)}
                   </span>
                 </li>
@@ -133,7 +133,7 @@ export function ExtractionProgress({
             })}
           </ol>
 
-          <p className="mt-5 text-xs text-[#71717A]">{t("extraction.footer")}</p>
+          <p className="mt-5 text-xs text-[#A1A1AA]">{t("extraction.footer")}</p>
         </div>
       </div>
     </div>

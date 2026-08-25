@@ -110,7 +110,7 @@ export function AgentActivityCards() {
           Agents autonomes
         </h3>
         {totalActivity > 0 && (
-          <span className="text-[11px] text-[#71717A] font-medium">
+          <span className="text-[11px] text-[#A1A1AA] font-medium">
             {totalActivity} action{totalActivity > 1 ? "s" : ""}
           </span>
         )}
@@ -131,7 +131,7 @@ export function AgentActivityCards() {
                 </div>
                 <div>
                   <p className="text-[12px] font-medium text-[#A1A1AA]">{agent.desc}</p>
-                  <p className="text-[10px] text-[#52525B] mt-0.5">{agent.label} — {agent.schedule}</p>
+                  <p className="text-[10px] text-[#A1A1AA] mt-0.5">{agent.label} — {agent.schedule}</p>
                 </div>
               </div>
             ))}
@@ -163,14 +163,14 @@ export function AgentActivityCards() {
                     <p className="text-[12px] text-[#A1A1AA] mt-0.5">{card.label}</p>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-[#3F3F46] group-hover:text-[#71717A] transition-colors mt-1" />
+                <ChevronRight className="h-4 w-4 text-[#3F3F46] group-hover:text-[#A1A1AA] transition-colors mt-1" />
               </div>
 
               {/* Sublabel + extra */}
               <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-[#27272A]/60">
                 <div className="flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3 text-[#52525B]" />
-                  <span className="text-[10px] text-[#52525B] font-medium">{card.sublabel}</span>
+                  <Sparkles className="h-3 w-3 text-[#A1A1AA]" />
+                  <span className="text-[10px] text-[#A1A1AA] font-medium">{card.sublabel}</span>
                 </div>
                 {card.extra && (
                   <span className="text-[10px] font-medium text-[#EF4444] bg-[#EF4444]/10 px-1.5 py-0.5 rounded">

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { collectBriefingData } from "@cantaia/core/briefing";
+import { collectBriefingData, fetchBriefingSources } from "@cantaia/core/briefing";
 import { generateBriefingAI, generateBriefingFallback } from "@cantaia/core/briefing";
 import { trackApiUsage, logActivityAsync } from "@cantaia/core/tracking";
 import { MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST() {
   const supabase = await createClient();
@@ -14,6 +15,17 @@ export async function POST() {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // briefing_generate costs 0 credits (product decision), so a rate limit is
+  // the only guard against a user looping POSTs to run unbounded (billed) AI
+  // calls. 5/hour comfortably covers manual refreshes.
+  const rl = await rateLimit(`briefing:user:${user.id}`, { limit: 5, windowSec: 3600 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", retry_after_sec: rl.retryAfterSec },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
   }
 
   const admin = createAdminClient();
@@ -55,107 +67,38 @@ export async function POST() {
   const locale = userProfile.preferred_language || "fr";
   const orgId = userProfile.organization_id;
 
-  // Fetch projects (filtered if user has preferences)
-  let projectsQuery = (admin as any)
-    .from("projects")
-    .select("id, name, code, status, color")
-    .eq("organization_id", orgId)
-    .in("status", ["active", "planning"]);
+  // Europe/Zurich day key — matches the cron and the collector so the same
+  // calendar day is used everywhere (UTC would roll over ~2h early locally).
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 
-  if (userProfile.briefing_projects && userProfile.briefing_projects.length > 0) {
-    projectsQuery = projectsQuery.in("id", userProfile.briefing_projects);
-  }
+  // Shared with /api/cron/briefing — one definition of "what a briefing sees",
+  // so an on-demand briefing and a scheduled one can never diverge.
+  const sources = await fetchBriefingSources({
+    client: admin as any,
+    userId: user.id,
+    organizationId: orgId,
+    briefingProjects: userProfile.briefing_projects,
+  });
 
-  const { data: projects } = await projectsQuery;
-
-  // Fetch emails (last 7 days)
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const { data: emails } = await (admin as any)
-    .from("email_records")
-    .select("id, project_id, subject, sender_email, sender_name, received_at, classification, is_processed")
-    .eq("user_id", user.id)
-    .gte("received_at", sevenDaysAgo.toISOString());
-
-  // If filtered projects returned nothing, fall back to all org projects
-  let projectIds = (projects || []).map((p: { id: string }) => p.id);
-  if (projectIds.length === 0) {
-    const { data: allProjects } = await (admin as any)
-      .from("projects")
-      .select("id")
-      .eq("organization_id", orgId)
-      .in("status", ["active", "planning"]);
-    projectIds = (allProjects || []).map((p: { id: string }) => p.id);
-  }
-
-  // Fetch tasks (open)
-  const { data: tasks } = await (admin as any)
-    .from("tasks")
-    .select("id, project_id, title, status, due_date, assigned_to_name, priority")
-    .in("project_id", projectIds.length > 0 ? projectIds : ["__none__"])
-    .in("status", ["todo", "in_progress", "waiting"]);
-
-  // Fetch meetings (next 7 days)
-  const today = new Date().toISOString().split("T")[0];
-  const nextWeek = new Date();
-  nextWeek.setDate(nextWeek.getDate() + 7);
-  const { data: meetings } = await (admin as any)
-    .from("meetings")
-    .select("id, project_id, title, meeting_date, location, status, participants")
-    .in("project_id", projectIds.length > 0 ? projectIds : ["__none__"])
-    .gte("meeting_date", today)
-    .lte("meeting_date", nextWeek.toISOString());
-
-  // Fetch submissions with approaching deadlines (next 30 days)
-  const thirtyDaysFromNow = new Date();
-  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-  const { data: submissions } = await (admin as any)
-    .from("submissions")
-    .select("id, title, reference, status, deadline, project_id")
-    .in("project_id", projectIds.length > 0 ? projectIds : ["__none__"])
-    .in("status", ["draft", "sent", "responses", "comparing"])
-    .not("deadline", "is", null)
-    .lte("deadline", thirtyDaysFromNow.toISOString().split("T")[0])
-    .order("deadline", { ascending: true });
-
-  // Collect raw data
   const rawData = collectBriefingData({
     user_name: userName,
-    projects: projects || [],
-    emails: emails || [],
-    tasks: tasks || [],
-    meetings: meetings || [],
-    submissions: submissions || [],
+    projects: sources.projects,
+    emails: sources.emails,
+    tasks: sources.tasks,
+    meetings: sources.meetings,
+    submissions: sources.submissions,
+    calendar_events: sources.calendarEvents,
+    followups: sources.followups,
+    supplier_alerts: sources.supplierAlerts,
     locale,
   });
 
-  // Fetch C2 market price trends if org has opted in (non-blocking)
-  let marketTrends = "";
-  try {
-    const { data: priceConsent } = await (admin as any)
-      .from("aggregation_consent")
-      .select("opted_in")
-      .eq("organization_id", orgId)
-      .eq("module", "prix")
-      .maybeSingle();
-
-    if (priceConsent?.opted_in === true) {
-      const { data: trends } = await (admin as any)
-        .from("regional_price_index")
-        .select("region, basket_index, trend_pct, period")
-        .order("period", { ascending: false })
-        .limit(5);
-
-      if (trends && trends.length > 0) {
-        marketTrends = "\n\nMARKET PRICE TRENDS (C2 anonymised benchmarks):\n" +
-          trends.map((t: { region: string; trend_pct: number; period: string }) =>
-            `- ${t.region}: ${t.trend_pct > 0 ? "+" : ""}${t.trend_pct}% (${t.period})`
-          ).join("\n");
-      }
-    }
-  } catch (c2Err) {
-    console.warn("[briefing/generate] C2 market trends skipped (non-blocking):", c2Err);
-  }
+  const marketTrends = sources.marketTrends;
 
   // Generate briefing (AI or fallback)
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;

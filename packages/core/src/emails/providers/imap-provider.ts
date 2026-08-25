@@ -145,6 +145,12 @@ export class ImapProvider implements EmailProvider {
       const results: RawEmail[] = [];
       const mailbox = client.mailbox;
       const mailboxExists = mailbox && typeof mailbox === "object" && "exists" in mailbox ? (mailbox as { exists: number }).exists : 50;
+      // UIDVALIDITY scopes IMAP UIDs: they only remain unique within one
+      // generation. After a mailbox rebuild (common at shared hosts) UIDs reset,
+      // so a bare UID is an unstable dedup key. Prefer the RFC Message-ID.
+      const uidValidity = mailbox && typeof mailbox === "object" && "uidValidity" in mailbox
+        ? String((mailbox as { uidValidity: unknown }).uidValidity ?? "")
+        : "";
       const searchCriteria = since
         ? { since }
         : { seq: `${Math.max(1, mailboxExists - 49)}:*` };
@@ -167,8 +173,11 @@ export class ImapProvider implements EmailProvider {
             isInline: a.contentDisposition === "inline",
           }));
 
+          // Stable id: RFC Message-ID when present, else a UIDVALIDITY-scoped UID.
+          const stableId = parsed.messageId || `${uidValidity}:${message.uid}`;
+
           results.push({
-            externalId: String(message.uid),
+            externalId: stableId,
             conversationId: parsed.messageId || undefined,
             from: parsed.from?.value[0]?.address || "",
             fromName: parsed.from?.value[0]?.name || undefined,
@@ -206,6 +215,8 @@ export class ImapProvider implements EmailProvider {
         : connection.email_address,
       to: draft.to.join(", "),
       cc: draft.cc?.join(", "),
+      // AUDIT 08/2026 — bcc was silently dropped on every IMAP/SMTP send.
+      bcc: draft.bcc?.join(", "),
       subject: draft.subject,
       html: draft.bodyHtml,
       attachments: draft.attachments?.map((a) => ({

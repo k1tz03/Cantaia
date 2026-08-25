@@ -25,6 +25,12 @@ interface LowConfidenceGateProps {
   lowConfidenceRatio: number; // 0..1
   overallConfidence: number; // 0..1
   elementCount: number;
+  /**
+   * Seuil sous lequel un élément est compté « faible confiance ».
+   * Affiché pour que le chiffre du bandeau soit interprétable : « 34 % des
+   * éléments » ne veut rien dire sans « sous 50 % de confiance ».
+   */
+  threshold: number;
   /** Scène concernée. `null` en mode démo → aucune écriture au registre. */
   sceneId?: string | null;
   onAccept: () => void;
@@ -36,6 +42,7 @@ export function LowConfidenceGate({
   lowConfidenceRatio,
   overallConfidence,
   elementCount,
+  threshold,
   sceneId,
   onAccept,
   onCancel,
@@ -89,7 +96,7 @@ export function LowConfidenceGate({
           type="button"
           onClick={onCancel}
           aria-label={t("gate.close")}
-          className="absolute top-4 right-4 rounded-md p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA] focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:outline-none"
+          className="absolute top-4 right-4 rounded-md p-1 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA] focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:outline-none"
         >
           <X className="w-4 h-4" />
         </button>
@@ -113,22 +120,25 @@ export function LowConfidenceGate({
           {/* Stats row */}
           <div className="mt-5 grid grid-cols-3 gap-3">
             <div className="rounded-md border border-[#27272A] bg-[#1C1C1F] p-3">
-              <div className="text-xs text-[#71717A]">{t("gate.statOverall")}</div>
+              <div className="text-xs text-[#A1A1AA]">{t("gate.statOverall")}</div>
               <div className="mt-1 font-mono text-xl font-semibold text-[#FAFAFA]">
                 {overallPct}%
               </div>
             </div>
             <div className="rounded-md border border-[#EF4444]/30 bg-[#EF4444]/5 p-3">
-              <div className="text-xs text-[#71717A]">{t("gate.statLowRatio")}</div>
+              <div className="text-xs text-[#A1A1AA]">{t("gate.statLowRatio")}</div>
               <div className="mt-1 font-mono text-xl font-semibold text-[#EF4444]">
                 {lowPct}%
               </div>
+              <div className="mt-0.5 font-mono text-[10px] text-[#A1A1AA]">
+                {t("gate.thresholdNote", { threshold: Math.round(threshold * 100) })}
+              </div>
             </div>
             <div className="rounded-md border border-[#27272A] bg-[#1C1C1F] p-3">
-              <div className="text-xs text-[#71717A]">{t("gate.statLowCount")}</div>
+              <div className="text-xs text-[#A1A1AA]">{t("gate.statLowCount")}</div>
               <div className="mt-1 font-mono text-xl font-semibold text-[#FAFAFA]">
                 {lowCount}
-                <span className="ml-1 text-sm font-normal text-[#71717A]">
+                <span className="ml-1 text-sm font-normal text-[#A1A1AA]">
                   / {elementCount}
                 </span>
               </div>
@@ -174,7 +184,7 @@ export function LowConfidenceGate({
               type="button"
               onClick={handleAccept}
               disabled={!acknowledged || recording}
-              className="px-4 py-2 rounded-md bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#F97316] focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:outline-none"
+              className="px-4 py-2 rounded-md bg-[#F97316] text-[#0F0F11] text-sm font-medium hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#F97316] focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:outline-none"
             >
               {t("gate.accept")}
             </button>

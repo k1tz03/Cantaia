@@ -7,8 +7,10 @@ import {
   buildFreeFormPriceExtractionPrompt,
   type FreeFormPriceExtractionContext,
 } from "../ai/prompts";
+import { AI_MODELS, callAnthropicWithRetry } from "../ai/ai-utils";
 
-const AI_MODEL = "claude-sonnet-4-5-20250929";
+// Modèle via AI_MODELS (convention MODEL_FOR_TASK) — jamais d'ID hardcodé.
+const AI_MODEL = AI_MODELS.SONNET;
 
 // ---------- Interfaces ----------
 
@@ -160,7 +162,7 @@ export async function extractPricesFromPdf(
   onUsage?: (usage: { input_tokens: number; output_tokens: number }) => void
 ): Promise<EmailPriceExtractionResult> {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
+  const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000, maxRetries: 0 });
 
   const prompt = `Tu es un expert en analyse d'offres de prix pour la construction en Suisse.
 
@@ -200,24 +202,28 @@ RÈGLES :
       ? "application/pdf" as const
       : "application/pdf" as const;
 
-    const response = await client.messages.create({
-      model: AI_MODEL,
-      max_tokens: 8192,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "document",
-            source: {
-              type: "base64",
-              media_type: mediaType,
-              data: input.contentBase64,
-            },
-          },
-          { type: "text", text: prompt, cache_control: { type: "ephemeral" } },
-        ],
-      }],
-    });
+    const response = await callAnthropicWithRetry(
+      () =>
+        client.messages.create({
+          model: AI_MODEL,
+          max_tokens: 8192,
+          messages: [{
+            role: "user",
+            content: [
+              {
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: mediaType,
+                  data: input.contentBase64,
+                },
+              },
+              { type: "text", text: prompt },
+            ],
+          }],
+        }),
+      { maxRetries: 2 }
+    );
 
     onUsage?.({
       input_tokens: response.usage?.input_tokens ?? 0,
@@ -261,13 +267,17 @@ async function callExtractionAI(
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000, maxRetries: 0 });
 
-    const response = await client.messages.create({
-      model: AI_MODEL,
-      max_tokens: 4096,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
-    });
+    const response = await callAnthropicWithRetry(
+      () =>
+        client.messages.create({
+          model: AI_MODEL,
+          max_tokens: 4096,
+          messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+        }),
+      { maxRetries: 2 }
+    );
 
     onUsage?.({
       input_tokens: response.usage?.input_tokens ?? 0,

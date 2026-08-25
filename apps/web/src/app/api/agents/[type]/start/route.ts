@@ -13,8 +13,9 @@ import { getAgentConfig, AGENT_TYPES } from "@cantaia/core/agents";
 import type { AgentType } from "@cantaia/core/agents";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { agentActionType, creditCostFor } from "@cantaia/config/credit-costs";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { insufficientCreditsResponse } from "@/lib/credits";
+import { insufficientCreditsResponse, grantCredits } from "@/lib/credits";
 
 export const maxDuration = 10;
 export const dynamic = "force-dynamic";
@@ -42,6 +43,25 @@ export async function POST(
     );
   }
   const agentType = type as AgentType;
+
+  // Only the interactive agents may be started on demand by a user. The five
+  // nightly agents (email-drafter, followup-engine, supplier-monitor,
+  // project-memory, meeting-prep) are Pro+ / cron-only — their credit cost is
+  // bundled at 0, so starting them here would run a full agent loop for free
+  // and bypass the Pro gate that lives only in the crons.
+  const INTERACTIVE_AGENT_TYPES: AgentType[] = [
+    "submission-analyzer",
+    "plan-estimator",
+    "email-classifier",
+    "price-extractor",
+    "briefing-generator",
+  ];
+  if (!INTERACTIVE_AGENT_TYPES.includes(agentType)) {
+    return NextResponse.json(
+      { error: "This agent runs on a schedule and cannot be started manually." },
+      { status: 403 }
+    );
+  }
 
   // ── Auth ────────────────────────────────────────────────
   const supabase = await createClient();
@@ -71,35 +91,10 @@ export async function POST(
     return rateLimitResponse(rl);
   }
 
-  // ── Plan usage limit (AGT.C2) ───────────────────────────
-  const { data: org } = await (admin as any)
-    .from("organizations")
-    .select("subscription_plan")
-    .eq("id", userProfile.organization_id)
-    .maybeSingle();
-
-  const usageCheck = await checkUsageLimit(
-    admin,
-    userProfile.organization_id,
-    org?.subscription_plan || "trial",
-    "agent_session"
-  );
-  if (!usageCheck.allowed) {
-    if (usageCheck.insufficient_credits) {
-      return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
-    }
-    return NextResponse.json(
-      {
-        error: "usage_limit_reached",
-        current: usageCheck.current,
-        limit: usageCheck.limit,
-        required_plan: usageCheck.requiredPlan,
-      },
-      { status: 429 }
-    );
-  }
-
-  // ── Parse body ──────────────────────────────────────────
+  // ── Parse & validate body + env BEFORE consuming credits ──
+  // checkUsageLimit() calls consume_credits (a debit). Doing it last means an
+  // invalid body, empty message or missing API key would 400/500 with the
+  // credits already gone and no refund. Validate everything cheap first.
   let body: StartRequestBody;
   try {
     body = await request.json();
@@ -114,11 +109,45 @@ export async function POST(
     );
   }
 
-  // ── Check API key ───────────────────────────────────────
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       { error: "ANTHROPIC_API_KEY not configured" },
       { status: 500 }
+    );
+  }
+
+  // ── Plan usage limit (AGT.C2) ───────────────────────────
+  const { data: org } = await (admin as any)
+    .from("organizations")
+    .select("subscription_plan")
+    .eq("id", userProfile.organization_id)
+    .maybeSingle();
+
+  // Per-type pricing. The flat "agent_session" key charged 10 credits for
+  // EVERY agent, including `email-classifier` and `briefing-generator`, which
+  // the credit grid deliberately bundles at 0. `agentActionType()` resolves
+  // `agent_<type>` when the grid knows it and falls back to `agent_session`
+  // (10 credits) for an unlisted type — never to the 1-credit default.
+  const creditAction = agentActionType(agentType);
+
+  const usageCheck = await checkUsageLimit(
+    admin,
+    userProfile.organization_id,
+    org?.subscription_plan || "trial",
+    creditAction
+  );
+  if (!usageCheck.allowed) {
+    if (usageCheck.insufficient_credits) {
+      return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+    }
+    return NextResponse.json(
+      {
+        error: "usage_limit_reached",
+        current: usageCheck.current,
+        limit: usageCheck.limit,
+        required_plan: usageCheck.requiredPlan,
+      },
+      { status: 429 }
     );
   }
 
@@ -155,6 +184,18 @@ export async function POST(
 
     if (dbError) {
       console.error("[agents/start] DB insert error:", dbError);
+      // The credit debit already happened in checkUsageLimit; the session
+      // never got created, so refund it (best-effort, non-fatal).
+      const refund = creditCostFor(creditAction);
+      if (refund > 0) {
+        await grantCredits(
+          userProfile.organization_id,
+          refund,
+          "refund",
+          `agent-start-failed:${sessionId}`,
+          user.id
+        ).catch(() => {});
+      }
       return NextResponse.json(
         { error: "Failed to create session record" },
         { status: 500 }
@@ -162,6 +203,11 @@ export async function POST(
     }
 
     // ── Track usage ───────────────────────────────────────
+    // Placeholder row: the real token counts are only known once the stream
+    // route finishes the agentic loop, which then REPLACES this row (it is
+    // matched on `metadata.session_id` + `metadata.phase = "start"`). Writing
+    // it here means a session that is started but never streamed still leaves
+    // a trace of the debit.
     const actionType = `agent_${agentType}` as `agent_${AgentType}`;
     trackApiUsage({
       supabase: admin,
@@ -170,8 +216,9 @@ export async function POST(
       actionType,
       apiProvider: "anthropic",
       model: agentConfig.model,
-      inputTokens: 0, // Updated by stream route after completion
+      inputTokens: 0,
       outputTokens: 0,
+      metadata: { session_id: sessionId, phase: "start", credit_action: creditAction },
     }).catch(() => {}); // Fire and forget
 
     return NextResponse.json({

@@ -108,6 +108,7 @@ export default function AdminMembersTab() {
           message: inviteForm.message,
         }),
       });
+      const data = await res.json().catch(() => null);
       if (res.ok) {
         setShowInviteModal(false);
         setInviteForm({
@@ -119,9 +120,14 @@ export default function AdminMembersTab() {
         });
         setToast({ type: "success", text: t("inviteSent") });
         loadMembers();
+      } else {
+        // Surface 409 (already pending) / 403 (role too high) / 500 instead of
+        // swallowing them silently.
+        setToast({ type: "error", text: data?.error || t("inviteError") });
       }
     } catch (err) {
       console.error("Failed to send invite:", err);
+      setToast({ type: "error", text: t("inviteError") });
     } finally {
       setSending(false);
     }
@@ -129,37 +135,45 @@ export default function AdminMembersTab() {
 
   async function handleResendInvite(invite: { id: string; email: string }) {
     try {
-      // Cancel old invite
-      const supabase = createClient();
-      await (supabase.from("organization_invites") as any)
-        .update({ status: "cancelled" })
-        .eq("id", invite.id);
-
-      // Send new one
-      await fetch("/api/admin/invite", {
+      // Server route: refreshes the token and RE-USES the invite's original
+      // role (the old client code hardcoded "member", silently downgrading an
+      // admin/director invite) and reports real success/failure.
+      const res = await fetch("/api/admin/resend-invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: invite.email,
-          role: "member",
-        }),
+        body: JSON.stringify({ invite_id: invite.id }),
       });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setToast({ type: "error", text: data?.error || t("inviteError") });
+        return;
+      }
       setToast({ type: "success", text: t("inviteSent") });
       loadMembers();
     } catch (err) {
       console.error("Failed to resend invite:", err);
+      setToast({ type: "error", text: t("inviteError") });
     }
   }
 
   async function handleCancelInvite(inviteId: string) {
     try {
+      // Browser write: after migration 108 this UPDATE is allowed for admins/
+      // directors only. Check {error} — supabase-js never throws — so a blocked
+      // or failed cancel is surfaced instead of silently doing nothing.
       const supabase = createClient();
-      await (supabase.from("organization_invites") as any)
+      const { error } = await (supabase.from("organization_invites") as any)
         .update({ status: "cancelled" })
         .eq("id", inviteId);
+      if (error) {
+        console.error("Failed to cancel invite:", error);
+        setToast({ type: "error", text: t("inviteError") });
+        return;
+      }
       loadMembers();
     } catch (err) {
       console.error("Failed to cancel invite:", err);
+      setToast({ type: "error", text: t("inviteError") });
     }
   }
 
@@ -244,7 +258,7 @@ export default function AdminMembersTab() {
             <Users className="h-5 w-5 text-[#F97316]" />
             {t("members")}
           </h2>
-          <p className="mt-0.5 text-sm text-[#71717A]">
+          <p className="mt-0.5 text-sm text-[#A1A1AA]">
             {t("usersCount", {
               current: members.length,
               max: maxUsers,
@@ -264,7 +278,7 @@ export default function AdminMembersTab() {
       {/* Members table */}
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11]">
         {members.length === 0 ? (
-          <div className="py-12 text-center text-sm text-[#71717A]">
+          <div className="py-12 text-center text-sm text-[#A1A1AA]">
             {t("noMembers")}
           </div>
         ) : (
@@ -283,12 +297,12 @@ export default function AdminMembersTab() {
                     <p className="text-sm font-medium text-[#FAFAFA]">
                       {member.first_name} {member.last_name}
                       {i === 0 && (
-                        <span className="ml-1.5 text-xs text-[#71717A]">
+                        <span className="ml-1.5 text-xs text-[#A1A1AA]">
                           (Owner)
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-[#71717A]">{member.email}</p>
+                    <p className="text-xs text-[#A1A1AA]">{member.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -304,7 +318,7 @@ export default function AdminMembersTab() {
                         ? "text-[#F97316]"
                         : member.role === "director"
                           ? "text-purple-700"
-                          : "text-[#71717A]"
+                          : "text-[#A1A1AA]"
                     } disabled:cursor-not-allowed disabled:opacity-50`}
                   >
                     <option value="admin">Admin</option>
@@ -313,7 +327,7 @@ export default function AdminMembersTab() {
                     <option value="member">Membre</option>
                   </select>
 
-                  <span className="text-xs text-[#71717A]">
+                  <span className="text-xs text-[#A1A1AA]">
                     {formatDate(member.created_at)}
                   </span>
 
@@ -321,7 +335,7 @@ export default function AdminMembersTab() {
                   {i > 0 && (
                     <button
                       onClick={() => setShowDeleteConfirm(member.id)}
-                      className="rounded p-1 text-[#71717A] hover:bg-red-500/10 hover:text-red-600"
+                      className="rounded p-1 text-[#A1A1AA] hover:bg-red-500/10 hover:text-red-600"
                       title={t("deleteConfirm")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -348,10 +362,10 @@ export default function AdminMembersTab() {
                   className="flex items-center justify-between px-5 py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-[#71717A]" />
+                    <Mail className="h-4 w-4 text-[#A1A1AA]" />
                     <div>
                       <p className="text-sm text-[#FAFAFA]">{invite.email}</p>
-                      <p className="text-xs text-[#71717A]">
+                      <p className="text-xs text-[#A1A1AA]">
                         {formatDate(invite.created_at)} — expire le{" "}
                         {formatDate(invite.expires_at)}
                       </p>
@@ -387,13 +401,13 @@ export default function AdminMembersTab() {
             <h3 className="text-lg font-semibold text-[#FAFAFA]">
               {t("deleteConfirm")}
             </h3>
-            <p className="mt-2 text-sm text-[#71717A]">
+            <p className="mt-2 text-sm text-[#A1A1AA]">
               Cette action retirera le membre de votre organisation.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
-                className="rounded-md px-4 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
+                className="rounded-md px-4 py-2 text-sm text-[#A1A1AA] hover:bg-[#27272A]"
               >
                 Annuler
               </button>
@@ -418,7 +432,7 @@ export default function AdminMembersTab() {
               </h3>
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="text-[#71717A] hover:text-[#71717A]"
+                className="text-[#A1A1AA] hover:text-[#A1A1AA]"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -503,7 +517,7 @@ export default function AdminMembersTab() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="rounded-md px-4 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
+                className="rounded-md px-4 py-2 text-sm text-[#A1A1AA] hover:bg-[#27272A]"
               >
                 Annuler
               </button>

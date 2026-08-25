@@ -409,7 +409,7 @@ export default function ProjectsPage() {
 
         {/* Search */}
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "#52525B" }} />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "#71717A" }} />
           <input
             type="text"
             placeholder={t("searchPlaceholder")}
@@ -615,7 +615,7 @@ export default function ProjectsPage() {
 
                 {/* Footer: activity + team avatars */}
                 <div className="mt-2.5 flex items-center justify-between">
-                  <span style={{ fontSize: "10px", color: "#52525B" }}>
+                  <span style={{ fontSize: "10px", color: "#71717A" }}>
                     {project.updated_at ? `Dernière activité ${getRelativeTime(project.updated_at)}` : ""}
                   </span>
                   <div className="flex">
@@ -691,17 +691,17 @@ export default function ProjectsPage() {
                 <TableHeader col="name" label={t("colProject") || "Projet"} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
                 <TableHeader col="client" label="Client" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
                 <TableHeader col="city" label="Ville" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
-                <th style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, padding: "8px 14px", textAlign: "left", borderBottom: "1px solid #27272A", whiteSpace: "nowrap" }}>
+                <th style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#71717A", fontWeight: 600, padding: "8px 14px", textAlign: "left", borderBottom: "1px solid #27272A", whiteSpace: "nowrap" }}>
                   Santé
                 </th>
                 <TableHeader col="emails" label="Emails" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
                 <TableHeader col="tasks" label="Tâches" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
                 <TableHeader col="overdue" label="En retard" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
-                <th style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, padding: "8px 14px", textAlign: "left", borderBottom: "1px solid #27272A", whiteSpace: "nowrap" }}>
+                <th style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#71717A", fontWeight: 600, padding: "8px 14px", textAlign: "left", borderBottom: "1px solid #27272A", whiteSpace: "nowrap" }}>
                   Soumissions
                 </th>
                 <TableHeader col="budget" label="Budget" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
-                <th style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, padding: "8px 14px", textAlign: "left", borderBottom: "1px solid #27272A", whiteSpace: "nowrap" }}>
+                <th style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#71717A", fontWeight: 600, padding: "8px 14px", textAlign: "left", borderBottom: "1px solid #27272A", whiteSpace: "nowrap" }}>
                   Activité
                 </th>
               </tr>
@@ -848,7 +848,7 @@ function TableHeader({
         {isActive ? (
           dir === "asc" ? <ChevronUp className="h-3 w-3" style={{ color: "#F97316" }} /> : <ChevronDown className="h-3 w-3" style={{ color: "#F97316" }} />
         ) : (
-          <ArrowUpDown className="h-2.5 w-2.5" style={{ color: "#52525B" }} />
+          <ArrowUpDown className="h-2.5 w-2.5" style={{ color: "#71717A" }} />
         )}
       </span>
     </th>

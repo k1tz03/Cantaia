@@ -63,10 +63,10 @@ const COLUMN_STYLES: Record<string, { headerBg: string; headerColor: string; acc
   },
   cancelled: {
     headerBg: "bg-[#27272A]",
-    headerColor: "text-[#71717A]",
+    headerColor: "text-[#A1A1AA]",
     accentColor: "border-t-[#52525B]",
     countBg: "bg-[#27272A]",
-    countColor: "text-[#71717A]",
+    countColor: "text-[#A1A1AA]",
     dropHighlight: "ring-[#52525B] bg-[#27272A]/50",
   },
 };
@@ -228,7 +228,7 @@ function KanbanColumn({
             <div className="h-8 w-8 rounded-full bg-[#27272A] flex items-center justify-center mb-2">
               <div className="h-3 w-3 rounded-full bg-[#3F3F46]" />
             </div>
-            <p className="text-xs text-[#71717A]">{t("noTasksInColumn")}</p>
+            <p className="text-xs text-[#A1A1AA]">{t("noTasksInColumn")}</p>
           </div>
         )}
       </div>
@@ -347,7 +347,7 @@ function TaskCard({
           {overdue ? (
             <AlertTriangle className="h-3 w-3 text-red-500" />
           ) : (
-            <Calendar className="h-3 w-3 text-[#71717A]" />
+            <Calendar className="h-3 w-3 text-[#A1A1AA]" />
           )}
           <span
             className={`text-[11px] font-medium ${
@@ -355,7 +355,7 @@ function TaskCard({
                 ? "text-red-400"
                 : task.status === "done"
                   ? "text-emerald-400"
-                  : "text-[#71717A]"
+                  : "text-[#A1A1AA]"
             }`}
           >
             {formatDateShort(task.due_date)}

@@ -15,7 +15,6 @@ interface GanttBarProps {
   pixelsPerDay: number;
   timelineStartDate: Date;
   onSelect: () => void;
-  onDragEnd: (newStartDate: Date) => void;
   onResizeEnd: (newDuration: number) => void;
   readOnly?: boolean;
   rowIndex: number;
@@ -52,7 +51,6 @@ export default function GanttBar({
   pixelsPerDay,
   timelineStartDate,
   onSelect,
-  onDragEnd: _onDragEnd, // eslint-disable-line @typescript-eslint/no-unused-vars
   onResizeEnd,
   readOnly,
   rowIndex,
@@ -73,7 +71,13 @@ export default function GanttBar({
   const taskStart = new Date(task.start_date);
   const offsetDays = daysBetween(timelineStartDate, taskStart);
   const barX = offsetDays * pixelsPerDay;
-  const rawWidth = task.duration_days * pixelsPerDay;
+  // Width spans CALENDAR days (start → end inclusive), matching the calendar-day
+  // timeline axis. duration_days is WORKING days, so using it here made a bar
+  // visually stop several days before its own end_date. duration_days stays the
+  // value shown/edited in the panels.
+  const taskEnd = new Date(task.end_date);
+  const spanDays = Math.max(1, daysBetween(taskStart, taskEnd) + 1);
+  const rawWidth = spanDays * pixelsPerDay;
   // Minimum 4px so bars are always visible; if label would show, ensure at least 20px
   const barWidth = Math.max(rawWidth, 4);
   const barHeight = ROW_HEIGHT - BAR_V_PADDING * 2;
@@ -173,6 +177,24 @@ export default function GanttBar({
   const progressWidth =
     task.progress > 0 ? effectiveWidth * (task.progress / 100) : 0;
 
+  // Real execution overlay (migration 094). Offsets are relative to the bar,
+  // so a lot that started late renders to the right of the planned bar and a
+  // lot that started early spills to its left — the drift is the point.
+  const actualStart = task.actual_start_date
+    ? new Date(task.actual_start_date)
+    : null;
+  const actualEnd = task.actual_end_date ? new Date(task.actual_end_date) : null;
+  const actualLeft = actualStart
+    ? daysBetween(timelineStartDate, actualStart) * pixelsPerDay - barX
+    : 0;
+  const actualWidth = actualStart
+    ? Math.max(
+        ((actualEnd ? daysBetween(actualStart, actualEnd) : 0) + 1) *
+          pixelsPerDay,
+        3,
+      )
+    : 0;
+
   return (
     <>
       <motion.div
@@ -241,6 +263,24 @@ export default function GanttBar({
           />
         )}
 
+        {/* Real execution liseré — sits on top of the planned bar */}
+        {actualStart && (
+          <div
+            className="absolute rounded-full pointer-events-none"
+            title={`${task.actual_start_date}${
+              task.actual_end_date ? ` → ${task.actual_end_date}` : ""
+            }`}
+            style={{
+              left: actualLeft,
+              width: actualWidth,
+              top: -3,
+              height: 3,
+              backgroundColor: "#FAFAFA",
+              opacity: 0.85,
+            }}
+          />
+        )}
+
         {/* Task name inside bar -- only when bar is wide enough */}
         {showLabelInside && (
           <div
@@ -249,6 +289,16 @@ export default function GanttBar({
           >
             <span className="truncate">{task.name}</span>
           </div>
+        )}
+
+        {/* Assigned supplier, parked just after the bar */}
+        {task.supplier_name && !dimmed && (
+          <span
+            className="absolute top-1/2 -translate-y-1/2 text-[10px] text-[#A1A1AA] whitespace-nowrap pointer-events-none"
+            style={{ left: effectiveWidth + 6 }}
+          >
+            {task.supplier_name}
+          </span>
         )}
 
         {/* Resize handle (right edge) */}
@@ -283,13 +333,10 @@ export default function GanttBar({
         )}
       </motion.div>
 
-      {/* Tooltip */}
+      {/* Tooltip — read-only breakdown. Editing happens in the side panel and the
+          task list, so no edit affordance is offered here (the old one was a no-op). */}
       {showTooltip && !isDragging && !isResizing && (
-        <DurationTooltip
-          task={task}
-          position={tooltipPos}
-          onEditDuration={readOnly ? undefined : () => {}}
-        />
+        <DurationTooltip task={task} position={tooltipPos} />
       )}
     </>
   );

@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import {
   Building2,
   Globe,
@@ -21,8 +23,18 @@ import { SupplierImportDialog } from "@/components/suppliers/SupplierImportDialo
 import { AISearchDialog } from "@/components/suppliers/AISearchDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SupplierAlertsBanner } from "@/components/suppliers/SupplierAlertsBanner";
-import { type TimelineItem } from "@/components/suppliers/SupplierTimeline";
 import { SupplierPriceChart, type PriceTrendPoint } from "@/components/suppliers/SupplierPriceChart";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
+
+/** Timeline item shape returned by GET /api/suppliers/:id/history. */
+interface TimelineItem {
+  id: string;
+  type: "offer" | "request" | "email";
+  date: string;
+  description: string;
+  meta?: Record<string, unknown>;
+}
 
 // --- Avatar color palette ---
 const AVATAR_COLORS = [
@@ -49,18 +61,20 @@ function getInitials(name: string): string {
 
 export default function SuppliersPage() {
   const t = useTranslations("suppliers");
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Data state
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
+  const [actionError, setActionError] = useState("");
 
   // Filter state
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("");
   const [filterSpecialty, setFilterSpecialty] = useState<string>("");
   const [filterZone, setFilterZone] = useState<string>("");
-  const [filterStatus] = useState<string>("");
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
 
   // Dialog state
@@ -73,10 +87,6 @@ export default function SuppliersPage() {
   const [enriching, setEnriching] = useState(false);
   const [enrichResult, setEnrichResult] = useState<string | null>(null);
 
-  // Supplier prices (data loaded for future use in detail panel)
-  const [, setSupplierPrices] = useState<any[] | null>(null);
-  const [, setPricesLoading] = useState(false);
-
   // History / Timeline
   const [historyItems, setHistoryItems] = useState<TimelineItem[]>([]);
   const [historyHasMore, setHistoryHasMore] = useState(false);
@@ -87,43 +97,72 @@ export default function SuppliersPage() {
   // Score recalculation
   const [recalculating, setRecalculating] = useState(false);
 
-  // Fetch suppliers from API
+  // Fetch suppliers from API — the endpoint paginates (default 50), so page
+  // through X-Total-Count until the whole org is loaded (KPIs and client-side
+  // filters need the full set, not just the top 50 by score).
   const fetchSuppliers = useCallback(async () => {
     try {
-      const res = await fetch("/api/suppliers");
-      if (!res.ok) {
-        setFetchError("Impossible de charger les fournisseurs");
+      const PAGE_SIZE = 100;
+      const first = await fetch(`/api/suppliers?page=1&limit=${PAGE_SIZE}`);
+      if (!first.ok) {
+        setFetchError(t("page.loadFailed"));
         setLoading(false);
         return;
       }
-      const data = await res.json();
-      setSuppliers(data.suppliers || []);
+      const firstData = await first.json();
+      let all: Supplier[] = firstData.suppliers || [];
+      const total = parseInt(first.headers.get("X-Total-Count") || "0", 10);
+
+      if (total > all.length) {
+        const pages = Math.ceil(total / PAGE_SIZE);
+        for (let p = 2; p <= pages; p++) {
+          const res = await fetch(`/api/suppliers?page=${p}&limit=${PAGE_SIZE}`);
+          if (!res.ok) break;
+          const data = await res.json();
+          all = all.concat(data.suppliers || []);
+        }
+      }
+
+      setSuppliers(all);
       setFetchError("");
     } catch (err) {
       console.error("[SuppliersPage] Fetch error:", err);
-      setFetchError("Erreur reseau");
+      setFetchError(t("page.networkError"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchSuppliers();
   }, [fetchSuppliers]);
 
-  // Load supplier prices when selected
+  // Deep-link support: /suppliers?supplierId=<id> (from the command palette /
+  // global search) opens the detail panel for that supplier once loaded. Handled
+  // once per id so closing the panel does not re-trigger it.
+  const [deepLinkHandled, setDeepLinkHandled] = useState<string | null>(null);
   useEffect(() => {
-    if (!selectedSupplier) {
-      setSupplierPrices(null);
+    const target = searchParams.get("supplierId");
+    if (!target || loading || deepLinkHandled === target) return;
+    setDeepLinkHandled(target);
+    if (suppliers.some((s) => s.id === target)) {
+      setSelectedSupplier(target);
       return;
     }
-    setPricesLoading(true);
-    fetch(`/api/suppliers/${selectedSupplier}/prices`)
-      .then((r) => r.json())
-      .then((d) => setSupplierPrices(d.offers || []))
-      .catch(() => setSupplierPrices([]))
-      .finally(() => setPricesLoading(false));
-  }, [selectedSupplier]);
+    // Not in the loaded list (e.g. inactive) — fetch it directly.
+    fetch(`/api/suppliers/${target}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.supplier) {
+          setSuppliers((prev) =>
+            prev.some((s) => s.id === d.supplier.id) ? prev : [d.supplier, ...prev]
+          );
+          setSelectedSupplier(target);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, loading, suppliers, deepLinkHandled]);
 
   // Load supplier history when selected
   useEffect(() => {
@@ -153,15 +192,21 @@ export default function SuppliersPage() {
   // Recalculate supplier score
   async function handleRecalculateScore(supplierId: string) {
     setRecalculating(true);
+    setActionError("");
     try {
       const res = await fetch(`/api/suppliers/${supplierId}/recalculate-score`, {
         method: "POST",
       });
       if (res.ok) {
         await fetchSuppliers();
+      } else if (res.status === 401) {
+        router.replace("/login");
+      } else {
+        setActionError(t("page.recalcFailed"));
       }
     } catch (err) {
       console.error("[SuppliersPage] Recalculate error:", err);
+      setActionError(t("page.networkError"));
     } finally {
       setRecalculating(false);
     }
@@ -182,10 +227,9 @@ export default function SuppliersPage() {
       if (filterType && (s.supplier_type || "fournisseur") !== filterType) return false;
       if (filterSpecialty && !s.specialties.includes(filterSpecialty)) return false;
       if (filterZone && s.geo_zone !== filterZone) return false;
-      if (filterStatus && s.status !== filterStatus) return false;
       return true;
     });
-  }, [suppliers, search, filterType, filterSpecialty, filterZone, filterStatus]);
+  }, [suppliers, search, filterType, filterSpecialty, filterZone]);
 
   const selected = selectedSupplier ? suppliers.find((s) => s.id === selectedSupplier) : null;
 
@@ -267,16 +311,23 @@ export default function SuppliersPage() {
   async function executeDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
+    setActionError("");
     try {
       const res = await fetch(`/api/suppliers/${deleteTarget.id}`, {
         method: "DELETE",
       });
       if (res.ok) {
         setSelectedSupplier(null);
+        setDeleteTarget(null);
         await fetchSuppliers();
+      } else if (res.status === 401) {
+        router.replace("/login");
+      } else {
+        setActionError(t("page.deleteFailed"));
       }
     } catch (err) {
       console.error("[SuppliersPage] Delete error:", err);
+      setActionError(t("page.networkError"));
     } finally {
       setDeleting(false);
     }
@@ -293,18 +344,30 @@ export default function SuppliersPage() {
       const res = await fetch(`/api/suppliers/${supplier.id}/enrich`, {
         method: "POST",
       });
+
+      if (res.status === 402 && (await handleInsufficientCredits(res))) {
+        setEnriching(false);
+        return;
+      }
+      if (res.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
         const count = data.updates_applied?.length || 0;
         setEnrichResult(
           count > 0
-            ? `Enrichissement termine : ${count} champ(s) mis a jour`
-            : "Aucune nouvelle information trouvee"
+            ? t("page.enrichDone", { count })
+            : t("page.enrichNothing")
         );
+        // AI action consumed credits — refresh the badge and the list.
+        notifyCreditsChanged();
         await fetchSuppliers();
       } else {
         const text = await res.text();
-        let msg = `Erreur (${res.status})`;
+        let msg = t("page.httpError", { status: res.status });
         try {
           const parsed = JSON.parse(text);
           if (parsed.error) msg = parsed.error;
@@ -315,7 +378,7 @@ export default function SuppliersPage() {
       }
     } catch (err) {
       console.error("[SuppliersPage] Enrich error:", err);
-      setEnrichResult("Erreur reseau");
+      setEnrichResult(t("page.networkError"));
     } finally {
       setEnriching(false);
     }
@@ -327,7 +390,7 @@ export default function SuppliersPage() {
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-[#F97316]" />
-          <p className="text-sm text-[#71717A]">Chargement des fournisseurs...</p>
+          <p className="text-sm text-[#A1A1AA]">{t("page.loading")}</p>
         </div>
       </div>
     );
@@ -342,7 +405,7 @@ export default function SuppliersPage() {
             <h1 className="font-display text-2xl font-extrabold text-[#FAFAFA] m-0">
               Fournisseurs
             </h1>
-            <p className="text-[13px] text-[#71717A] mt-0.5">
+            <p className="text-[13px] text-[#A1A1AA] mt-0.5">
               {filtered.length} fournisseurs et prestataires
             </p>
           </div>
@@ -357,49 +420,66 @@ export default function SuppliersPage() {
               onClick={() => setImportOpen(true)}
               className="text-xs px-4 py-2 rounded-lg border border-[#3F3F46] bg-[#18181B] text-[#D4D4D8] cursor-pointer font-medium flex items-center gap-1.5"
             >
-              <span>&#128229;</span> Importer CSV
+              <span>&#128229;</span> {t("importCsv")}
             </button>
             <button
               onClick={handleAddNew}
-              className="text-xs px-4 py-2 rounded-lg border border-transparent bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white cursor-pointer font-medium flex items-center gap-1.5"
+              className="text-xs px-4 py-2 rounded-lg border border-transparent bg-gradient-to-br from-[#F97316] to-[#EA580C] text-[#0F0F11] cursor-pointer font-medium flex items-center gap-1.5"
             >
-              + Ajouter
+              {t("page.add")}
             </button>
           </div>
         </div>
 
         {/* Error banner */}
         {fetchError && (
-          <div className="mb-3.5 rounded-lg bg-red-500/10 px-4 py-2.5 text-[13px] text-[#F87171] border border-red-500/20">
+          <div className="mb-3.5 rounded-lg bg-[#EF4444]/10 px-4 py-2.5 text-[13px] text-[#F87171] border border-[#EF4444]/20">
             {fetchError}
+          </div>
+        )}
+        {actionError && (
+          <div
+            role="alert"
+            className="mb-3.5 flex items-center justify-between rounded-lg bg-[#EF4444]/10 px-4 py-2.5 text-[13px] text-[#F87171] border border-[#EF4444]/20"
+          >
+            <span>{actionError}</span>
+            <button
+              onClick={() => setActionError("")}
+              className="ml-2 p-0.5 text-[#F87171]"
+              aria-label={t("page.dismiss")}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        {/* 4 fixed columns squeezed the KPI cards to unreadable widths on
+            phones — 2 up on small screens, 4 from `sm`. */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           <div className="bg-[#18181B] border border-[#27272A] rounded-[10px] px-3.5 py-3">
             <div className="font-display text-2xl font-extrabold text-[#FAFAFA]">
               {kpis.total}
             </div>
-            <div className="text-[10px] text-[#71717A] mt-0.5">Total fournisseurs</div>
+            <div className="text-[10px] text-[#A1A1AA] mt-0.5">{t("page.kpiTotal")}</div>
           </div>
           <div className="bg-[#18181B] border border-[#27272A] rounded-[10px] px-3.5 py-3">
             <div className="font-display text-2xl font-extrabold text-[#34D399]">
               {kpis.avgResponseRate}%
             </div>
-            <div className="text-[10px] text-[#71717A] mt-0.5">Taux de reponse moyen</div>
+            <div className="text-[10px] text-[#A1A1AA] mt-0.5">{t("page.kpiAvgResponseRate")}</div>
           </div>
           <div className="bg-[#18181B] border border-[#27272A] rounded-[10px] px-3.5 py-3">
             <div className="font-display text-2xl font-extrabold text-[#FAFAFA]">
               {kpis.activeCount}
             </div>
-            <div className="text-[10px] text-[#71717A] mt-0.5">Fournisseurs actifs</div>
+            <div className="text-[10px] text-[#A1A1AA] mt-0.5">Fournisseurs actifs</div>
           </div>
           <div className="bg-[#18181B] border border-[#27272A] rounded-[10px] px-3.5 py-3">
             <div className="font-display text-2xl font-extrabold text-[#FAFAFA]">
               {kpis.totalOffers}
             </div>
-            <div className="text-[10px] text-[#71717A] mt-0.5">Offres recues</div>
+            <div className="text-[10px] text-[#A1A1AA] mt-0.5">Offres recues</div>
           </div>
         </div>
 
@@ -421,7 +501,7 @@ export default function SuppliersPage() {
                 className={`text-xs px-3.5 py-[5px] rounded-md border-none cursor-pointer font-medium ${
                   filterType === opt.value
                     ? "bg-[#27272A] text-[#FAFAFA]"
-                    : "bg-transparent text-[#71717A]"
+                    : "bg-transparent text-[#A1A1AA]"
                 }`}
               >
                 {opt.label}
@@ -434,7 +514,7 @@ export default function SuppliersPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="&#128269; Rechercher par nom, email, specialite..."
+            placeholder={t("page.searchPlaceholder")}
             className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3.5 py-[7px] text-xs text-[#D4D4D8] flex-1 outline-none focus:border-[#F97316]"
           />
 
@@ -444,7 +524,7 @@ export default function SuppliersPage() {
             onChange={(e) => setFilterSpecialty(e.target.value)}
             className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-[7px] text-xs text-[#D4D4D8] outline-none"
           >
-            <option value="">Toutes specialites</option>
+            <option value="">{t("allSpecialties")}</option>
             {allSpecialties.map((sp) => (
               <option key={sp} value={sp}>{getSpecialtyLabel(sp)}</option>
             ))}
@@ -456,7 +536,7 @@ export default function SuppliersPage() {
             onChange={(e) => setFilterZone(e.target.value)}
             className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-[7px] text-xs text-[#D4D4D8] outline-none"
           >
-            <option value="">Toutes zones</option>
+            <option value="">{t("allZones")}</option>
             {allZones.map((z) => (
               <option key={z} value={z}>{z}</option>
             ))}
@@ -468,156 +548,172 @@ export default function SuppliersPage() {
           suppliers.length === 0 ? (
             <EmptyState
               icon={Users}
-              title="Aucun fournisseur"
-              description="Ajoutez votre premier fournisseur pour commencer."
-              action={{ label: "Ajouter un fournisseur", onClick: handleAddNew }}
+              title={t("noSuppliers")}
+              description={t("noSuppliersDesc")}
+              action={{ label: t("addSupplier"), onClick: handleAddNew }}
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="h-16 w-16 rounded-full bg-[#27272A] flex items-center justify-center mb-4">
-                <Building2 className="h-8 w-8 text-[#71717A]" />
+                <Building2 className="h-8 w-8 text-[#A1A1AA]" />
               </div>
-              <h3 className="text-lg font-medium text-[#FAFAFA] mb-1">Aucun resultat</h3>
-              <p className="text-sm text-[#71717A] max-w-[360px]">Modifiez vos filtres pour afficher des fournisseurs.</p>
+              <h3 className="text-lg font-medium text-[#FAFAFA] mb-1">{t("page.noResults")}</h3>
+              <p className="text-sm text-[#A1A1AA] max-w-[360px]">{t("page.noResultsHint")}</p>
             </div>
           )
         ) : (
-          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-            <thead>
-              <tr>
-                {["Entreprise", "Type", "Specialites", "Codes CFC", "Score", "Taux rep.", "Statut"].map((h) => (
-                  <th
-                    key={h}
-                    className="text-[10px] uppercase tracking-[0.06em] text-[#52525B] font-semibold px-3 py-2 text-left border-b border-[#27272A]"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((supplier) => {
-                const sType = (supplier.supplier_type || "fournisseur") as SupplierType;
-                const score = Math.round(supplier.overall_score || 0);
-                const rate = Math.round(supplier.response_rate || 0);
-                const scoreColor = getScoreColor(score);
-                const rateColor = getResponseRateColor(rate);
-                const avatarBg = getAvatarColor(supplier.company_name);
-                const isSelected = supplier.id === selectedSupplier;
+          <div className="w-full overflow-x-auto">
+            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead>
+                <tr>
+                  {["Entreprise", "Type", "Specialites", "Codes CFC", "Score", "Taux rep.", "Statut"].map((h) => (
+                    <th
+                      key={h}
+                      className="text-[10px] uppercase tracking-[0.06em] text-[#A1A1AA] font-semibold px-3 py-2 text-left border-b border-[#27272A]"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((supplier) => {
+                  const sType = (supplier.supplier_type || "fournisseur") as SupplierType;
+                  const score = Math.round(supplier.overall_score || 0);
+                  const rate = Math.round(supplier.response_rate || 0);
+                  const scoreColor = getScoreColor(score);
+                  const rateColor = getResponseRateColor(rate);
+                  const avatarBg = getAvatarColor(supplier.company_name);
+                  const isSelected = supplier.id === selectedSupplier;
 
-                return (
-                  <tr
-                    key={supplier.id}
-                    onClick={() => setSelectedSupplier(supplier.id === selectedSupplier ? null : supplier.id)}
-                    className={`cursor-pointer transition-colors ${isSelected ? "bg-[#F97316]/[0.08]" : "hover:bg-[#18181B]"}`}
-                  >
-                    {/* Entreprise */}
-                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs text-[#D4D4D8] align-middle">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] text-white font-semibold shrink-0"
-                          style={{ background: avatarBg }}
-                        >
-                          {getInitials(supplier.company_name)}
-                        </div>
-                        <div>
-                          <div className="text-[13px] font-semibold text-[#FAFAFA]">{supplier.company_name}</div>
-                          <div className="text-[10px] text-[#71717A]">
-                            {supplier.contact_name}{supplier.contact_name && supplier.email ? " \u00B7 " : ""}{supplier.email || ""}
+                  const toggleSelect = () =>
+                    setSelectedSupplier(supplier.id === selectedSupplier ? null : supplier.id);
+
+                  return (
+                    <tr
+                      key={supplier.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      onClick={toggleSelect}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleSelect();
+                        }
+                      }}
+                      className={`cursor-pointer transition-colors outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#F97316] ${isSelected ? "bg-[#F97316]/[0.08]" : "hover:bg-[#18181B]"}`}
+                    >
+                      {/* Entreprise */}
+                      <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs text-[#D4D4D8] align-middle">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] text-white font-semibold shrink-0"
+                            style={{ background: avatarBg }}
+                          >
+                            {getInitials(supplier.company_name)}
+                          </div>
+                          <div>
+                            <div className="text-[13px] font-semibold text-[#FAFAFA]">{supplier.company_name}</div>
+                            <div className="text-[10px] text-[#A1A1AA]">
+                              {supplier.contact_name}{supplier.contact_name && supplier.email ? " \u00B7 " : ""}{supplier.email || ""}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Type */}
-                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle">
-                      <span
-                        className="text-[9px] px-[7px] py-[2px] rounded font-semibold"
-                        style={{
-                          background: sType === "fournisseur" ? "rgba(16,185,129,0.09)" : "rgba(59,130,246,0.09)",
-                          color: sType === "fournisseur" ? "#34D399" : "#60A5FA",
-                        }}
-                      >
-                        {sType === "fournisseur" ? "Fournisseur" : "Prestataire"}
-                      </span>
-                    </td>
-
-                    {/* Specialites */}
-                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle">
-                      {supplier.specialties.slice(0, 2).map((sp) => (
+                      {/* Type */}
+                      <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle">
                         <span
-                          key={sp}
-                          className="text-[9px] px-1.5 py-[2px] rounded-[3px] bg-[#27272A] text-[#A1A1AA] mr-[3px] inline-block mb-[2px]"
-                        >
-                          {getSpecialtyLabel(sp)}
-                        </span>
-                      ))}
-                      {supplier.specialties.length > 2 && (
-                        <span className="text-[9px] text-[#52525B]">+{supplier.specialties.length - 2}</span>
-                      )}
-                    </td>
-
-                    {/* Codes CFC */}
-                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle">
-                      {(supplier.cfc_codes || []).slice(0, 3).map((code) => (
-                        <span
-                          key={code}
-                          className="text-[9px] px-1.5 py-[2px] rounded-[3px] mr-[3px] inline-block"
+                          className="text-[9px] px-[7px] py-[2px] rounded font-semibold"
                           style={{
-                            background: "rgba(59,130,246,0.07)",
-                            color: "#60A5FA",
+                            background: sType === "fournisseur" ? "rgba(16,185,129,0.09)" : "rgba(59,130,246,0.09)",
+                            color: sType === "fournisseur" ? "#34D399" : "#60A5FA",
                           }}
                         >
-                          {code}
+                          {sType === "fournisseur" ? "Fournisseur" : "Prestataire"}
                         </span>
-                      ))}
-                      {(supplier.cfc_codes || []).length > 3 && (
-                        <span className="text-[9px] text-[#52525B]">+{supplier.cfc_codes.length - 3}</span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Score */}
-                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] align-middle">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="font-display text-sm font-bold"
-                          style={{ color: scoreColor }}
-                        >
-                          {score}
-                        </span>
-                        <div className="w-[50px] h-1 bg-[#27272A] rounded-sm overflow-hidden">
-                          <div className="h-full rounded-sm" style={{ width: `${score}%`, background: scoreColor }} />
+                      {/* Specialites */}
+                      <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle">
+                        {supplier.specialties.slice(0, 2).map((sp) => (
+                          <span
+                            key={sp}
+                            className="text-[9px] px-1.5 py-[2px] rounded-[3px] bg-[#27272A] text-[#A1A1AA] mr-[3px] inline-block mb-[2px]"
+                          >
+                            {getSpecialtyLabel(sp)}
+                          </span>
+                        ))}
+                        {supplier.specialties.length > 2 && (
+                          <span className="text-[9px] text-[#A1A1AA]">+{supplier.specialties.length - 2}</span>
+                        )}
+                      </td>
+
+                      {/* Codes CFC */}
+                      <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle">
+                        {(supplier.cfc_codes || []).slice(0, 3).map((code) => (
+                          <span
+                            key={code}
+                            className="text-[9px] px-1.5 py-[2px] rounded-[3px] mr-[3px] inline-block"
+                            style={{
+                              background: "rgba(59,130,246,0.07)",
+                              color: "#60A5FA",
+                            }}
+                          >
+                            {code}
+                          </span>
+                        ))}
+                        {(supplier.cfc_codes || []).length > 3 && (
+                          <span className="text-[9px] text-[#A1A1AA]">+{supplier.cfc_codes.length - 3}</span>
+                        )}
+                      </td>
+
+                      {/* Score */}
+                      <td className="px-3 py-2.5 border-b border-[#1C1C1F] align-middle">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="font-display text-sm font-bold"
+                            style={{ color: scoreColor }}
+                          >
+                            {score}
+                          </span>
+                          <div className="w-[50px] h-1 bg-[#27272A] rounded-sm overflow-hidden">
+                            <div className="h-full rounded-sm" style={{ width: `${score}%`, background: scoreColor }} />
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Taux rep. */}
-                    <td
-                      className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle font-semibold"
-                      style={{ color: rateColor }}
-                    >
-                      {rate}%
-                    </td>
+                      {/* Taux rep. */}
+                      <td
+                        className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle font-semibold"
+                        style={{ color: rateColor }}
+                      >
+                        {rate}%
+                      </td>
 
-                    {/* Statut */}
-                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs text-[#D4D4D8] align-middle">
-                      <span
-                        className="inline-block w-[7px] h-[7px] rounded-full mr-1 align-middle"
-                        style={{ background: getStatusDotColor(supplier.status) }}
-                      />
-                      {getStatusLabel(supplier.status)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {/* Statut */}
+                      <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs text-[#D4D4D8] align-middle">
+                        <span
+                          className="inline-block w-[7px] h-[7px] rounded-full mr-1 align-middle"
+                          style={{ background: getStatusDotColor(supplier.status) }}
+                        />
+                        {getStatusLabel(supplier.status)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* ====== DETAIL PANEL ====== */}
+      {/* A hard 420px panel ran off the side of a phone; cap it to the
+          viewport so it becomes a full-width sheet on small screens. */}
       {selected && (
-        <div className="fixed top-0 right-0 w-[420px] h-screen bg-[#18181B] border-l border-[#27272A] z-20 overflow-y-auto shadow-[-8px_0_32px_rgba(0,0,0,0.5)]">
+        <div className="fixed top-0 right-0 w-full max-w-full sm:w-[420px] h-screen bg-[#18181B] border-l border-[#27272A] z-20 overflow-y-auto shadow-[-8px_0_32px_rgba(0,0,0,0.5)]">
           {/* Detail header */}
           <div className="px-5 py-4 border-b border-[#27272A] flex justify-between items-start">
             <div>
@@ -646,7 +742,7 @@ export default function SuppliersPage() {
               <button
                 onClick={() => handleEdit(selected)}
                 className="w-7 h-7 rounded-md bg-[#27272A] flex items-center justify-center cursor-pointer text-[#A1A1AA] text-sm border-none"
-                title="Modifier"
+                title={t("page.edit")}
               >
                 <Pencil className="w-3.5 h-3.5" />
               </button>
@@ -655,7 +751,7 @@ export default function SuppliersPage() {
                 disabled={deleting}
                 className="w-7 h-7 rounded-md bg-[#27272A] flex items-center justify-center cursor-pointer text-[#A1A1AA] text-sm border-none"
                 style={{ opacity: deleting ? 0.5 : 1 }}
-                title="Supprimer"
+                title={t("page.delete")}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -683,7 +779,7 @@ export default function SuppliersPage() {
 
           {/* Score section */}
           <div className="px-5 py-4 border-b border-[#27272A]">
-            <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[#A1A1AA] font-semibold mb-2.5">
               Score global
             </div>
             <div className="flex items-center gap-3">
@@ -694,25 +790,25 @@ export default function SuppliersPage() {
                 {Math.round(selected.overall_score || 0)}
               </div>
               <div>
-                <div className="text-xs text-[#71717A]">/100</div>
+                <div className="text-xs text-[#A1A1AA]">/100</div>
                 <div className="flex gap-4 mt-2">
                   <div className="text-center">
                     <div className="font-display text-base font-bold text-[#FAFAFA]">
                       {Math.round(selected.response_rate || 0)}%
                     </div>
-                    <div className="text-[9px] text-[#52525B]">Taux reponse</div>
+                    <div className="text-[9px] text-[#A1A1AA]">Taux reponse</div>
                   </div>
                   <div className="text-center">
                     <div className="font-display text-base font-bold text-[#FAFAFA]">
                       {selected.avg_response_days || 0}j
                     </div>
-                    <div className="text-[9px] text-[#52525B]">Delai moyen</div>
+                    <div className="text-[9px] text-[#A1A1AA]">Delai moyen</div>
                   </div>
                   <div className="text-center">
                     <div className="font-display text-base font-bold text-[#FAFAFA]">
                       {selected.total_offers_received || 0}
                     </div>
-                    <div className="text-[9px] text-[#52525B]">Offres</div>
+                    <div className="text-[9px] text-[#A1A1AA]">Offres</div>
                   </div>
                 </div>
               </div>
@@ -721,7 +817,7 @@ export default function SuppliersPage() {
             <button
               onClick={() => handleRecalculateScore(selected.id)}
               disabled={recalculating}
-              className="mt-2 bg-transparent border-none cursor-pointer text-[#52525B] text-[10px] flex items-center gap-1"
+              className="mt-2 bg-transparent border-none cursor-pointer text-[#A1A1AA] text-[10px] flex items-center gap-1"
               style={{ opacity: recalculating ? 0.5 : 1 }}
             >
               <RefreshCw className={`w-2.5 h-2.5 ${recalculating ? "animate-spin" : ""}`} />
@@ -750,7 +846,7 @@ export default function SuppliersPage() {
 
           {/* Contact section */}
           <div className="px-5 py-4 border-b border-[#27272A]">
-            <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[#A1A1AA] font-semibold mb-2.5">
               Contact
             </div>
             {selected.contact_name && (
@@ -783,7 +879,7 @@ export default function SuppliersPage() {
             )}
             {selected.website && (
               <div className="flex items-center gap-2 py-[5px]">
-                <Globe className="w-3.5 h-3.5 text-[#71717A] shrink-0" />
+                <Globe className="w-3.5 h-3.5 text-[#A1A1AA] shrink-0" />
                 <a href={selected.website} target="_blank" rel="noopener noreferrer" className="text-xs text-[#F97316] no-underline">
                   {selected.website}
                 </a>
@@ -793,7 +889,7 @@ export default function SuppliersPage() {
 
           {/* Specialties + CFC */}
           <div className="px-5 py-4 border-b border-[#27272A]">
-            <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[#A1A1AA] font-semibold mb-2.5">
               Specialites
             </div>
             <div className="flex flex-wrap gap-1">
@@ -805,7 +901,7 @@ export default function SuppliersPage() {
             </div>
             {(selected.cfc_codes || []).length > 0 && (
               <div className="mt-2">
-                <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-1">
+                <div className="text-[10px] uppercase tracking-[0.08em] text-[#A1A1AA] font-semibold mb-1">
                   Codes CFC
                 </div>
                 {selected.cfc_codes.map((code) => (
@@ -824,7 +920,7 @@ export default function SuppliersPage() {
           {/* Certifications */}
           {selected.certifications.length > 0 && (
             <div className="px-5 py-4 border-b border-[#27272A]">
-              <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-[#A1A1AA] font-semibold mb-2.5">
                 Certifications
               </div>
               <div className="flex flex-wrap gap-1">
@@ -844,8 +940,8 @@ export default function SuppliersPage() {
           {/* Price history chart */}
           {priceTrend.length >= 3 && (
             <div className="px-5 py-4 border-b border-[#27272A]">
-              <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
-                Evolution des prix
+              <div className="text-[10px] uppercase tracking-[0.08em] text-[#A1A1AA] font-semibold mb-2.5">
+                {t("priceEvolution")}
               </div>
               <SupplierPriceChart data={priceTrend} />
             </div>
@@ -853,12 +949,12 @@ export default function SuppliersPage() {
 
           {/* Interactions timeline */}
           <div className="px-5 py-4 border-b border-[#27272A]">
-            <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[#A1A1AA] font-semibold mb-2.5">
               Interactions recentes
             </div>
             {historyLoading ? (
               <div className="flex justify-center py-4">
-                <Loader2 className="animate-spin w-5 h-5 text-[#71717A]" />
+                <Loader2 className="animate-spin w-5 h-5 text-[#A1A1AA]" />
               </div>
             ) : historyItems.length > 0 ? (
               <>
@@ -874,7 +970,7 @@ export default function SuppliersPage() {
                       />
                       <div>
                         <div className="text-[11px] text-[#D4D4D8]">{item.description}</div>
-                        <div className="text-[10px] text-[#52525B]">
+                        <div className="text-[10px] text-[#A1A1AA]">
                           {projectName}{projectName && item.date ? " \u00B7 " : ""}
                           {item.date ? new Date(item.date).toLocaleDateString("fr-CH") : ""}
                         </div>
@@ -898,19 +994,19 @@ export default function SuppliersPage() {
                     }}
                     className="text-[10px] text-[#F97316] bg-transparent border-none cursor-pointer mt-1.5 p-0"
                   >
-                    Voir plus...
+                    {t("page.seeMore")}
                   </button>
                 )}
               </>
             ) : (
-              <p className="text-[11px] text-[#52525B] py-2">Aucune interaction</p>
+              <p className="text-[11px] text-[#A1A1AA] py-2">{t("page.noInteraction")}</p>
             )}
           </div>
 
           {/* Notes */}
           {selected.notes && (
             <div className="px-5 py-4 border-b border-[#27272A]">
-              <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-[#A1A1AA] font-semibold mb-2.5">
                 Notes
               </div>
               <p className="text-xs text-[#A1A1AA] leading-relaxed">{selected.notes}</p>
@@ -922,18 +1018,16 @@ export default function SuppliersPage() {
             {selected.email && (
               <a
                 href={`mailto:${selected.email}`}
-                className="flex-1 text-[11px] py-2 rounded-[7px] border border-transparent bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white cursor-pointer text-center font-medium no-underline block"
+                className="flex-1 text-[11px] py-2 rounded-[7px] border border-transparent bg-gradient-to-br from-[#F97316] to-[#EA580C] text-[#0F0F11] cursor-pointer text-center font-medium no-underline block"
               >
                 &#128231; Contacter
               </a>
             )}
             <button
               className="flex-1 text-[11px] py-2 rounded-[7px] border border-[#3F3F46] bg-[#27272A] text-[#D4D4D8] cursor-pointer text-center font-medium"
-              onClick={() => {
-                // Navigate to submissions or trigger price request flow
-              }}
+              onClick={() => router.push("/submissions")}
             >
-              &#128203; Demande de prix
+              &#128203; {t("page.priceRequest")}
             </button>
             <button
               onClick={() => handleEnrich(selected)}

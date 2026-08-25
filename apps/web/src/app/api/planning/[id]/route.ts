@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { addWorkingDays } from "@cantaia/core/planning";
+import { addWorkingDays, rescheduleCPM } from "@cantaia/core/planning";
+import type { GeneratedPlanning, GeneratedTask } from "@cantaia/core/planning";
+
+// A reschedule persists new dates for every moved task; on a large planning the
+// batched writes still need more than the default budget.
+export const maxDuration = 60;
 
 /**
  * GET /api/planning/[id]
@@ -162,25 +167,35 @@ export async function PATCH(
           .maybeSingle();
 
         if (existingTask && existingTask.duration_days !== updates.duration_days && existingTask.cfc_code) {
-          // Save correction
-          const originalRatio = existingTask.productivity_ratio || 1;
-          const correctionFactor = existingTask.duration_days / updates.duration_days;
-          const correctedRatio = originalRatio * correctionFactor;
+          // A hand-edited duration is a real signal, but a single edit must
+          // never move the org's reference ratio by more than 2x either way —
+          // the conductor may simply be padding one lot for a known constraint.
+          const originalRatio = Number(existingTask.productivity_ratio) || 0;
+          const newDuration = Number(updates.duration_days);
 
-          try {
-            await (admin as any)
+          if (originalRatio > 0 && newDuration > 0 && existingTask.duration_days > 0) {
+            const rawFactor = existingTask.duration_days / newDuration;
+            const factor = Math.min(2.0, Math.max(0.5, rawFactor));
+
+            const { error: correctionError } = await (admin as any)
               .from("planning_duration_corrections")
               .insert({
                 organization_id: userProfile.organization_id,
                 cfc_code: existingTask.cfc_code,
                 unit: existingTask.unit,
-                original_ratio: originalRatio,
-                corrected_ratio: correctedRatio,
+                original_ratio: Math.round(originalRatio * 1000) / 1000,
+                corrected_ratio: Math.round(originalRatio * factor * 1000) / 1000,
                 project_type: planning.project_type,
                 canton: planning.location_canton,
+                source: "manual_edit",
+                sample_count: 1,
+                planning_task_id: task_id,
               });
-          } catch {
-            // Non-fatal
+
+            if (correctionError) {
+              // Table/columns may predate migration 094 — never block the edit.
+              console.warn("[planning/[id]] Calibration insert skipped:", correctionError.message);
+            }
           }
         }
 
@@ -198,13 +213,42 @@ export async function PATCH(
         }
       }
 
+      // `actual_*` (migration 094), `cfc_code` and `phase_id` were editable in
+      // the side panel but never whitelisted here, so those edits silently
+      // no-op'd and reappeared on reload.
       const allowedFields = [
         "name", "start_date", "end_date", "duration_days",
         "progress", "supplier_id", "team_size",
+        "actual_start_date", "actual_end_date",
+        "cfc_code", "phase_id",
+        "is_milestone", "milestone_type",
       ];
+      // Nullable columns: an empty string from a date/select input must clear
+      // the column, not be written as "" (rejected by a DATE/uuid column).
+      const nullableFields = new Set([
+        "actual_start_date", "actual_end_date", "supplier_id", "cfc_code",
+      ]);
       const safeUpdates: Record<string, any> = {};
       for (const key of allowedFields) {
-        if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+        if (updates[key] === undefined) continue;
+        const value = updates[key];
+        safeUpdates[key] =
+          nullableFields.has(key) && (value === "" || value === null) ? null : value;
+      }
+
+      // The DB CHECK constraint rejects end < start; fail loudly instead of
+      // surfacing a raw Postgres error in the panel.
+      const nextActualStart =
+        safeUpdates.actual_start_date !== undefined
+          ? safeUpdates.actual_start_date
+          : undefined;
+      const nextActualEnd =
+        safeUpdates.actual_end_date !== undefined ? safeUpdates.actual_end_date : undefined;
+      if (nextActualStart && nextActualEnd && nextActualEnd < nextActualStart) {
+        return NextResponse.json(
+          { error: "actual_end_date must be on or after actual_start_date" },
+          { status: 400 },
+        );
       }
 
       const { error: updateError } = await (admin as any)
@@ -217,7 +261,22 @@ export async function PATCH(
         return NextResponse.json({ error: updateError.message }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true });
+      // Return the persisted row so the client resyncs to the server truth. The
+      // server recomputes end_date in WORKING days (addWorkingDays), which does
+      // not match the calendar-day arithmetic the UI uses locally — sending the
+      // canonical row back keeps the two in step without a full refetch.
+      const { data: persistedTask } = await (admin as any)
+        .from("planning_tasks")
+        .select("*, suppliers(company_name)")
+        .eq("id", task_id)
+        .eq("planning_id", id)
+        .maybeSingle();
+
+      const task = persistedTask
+        ? { ...persistedTask, supplier_name: persistedTask.suppliers?.company_name ?? null, suppliers: undefined }
+        : null;
+
+      return NextResponse.json({ success: true, task });
     }
 
     // Case 2: Delete a task — the Gantt client sends { delete_task_id }
@@ -403,6 +462,49 @@ async function handleAddDependency(
     );
   }
 
+  // Reject links that would close a cycle. The CPM cannot topologically order a
+  // cyclic graph, so without this the loop is only discovered at the next
+  // reschedule (as a warning) with untrustworthy dates in between. Mirrors the
+  // reaches() guard the AI pass already applies.
+  const { data: existingDeps, error: existingDepsError } = await (admin as any)
+    .from("planning_dependencies")
+    .select("predecessor_id, successor_id")
+    .eq("planning_id", planningId);
+
+  if (existingDepsError) {
+    return NextResponse.json({ error: existingDepsError.message }, { status: 500 });
+  }
+
+  const adjacency = new Map<string, string[]>();
+  for (const d of existingDeps ?? []) {
+    if (!adjacency.has(d.predecessor_id)) adjacency.set(d.predecessor_id, []);
+    adjacency.get(d.predecessor_id)!.push(d.successor_id);
+  }
+
+  // Adding predecessor → successor closes a cycle iff successor already reaches predecessor.
+  const reaches = (from: string, to: string): boolean => {
+    const seen = new Set<string>([from]);
+    const stack = [from];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (current === to) return true;
+      for (const next of adjacency.get(current) ?? []) {
+        if (!seen.has(next)) {
+          seen.add(next);
+          stack.push(next);
+        }
+      }
+    }
+    return false;
+  };
+
+  if (reaches(successorId, predecessorId)) {
+    return NextResponse.json(
+      { error: "This dependency would create a cycle" },
+      { status: 400 },
+    );
+  }
+
   const { data: newDep, error } = await (admin as any)
     .from("planning_dependencies")
     .insert({
@@ -425,6 +527,215 @@ async function handleAddDependency(
   }
 
   return NextResponse.json({ success: true, dependency: newDep });
+}
+
+// ─── Reschedule: re-run the CPM over the stored planning ────────────────────
+
+/**
+ * Recompute every task date from the stored durations and dependencies.
+ *
+ * Editing one duration in the Gantt used to move only that bar: its successors
+ * kept their old dates, so the plan quietly stopped being a plan. This walks
+ * the whole graph through the same CPM the generator uses.
+ */
+async function handleReschedule(planningId: string, admin: any): Promise<NextResponse> {
+  const { data: planningRow, error: planningError } = await admin
+    .from("project_plannings")
+    .select("id, start_date, project_type, location_canton, config, ai_generation_log")
+    .eq("id", planningId)
+    .maybeSingle();
+
+  if (planningError || !planningRow) {
+    return NextResponse.json({ error: "Planning not found" }, { status: 404 });
+  }
+  if (!planningRow.start_date) {
+    return NextResponse.json({ error: "Planning has no start_date" }, { status: 400 });
+  }
+
+  const [{ data: phases }, { data: tasks }, { data: deps }] = await Promise.all([
+    admin.from("planning_phases").select("*").eq("planning_id", planningId).order("sort_order", { ascending: true }),
+    admin.from("planning_tasks").select("*").eq("planning_id", planningId).order("sort_order", { ascending: true }),
+    admin.from("planning_dependencies").select("*").eq("planning_id", planningId),
+  ]);
+
+  if (!tasks || tasks.length === 0) {
+    return NextResponse.json({ error: "Planning has no tasks" }, { status: 400 });
+  }
+
+  // The stored `sort_order` is NOT a safe CPM node id: manual add_task /
+  // duplicate rows can share one (older plannings especially), which would make
+  // the CPM merge two tasks and corrupt every downstream date. Assign a fresh
+  // collision-proof index per task, keyed by its uuid, and map dependencies and
+  // persistence through that — the DB sort_order is never used as an identity.
+  const indexByTaskId = new Map<string, number>();
+  const taskIdByIndex = new Map<number, string>();
+  const dbTaskById = new Map<string, any>();
+  tasks.forEach((t: any, i: number) => {
+    indexByTaskId.set(t.id, i);
+    taskIdByIndex.set(i, t.id);
+    dbTaskById.set(t.id, t);
+  });
+
+  const tasksByPhase = new Map<string, any[]>();
+  for (const t of tasks) {
+    const key = t.phase_id ?? "__none";
+    if (!tasksByPhase.has(key)) tasksByPhase.set(key, []);
+    tasksByPhase.get(key)!.push(t);
+  }
+
+  const structure: GeneratedPlanning = {
+    title: "",
+    phases: (phases && phases.length > 0 ? phases : [{ id: "__none", name: "", cfc_codes: [], color: "", sort_order: 0, start_date: planningRow.start_date, end_date: planningRow.start_date }])
+      .map((phase: any) => ({
+        name: phase.name,
+        cfc_codes: phase.cfc_codes ?? [],
+        color: phase.color,
+        sort_order: phase.sort_order,
+        start_date: phase.start_date,
+        end_date: phase.end_date,
+        tasks: (tasksByPhase.get(phase.id) ?? []).map((t: any): GeneratedTask => ({
+          submission_item_id: t.submission_item_id ?? null,
+          source_item_ids: t.source_item_ids ?? [],
+          name: t.name,
+          description: t.description ?? "",
+          cfc_code: t.cfc_code ?? null,
+          start_date: t.start_date,
+          end_date: t.end_date,
+          duration_days: Number(t.duration_days) || 0,
+          quantity: t.quantity,
+          unit: t.unit,
+          productivity_ratio: t.productivity_ratio,
+          productivity_source: t.productivity_source,
+          adjustment_factors: t.adjustment_factors,
+          base_duration_days: t.base_duration_days,
+          team_size: t.team_size ?? 1,
+          progress: Number(t.progress) || 0,
+          is_milestone: !!t.is_milestone,
+          milestone_type: t.milestone_type ?? null,
+          // Synthetic collision-proof node id — NOT the stored sort_order.
+          sort_order: indexByTaskId.get(t.id)!,
+        })),
+      })),
+    dependencies: (deps ?? [])
+      .map((d: any) => ({
+        predecessor_index: indexByTaskId.get(d.predecessor_id),
+        successor_index: indexByTaskId.get(d.successor_id),
+        dependency_type: d.dependency_type,
+        lag_days: Number(d.lag_days) || 0,
+        source: d.source ?? "auto",
+      }))
+      .filter((d: any) => d.predecessor_index !== undefined && d.successor_index !== undefined),
+    calculated_end_date: planningRow.start_date,
+    critical_path_length: 0,
+    ai_generation_log: (planningRow.ai_generation_log as any) ?? {},
+  };
+
+  let result;
+  try {
+    result = rescheduleCPM(structure, {
+      start_date: planningRow.start_date,
+      calendar: undefined, // rebuilt from the recorded canton / closures
+    });
+  } catch (err: any) {
+    console.error("[planning/[id]] reschedule failed:", err);
+    return NextResponse.json({ error: err.message || "Reschedule failed" }, { status: 500 });
+  }
+
+  // Persist the new dates. Only the rows that actually moved are written, and
+  // they go out concurrently instead of one blocking round-trip per task — a
+  // 60-task planning was previously 60+ sequential updates per keystroke.
+  const taskUpdates: Array<Promise<{ error: any } | void>> = [];
+  for (const phase of structure.phases) {
+    for (const task of phase.tasks) {
+      const dbTask = taskIdByIndex.has(task.sort_order)
+        ? dbTaskById.get(taskIdByIndex.get(task.sort_order)!)
+        : undefined;
+      if (!dbTask) continue;
+      if (dbTask.start_date === task.start_date && dbTask.end_date === task.end_date) continue;
+
+      taskUpdates.push(
+        admin
+          .from("planning_tasks")
+          .update({ start_date: task.start_date, end_date: task.end_date })
+          .eq("id", dbTask.id)
+          .eq("planning_id", planningId),
+      );
+    }
+  }
+
+  const taskResults = await Promise.all(taskUpdates);
+  let updated = 0;
+  for (const r of taskResults) {
+    if (r && (r as any).error) {
+      console.error("[planning/[id]] reschedule task update failed:", (r as any).error.message);
+    } else {
+      updated++;
+    }
+  }
+
+  if (phases) {
+    const phaseUpdates: Array<Promise<any>> = [];
+    for (const phase of structure.phases) {
+      const dbPhase = phases.find((p: any) => p.sort_order === phase.sort_order);
+      if (!dbPhase || !phase.start_date) continue;
+      phaseUpdates.push(
+        admin
+          .from("planning_phases")
+          .update({ start_date: phase.start_date, end_date: phase.end_date })
+          .eq("id", dbPhase.id)
+          .eq("planning_id", planningId),
+      );
+    }
+    await Promise.all(phaseUpdates);
+  }
+
+  // The critical path moves with the dates. Leaving the generation-time list in
+  // place would keep the Gantt highlighting a chain that no longer is critical,
+  // so persist the fresh one under the same sort_order convention the client
+  // already knows how to remap.
+  const existingLog =
+    typeof planningRow.ai_generation_log === "object" && planningRow.ai_generation_log
+      ? planningRow.ai_generation_log
+      : {};
+
+  // result.critical_path holds SYNTHETIC indices. Resolve them to real task uuids
+  // (for the client) and to DB sort_order strings (the format the page and the
+  // PDF export both remap on read).
+  const criticalTaskIds = result.critical_path
+    .map((syn: string) => taskIdByIndex.get(Number(syn)))
+    .filter((taskId: string | undefined): taskId is string => Boolean(taskId));
+  const criticalSortOrders = criticalTaskIds
+    .map((taskId: string) => dbTaskById.get(taskId))
+    .filter(Boolean)
+    .map((db: any) => String(db.sort_order));
+
+  const { error: planningUpdateError } = await admin
+    .from("project_plannings")
+    .update({
+      calculated_end_date: result.calculated_end_date,
+      ai_generation_log: {
+        ...existingLog,
+        critical_path_task_ids: criticalSortOrders,
+        critical_path_length: result.critical_path_length,
+        last_reschedule_at: new Date().toISOString(),
+      },
+    })
+    .eq("id", planningId);
+
+  if (planningUpdateError) {
+    console.error("[planning/[id]] reschedule planning update failed:", planningUpdateError.message);
+  }
+
+  return NextResponse.json({
+    success: true,
+    tasks_updated: updated,
+    calculated_end_date: result.calculated_end_date,
+    project_duration_days: result.project_duration,
+    critical_path_length: result.critical_path_length,
+    critical_task_ids: criticalTaskIds,
+    // Non-empty means the dependency graph loops — the dates are not trustworthy.
+    cyclic_task_count: result.cyclic_task_ids.length,
+  });
 }
 
 // ─── Action-based CRUD handler ──────────────────────────────────────────────
@@ -536,12 +847,13 @@ async function handleCrudAction(
           }
         }
 
-        // Determine sort_order
+        // Determine sort_order — MUST be unique across the WHOLE planning, not
+        // just the phase: the CPM reschedule uses it as a node id, so a per-phase
+        // max would collide with a task in another phase and corrupt the dates.
         const { data: existingTasks } = await (admin as any)
           .from("planning_tasks")
           .select("sort_order")
           .eq("planning_id", planningId)
-          .eq("phase_id", targetPhaseId)
           .order("sort_order", { ascending: false })
           .limit(1);
 
@@ -672,7 +984,9 @@ async function handleCrudAction(
 
         if (phaseError || !newPhase) return NextResponse.json({ error: "Failed to duplicate phase" }, { status: 500 });
 
-        // Fetch and duplicate tasks
+        // Fetch and duplicate tasks. The copies MUST get fresh, planning-wide
+        // unique sort_orders — reusing the originals' sort_order would give two
+        // tasks the same CPM node id and corrupt the reschedule.
         const { data: origTasks } = await (admin as any)
           .from("planning_tasks")
           .select("*")
@@ -680,24 +994,37 @@ async function handleCrudAction(
           .eq("phase_id", phase_id)
           .order("sort_order", { ascending: true });
 
-        if (origTasks) {
-          for (const t of origTasks) {
-            await (admin as any)
-              .from("planning_tasks")
-              .insert({
-                planning_id: planningId,
-                phase_id: newPhase.id,
-                name: t.name,
-                cfc_code: t.cfc_code,
-                start_date: t.start_date,
-                end_date: t.end_date,
-                duration_days: t.duration_days,
-                team_size: t.team_size,
-                progress: 0,
-                is_milestone: t.is_milestone,
-                milestone_type: t.milestone_type,
-                sort_order: t.sort_order,
-              });
+        if (origTasks && origTasks.length > 0) {
+          const { data: maxTaskRow } = await (admin as any)
+            .from("planning_tasks")
+            .select("sort_order")
+            .eq("planning_id", planningId)
+            .order("sort_order", { ascending: false })
+            .limit(1);
+
+          let nextOrder = (maxTaskRow?.[0]?.sort_order ?? -1) + 1;
+
+          const rows = origTasks.map((t: any) => ({
+            planning_id: planningId,
+            phase_id: newPhase.id,
+            name: t.name,
+            cfc_code: t.cfc_code,
+            start_date: t.start_date,
+            end_date: t.end_date,
+            duration_days: t.duration_days,
+            team_size: t.team_size,
+            progress: 0,
+            is_milestone: t.is_milestone,
+            milestone_type: t.milestone_type,
+            sort_order: nextOrder++,
+          }));
+
+          const { error: tasksError } = await (admin as any)
+            .from("planning_tasks")
+            .insert(rows);
+
+          if (tasksError) {
+            return NextResponse.json({ error: tasksError.message }, { status: 500 });
           }
         }
 
@@ -718,12 +1045,12 @@ async function handleCrudAction(
 
         if (!origTask) return NextResponse.json({ error: "Task not found" }, { status: 404 });
 
-        // Get next sort_order in the same phase
+        // Next sort_order across the WHOLE planning — a per-phase max would
+        // collide with tasks in other phases and break the CPM reschedule.
         const { data: maxTask } = await (admin as any)
           .from("planning_tasks")
           .select("sort_order")
           .eq("planning_id", planningId)
-          .eq("phase_id", origTask.phase_id)
           .order("sort_order", { ascending: false })
           .limit(1);
 
@@ -757,12 +1084,18 @@ async function handleCrudAction(
         const { phase_ids } = body;
         if (!Array.isArray(phase_ids)) return NextResponse.json({ error: "phase_ids array required" }, { status: 400 });
 
-        for (let i = 0; i < phase_ids.length; i++) {
-          await (admin as any)
-            .from("planning_phases")
-            .update({ sort_order: i })
-            .eq("id", phase_ids[i])
-            .eq("planning_id", planningId);
+        const reorderResults = await Promise.all(
+          phase_ids.map((phaseId: string, i: number) =>
+            (admin as any)
+              .from("planning_phases")
+              .update({ sort_order: i })
+              .eq("id", phaseId)
+              .eq("planning_id", planningId),
+          ),
+        );
+        const reorderError = reorderResults.find((r: any) => r?.error)?.error;
+        if (reorderError) {
+          return NextResponse.json({ error: reorderError.message }, { status: 500 });
         }
 
         return NextResponse.json({ success: true });
@@ -850,6 +1183,10 @@ async function handleCrudAction(
         if (clearError) return NextResponse.json({ error: clearError.message }, { status: 500 });
         return NextResponse.json({ success: true });
       }
+
+      // ── Reschedule (re-run the CPM on the stored planning) ─────────────
+      case "reschedule":
+        return handleReschedule(planningId, admin);
 
       default:
         return NextResponse.json({ error: `Unknown action: ${body.action}` }, { status: 400 });

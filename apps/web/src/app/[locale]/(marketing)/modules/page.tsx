@@ -19,7 +19,9 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "chantier.modulesPage.seo" });
   return {
-    title: t("title"),
+    // The translated title already carries the brand — `absolute` stops the
+    // root layout template from appending a second "| Cantaia".
+    title: { absolute: t("title") },
     description: t("description"),
     alternates: {
       canonical: `https://cantaia.io/${locale}/modules`,
@@ -53,8 +55,8 @@ const MODULES_DATA: ModuleMeta[] = [
     lot: "LOT · 01",
     cfc: "CFC·COM·211",
     accent: "#F97316",
-    statValue: "2.4",
-    statUnit: "h",
+    statValue: "7",
+    statUnit: "",
   },
   {
     key: "m2",
@@ -62,8 +64,8 @@ const MODULES_DATA: ModuleMeta[] = [
     lot: "LOT · 02",
     cfc: "CFC·ADM·221",
     accent: "#F97316",
-    statValue: "42",
-    statUnit: "h",
+    statValue: "4",
+    statUnit: "",
   },
   {
     key: "m3",
@@ -71,8 +73,8 @@ const MODULES_DATA: ModuleMeta[] = [
     lot: "LOT · 03",
     cfc: "CFC·DOC·212",
     accent: "#FACC15",
-    statValue: "35",
-    statUnit: "min",
+    statValue: "3",
+    statUnit: "",
   },
   {
     key: "m4",
@@ -80,8 +82,8 @@ const MODULES_DATA: ModuleMeta[] = [
     lot: "LOT · 04",
     cfc: "CFC·PLN·201",
     accent: "#F97316",
-    statValue: "12",
-    localizedUnit: true,
+    statValue: "3",
+    statUnit: "",
   },
   {
     key: "m5",
@@ -89,8 +91,8 @@ const MODULES_DATA: ModuleMeta[] = [
     lot: "LOT · 05",
     cfc: "CFC·PLG·401",
     accent: "#3B82F6",
-    statValue: "90",
-    statUnit: "s",
+    statValue: "4",
+    statUnit: "",
   },
   {
     key: "m6",
@@ -140,7 +142,7 @@ export default async function ModulesPage({
           className="pointer-events-none fixed left-6 top-1/2 z-10 hidden -translate-y-1/2 -rotate-90 lg:block"
           aria-hidden
         >
-          <span className="font-tech text-[10px] font-semibold tracking-[0.3em] text-[#52525B]">
+          <span className="font-tech text-[10px] font-semibold tracking-[0.3em] text-[#A1A1AA]">
             {t("sideAxis")}
           </span>
         </div>
@@ -156,7 +158,7 @@ export default async function ModulesPage({
                 {t("hero.tag")}
               </span>
               <div className="h-px flex-1 bg-gradient-to-r from-[#F97316] via-[#27272A] to-transparent" />
-              <span className="font-tech text-[10px] tracking-[0.2em] text-[#52525B]">
+              <span className="font-tech text-[10px] tracking-[0.2em] text-[#A1A1AA]">
                 {MODULES_DATA.length} {t("hero.rightTagSuffix")}
               </span>
             </div>
@@ -181,17 +183,14 @@ export default async function ModulesPage({
                 />
                 <MetricTag
                   code="M02"
-                  value="42"
+                  value="11"
                   label={t("hero.metric2Label")}
-                  unit="h"
-                  source="TERRAIN"
                 />
                 <MetricTag
                   code="M03"
-                  value="94"
+                  value="3"
                   label={t("hero.metric3Label")}
-                  unit="%"
-                  source="CLAUDE"
+                  unit="FR · DE · EN"
                 />
                 <MetricTag
                   code="M04"
@@ -237,7 +236,7 @@ export default async function ModulesPage({
                     >
                       {m.lot}
                     </span>
-                    <span className="font-tech text-[10px] tracking-[0.18em] text-[#52525B]">
+                    <span className="font-tech text-[10px] tracking-[0.18em] text-[#A1A1AA]">
                       {m.cfc}
                     </span>
                   </div>
@@ -255,7 +254,7 @@ export default async function ModulesPage({
                   <h2 className="font-condensed text-[52px] font-900 uppercase leading-[0.95] tracking-[-0.01em] text-[#FAFAFA] sm:text-[64px]">
                     {t(`modules.${m.key}.name`)}
                   </h2>
-                  <p className="mt-3 font-tech text-[12px] font-semibold tracking-[0.18em] text-[#71717A]">
+                  <p className="mt-3 font-tech text-[12px] font-semibold tracking-[0.18em] text-[#A1A1AA]">
                     {t(`modules.${m.key}.subtitle`).toUpperCase()}
                   </p>
 
@@ -275,7 +274,7 @@ export default async function ModulesPage({
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 font-tech text-[10px] font-semibold uppercase tracking-[0.2em] text-[#52525B]">
+                    <div className="mt-1 font-tech text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A1A1AA]">
                       {t(`modules.${m.key}.statLabel`)}
                     </div>
                   </div>
@@ -297,7 +296,7 @@ export default async function ModulesPage({
                           key={`${m.key}-r${n}`}
                           className="flex items-start gap-3 font-sans text-[14px] text-[#A1A1AA] line-through decoration-[#27272A]"
                         >
-                          <span className="mt-1 text-[#52525B]">—</span>
+                          <span className="mt-1 text-[#A1A1AA]">—</span>
                           <span>{t(`modules.${m.key}.replace${n}`)}</span>
                         </li>
                       ))}

@@ -36,6 +36,7 @@ export async function generateMetadata({
         fr: "https://cantaia.io/fr/legal/cgv",
         en: "https://cantaia.io/en/legal/cgv",
         de: "https://cantaia.io/de/legal/cgv",
+        "x-default": "https://cantaia.io/fr/legal/cgv",
       },
     },
   };
@@ -49,7 +50,7 @@ export default function CGVPage() {
       <h1 className="text-3xl font-bold tracking-tight text-[#FAFAFA] sm:text-4xl">
         {t("cgv.title")}
       </h1>
-      <p className="mt-4 text-sm text-[#71717A]">{t("cgv.lastUpdated")}</p>
+      <p className="mt-4 text-sm text-[#A1A1AA]">{t("cgv.lastUpdated")}</p>
 
       <div className="mt-10 space-y-8 text-[#A1A1AA]">
         {(["scope", "subscriptions", "payment", "termination", "liability", "jurisdiction"] as const).map(

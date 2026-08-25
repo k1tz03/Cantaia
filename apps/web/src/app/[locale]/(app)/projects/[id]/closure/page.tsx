@@ -50,6 +50,7 @@ export default function ProjectClosurePage() {
   const [projectEmails, setProjectEmails] = useState<{ classification?: string }[]>([]);
   const [reception, setReception] = useState<{ id: string; pv_document_url?: string | null; pv_signed_url?: string | null } | null>(null);
   const [closureDocs, setClosureDocs] = useState<{ id: string }[]>([]);
+  const [openReservesCount, setOpenReservesCount] = useState(0);
   const [dataLoading, setDataLoading] = useState(true);
 
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -83,6 +84,18 @@ export default function ProjectClosurePage() {
       setMeetings(data.meetings || []);
       setProjectEmails(data.emails || []);
       setClosureDocs(data.closureDocs || []);
+
+      // Open reserves drive the banner below the steps. Fetched separately:
+      // the closure/data endpoint does not carry reserve counters.
+      try {
+        const reservesRes = await fetch(`/api/reserves?project_id=${projectId}`, { cache: "no-store" });
+        if (reservesRes.ok) {
+          const reservesData = await reservesRes.json();
+          setOpenReservesCount(reservesData.counts?.open ?? 0);
+        }
+      } catch {
+        // Non-blocking — the banner simply stays hidden.
+      }
 
       // Use server reception data if available, otherwise check localStorage fallback
       // This handles the case where migration 010 is not applied (project_receptions table doesn't exist)
@@ -129,7 +142,7 @@ export default function ProjectClosurePage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-[#71717A]">{t("projectNotFound")}</p>
+        <p className="text-[#A1A1AA]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -298,7 +311,7 @@ export default function ProjectClosurePage() {
       <div className="flex items-start gap-4">
         <Link
           href={`/projects/${project.id}`}
-          className="mt-1 rounded-md p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+          className="mt-1 rounded-md p-2 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
@@ -306,7 +319,7 @@ export default function ProjectClosurePage() {
           <h1 className="text-xl font-semibold text-[#FAFAFA]">
             {t("title")} — {project.name}
           </h1>
-          <p className="mt-1 text-sm text-[#71717A]">{t("subtitle")}</p>
+          <p className="mt-1 text-sm text-[#A1A1AA]">{t("subtitle")}</p>
         </div>
       </div>
 
@@ -316,7 +329,7 @@ export default function ProjectClosurePage() {
           <span className="font-medium text-[#FAFAFA]">
             {t("progression")}
           </span>
-          <span className="text-[#71717A]">
+          <span className="text-[#A1A1AA]">
             {completedSteps}/{steps.length} {t("steps")}
           </span>
         </div>
@@ -365,15 +378,15 @@ export default function ProjectClosurePage() {
                       {index + 1}
                     </div>
                   ) : (
-                    <Circle className="h-6 w-6 text-[#71717A]" />
+                    <Circle className="h-6 w-6 text-[#A1A1AA]" />
                   )}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Icon className={`h-4 w-4 ${isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-brand" : "text-[#71717A]"}`} />
-                    <h3 className={`text-sm font-semibold ${isCompleted ? "text-green-800 dark:text-green-400" : isActive ? "text-[#FAFAFA]" : "text-[#71717A]"}`}>
+                    <Icon className={`h-4 w-4 ${isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-brand" : "text-[#A1A1AA]"}`} />
+                    <h3 className={`text-sm font-semibold ${isCompleted ? "text-green-800 dark:text-green-400" : isActive ? "text-[#FAFAFA]" : "text-[#A1A1AA]"}`}>
                       {t(`step${index + 1}Title`)}
                     </h3>
                     {isActive && (
@@ -382,15 +395,15 @@ export default function ProjectClosurePage() {
                       </span>
                     )}
                     {isLocked && (
-                      <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-[10px] font-medium text-[#71717A]">
+                      <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-[10px] font-medium text-[#A1A1AA]">
                         {t("lockedStep")}
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-xs text-[#71717A]">
+                  <p className="mt-1 text-xs text-[#A1A1AA]">
                     {t(`step${index + 1}Description`)}
                   </p>
-                  <p className={`mt-2 text-xs font-medium ${isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-[#FAFAFA]" : "text-[#71717A]"}`}>
+                  <p className={`mt-2 text-xs font-medium ${isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-[#FAFAFA]" : "text-[#A1A1AA]"}`}>
                     {step.detail}
                   </p>
 
@@ -416,16 +429,18 @@ export default function ProjectClosurePage() {
                   {isActive && step.key === "documents" && (
                     <Link
                       href={`/projects/${project.id}/closure/documents`}
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
                     >
                       <FolderCheck className="h-3.5 w-3.5" />
                       {t("addDocuments")}
                     </Link>
                   )}
                   {isActive && step.key === "tasks" && openTasks.length > 0 && (
+                    // Stay inside the project: /tasks drops the closure context
+                    // and shows the whole org's backlog.
                     <Link
-                      href="/tasks"
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+                      href={`/projects/${project.id}?tab=tasks`}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
                     >
                       <ClipboardList className="h-3.5 w-3.5" />
                       {t("viewOpenTasks")}
@@ -447,8 +462,8 @@ export default function ProjectClosurePage() {
       </div>
 
       {/* Reserves banner */}
-      {reception && (() => {
-        const openRes = 0;
+      {(() => {
+        const openRes = openReservesCount;
         if (openRes === 0) return null;
         return (
           <div className="mt-6 rounded-md border border-amber-200 bg-amber-500/10 p-4">
@@ -482,7 +497,7 @@ export default function ProjectClosurePage() {
               <h3 className="text-sm font-semibold text-[#FAFAFA]">
                 {t("archiveTitle")}
               </h3>
-              <p className="mt-1 text-xs text-[#71717A]">
+              <p className="mt-1 text-xs text-[#A1A1AA]">
                 {t("archiveDescription")}
               </p>
               {archiveError && (
@@ -501,7 +516,7 @@ export default function ProjectClosurePage() {
                 type="button"
                 onClick={handleDownloadArchive}
                 disabled={archiving}
-                className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
+                className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] transition-colors hover:bg-[#EA580C] disabled:opacity-50"
               >
                 {archiving ? (
                   <>
@@ -529,7 +544,7 @@ export default function ProjectClosurePage() {
           className={`inline-flex items-center gap-2 rounded-md px-6 py-3 text-sm font-semibold transition-colors ${
             canComplete && !completing
               ? "bg-green-600 text-white hover:bg-green-700"
-              : "cursor-not-allowed bg-[#27272A] text-[#71717A]"
+              : "cursor-not-allowed bg-[#27272A] text-[#A1A1AA]"
           }`}
         >
           {completing ? (
@@ -540,7 +555,7 @@ export default function ProjectClosurePage() {
           {t("completeProject")}
         </button>
         {!canComplete && (
-          <p className="mt-2 text-xs text-[#71717A]">{t("completeProjectHint")}</p>
+          <p className="mt-2 text-xs text-[#A1A1AA]">{t("completeProjectHint")}</p>
         )}
       </div>
     </div>

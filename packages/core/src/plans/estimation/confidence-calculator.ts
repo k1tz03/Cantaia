@@ -43,7 +43,21 @@ export function calculateGlobalScore(postes: PosteChiffre[]): number {
   }
 
   if (totalWeight === 0) return 0;
-  return Math.round((weightedSum / totalWeight) * 100);
+  const base = weightedSum / totalWeight;
+
+  // AUDIT 08/2026 — SURCONFIANCE STRUCTURELLE corrigée : la pondération par
+  // montant donne un poids NUL aux postes sans prix résolu (median null → 0),
+  // donc une estimation où la moitié des postes est "prix_non_disponible"
+  // affichait le même score qu'une estimation complète. Le taux de couverture
+  // (part des postes avec prix résolu) module désormais le score : à
+  // couverture 100 % le score est inchangé, à 50 % il est réduit de 30 %.
+  const covered = postes.filter(
+    (p) => p.prix_unitaire.source !== 'prix_non_disponible' && p.total.median !== null
+  ).length;
+  const coverage = covered / postes.length;
+  const coverageFactor = 0.4 + 0.6 * coverage;
+
+  return Math.round(base * coverageFactor * 100);
 }
 
 export function getScoreLabel(score: number): string {
@@ -53,12 +67,8 @@ export function getScoreLabel(score: number): string {
   return 'Pré-estimation — plans complémentaires nécessaires';
 }
 
-export function getScoreColor(score: number): string {
-  if (score >= 80) return 'green';
-  if (score >= 60) return 'blue';
-  if (score >= 40) return 'orange';
-  return 'red';
-}
+// (getScoreColor SUPPRIMÉ — AUDIT 08/2026, purge du code mort : aucun appelant.
+// La page suppliers a sa propre implémentation locale.)
 
 // Calcul de la répartition des sources (en % du montant total)
 export function calculateSourceDistribution(postes: PosteChiffre[]): Record<string, number> {

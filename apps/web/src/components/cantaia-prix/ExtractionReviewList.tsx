@@ -44,7 +44,7 @@ export function ExtractionReviewList({
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {extractionResults.length} offre{extractionResults.length > 1 ? "s" : ""} trouvée{extractionResults.length > 1 ? "s" : ""}
           </h3>
-          <p className="text-xs text-[#71717A]">
+          <p className="text-xs text-[#A1A1AA]">
             Sélectionnez les offres à importer dans la base de prix
           </p>
         </div>
@@ -58,7 +58,7 @@ export function ExtractionReviewList({
                 setSelectedExtractions(new Set(extractionResults.map((r: any) => r.emailId)));
               }
             }}
-            className="text-xs text-[#71717A] hover:text-[#FAFAFA]"
+            className="text-xs text-[#A1A1AA] hover:text-[#FAFAFA]"
           >
             {selectedExtractions.size === extractionResults.length ? "Tout désélectionner" : "Tout sélectionner"}
           </button>
@@ -118,7 +118,7 @@ export function ExtractionReviewList({
                       )}
                     </span>
                   </div>
-                  <p className="text-xs text-[#71717A] truncate">
+                  <p className="text-xs text-[#A1A1AA] truncate">
                     {result.fileName && <span className="font-mono">{result.fileName}</span>}
                     {result.fileName && (result.supplier_info?.email || result.supplier_info?.city) ? " — " : ""}
                     {result.supplier_info?.email || ""}{result.supplier_info?.city ? ` — ${result.supplier_info.city}` : ""}
@@ -134,13 +134,13 @@ export function ExtractionReviewList({
                     {result.line_items?.length || 0} poste{(result.line_items?.length || 0) > 1 ? "s" : ""}
                   </p>
                   {result.offer_summary?.total_amount && (
-                    <p className="font-mono text-xs text-[#71717A]">
+                    <p className="font-mono text-xs text-[#A1A1AA]">
                       {formatCHF(result.offer_summary.total_amount)} CHF
                     </p>
                   )}
                 </div>
                 <ChevronRight className={cn(
-                  "h-4 w-4 text-[#71717A] transition-transform shrink-0",
+                  "h-4 w-4 text-[#A1A1AA] transition-transform shrink-0",
                   expandedExtraction === result.emailId && "rotate-90"
                 )} />
               </button>
@@ -151,8 +151,8 @@ export function ExtractionReviewList({
               <div className="border-t border-[#27272A] bg-[#27272A]/50 px-4 py-3">
                 {/* Project assignment */}
                 <div className="mb-3 flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5 text-[#71717A] shrink-0" />
-                  <span className="text-xs text-[#71717A] shrink-0">Projet :</span>
+                  <MapPin className="h-3.5 w-3.5 text-[#A1A1AA] shrink-0" />
+                  <span className="text-xs text-[#A1A1AA] shrink-0">Projet :</span>
                   <select
                     value={extractionProjectMap[result.emailId] || ""}
                     onChange={(e) => {
@@ -180,7 +180,7 @@ export function ExtractionReviewList({
                   )}
                 </div>
                 {/* Supplier info */}
-                <div className="mb-3 flex flex-wrap gap-3 text-xs text-[#71717A]">
+                <div className="mb-3 flex flex-wrap gap-3 text-xs text-[#A1A1AA]">
                   {result.supplier_info?.phone && (
                     <span>{result.supplier_info.phone}</span>
                   )}
@@ -192,39 +192,41 @@ export function ExtractionReviewList({
                   )}
                 </div>
                 {/* Line items table */}
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-[10px] uppercase text-[#71717A]">
-                      <th className="pb-1.5 text-left font-semibold">Description</th>
-                      <th className="pb-1.5 text-right font-semibold">Qté</th>
-                      <th className="pb-1.5 text-center font-semibold">Unité</th>
-                      <th className="pb-1.5 text-right font-semibold">PU (CHF)</th>
-                      <th className="pb-1.5 text-right font-semibold">Total (CHF)</th>
-                      <th className="pb-1.5 text-center font-semibold">CFC</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {result.line_items.map((li: any, idx: number) => (
-                      <tr key={idx}>
-                        <td className="py-1.5 pr-2 text-[#FAFAFA]">{li.description}</td>
-                        <td className="py-1.5 text-right font-mono text-[#71717A]">{li.quantity ?? "—"}</td>
-                        <td className="py-1.5 text-center text-[#71717A]">{li.unit}</td>
-                        <td className="py-1.5 text-right font-mono text-[#FAFAFA]">{formatCHF(li.unit_price)}</td>
-                        <td className="py-1.5 text-right font-mono font-medium text-[#FAFAFA]">
-                          {li.total_price ? formatCHF(li.total_price) : "—"}
-                        </td>
-                        <td className="py-1.5 text-center">
-                          {li.cfc_code ? (
-                            <span className="rounded bg-[#27272A] px-1.5 py-0.5 font-mono text-[10px]">{li.cfc_code}</span>
-                          ) : "—"}
-                        </td>
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-[10px] uppercase text-[#A1A1AA]">
+                        <th className="pb-1.5 text-left font-semibold">Description</th>
+                        <th className="pb-1.5 text-right font-semibold">Qté</th>
+                        <th className="pb-1.5 text-center font-semibold">Unité</th>
+                        <th className="pb-1.5 text-right font-semibold">PU (CHF)</th>
+                        <th className="pb-1.5 text-right font-semibold">Total (CHF)</th>
+                        <th className="pb-1.5 text-center font-semibold">CFC</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {result.line_items.map((li: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className="py-1.5 pr-2 text-[#FAFAFA]">{li.description}</td>
+                          <td className="py-1.5 text-right font-mono text-[#A1A1AA]">{li.quantity ?? "—"}</td>
+                          <td className="py-1.5 text-center text-[#A1A1AA]">{li.unit}</td>
+                          <td className="py-1.5 text-right font-mono text-[#FAFAFA]">{formatCHF(li.unit_price)}</td>
+                          <td className="py-1.5 text-right font-mono font-medium text-[#FAFAFA]">
+                            {li.total_price ? formatCHF(li.total_price) : "—"}
+                          </td>
+                          <td className="py-1.5 text-center">
+                            {li.cfc_code ? (
+                              <span className="rounded bg-[#27272A] px-1.5 py-0.5 font-mono text-[10px]">{li.cfc_code}</span>
+                            ) : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 {/* Conditions */}
                 {result.offer_summary && (
-                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[#71717A]">
+                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[#A1A1AA]">
                     {result.offer_summary.payment_terms && <span>Paiement: {result.offer_summary.payment_terms}</span>}
                     {result.offer_summary.validity_days && <span>Validité: {result.offer_summary.validity_days}j</span>}
                     {result.offer_summary.vat_rate && <span>TVA: {result.offer_summary.vat_rate}%</span>}

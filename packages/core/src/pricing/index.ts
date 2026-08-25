@@ -16,12 +16,6 @@ export {
 } from "./email-price-extractor";
 
 export {
-  processNextChunk,
-  type BatchProcessChunkInput,
-  type BatchProcessChunkResult,
-} from "./batch-price-processor";
-
-export {
   importExtractedPrices,
   type ImportPriceDataInput,
   type ImportResult,
@@ -32,3 +26,10 @@ export {
   type FileExtractionInput,
   type FileExtractionResult,
 } from "./file-price-extractor";
+
+export {
+  runCorrelatedMonteCarlo,
+  type MonteCarloItem,
+  type MonteCarloResult,
+  type MonteCarloOptions,
+} from "./monte-carlo";

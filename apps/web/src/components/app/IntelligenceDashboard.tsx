@@ -66,7 +66,7 @@ function CounterCard({
       </div>
       <div className="min-w-0">
         <div className="font-display text-lg font-bold text-[#FAFAFA]">{value}</div>
-        <div className="text-[10px] text-[#71717A] leading-tight">{label}</div>
+        <div className="text-[10px] text-[#A1A1AA] leading-tight">{label}</div>
       </div>
     </div>
   );
@@ -136,7 +136,7 @@ export default function IntelligenceDashboard() {
           <div className="space-y-4">
             {/* Org counters */}
             <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
-              <h4 className="text-xs font-semibold text-[#71717A] uppercase tracking-wider mb-3">
+              <h4 className="text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider mb-3">
                 {t("orgCountersTitle")}
               </h4>
               {loading ? (
@@ -181,7 +181,7 @@ export default function IntelligenceDashboard() {
 
             {/* Learning journal */}
             <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
-              <h4 className="text-xs font-semibold text-[#71717A] uppercase tracking-wider mb-3">
+              <h4 className="text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider mb-3">
                 {t("journalTitle")}
               </h4>
               {loading ? (
@@ -201,7 +201,7 @@ export default function IntelligenceDashboard() {
                   {data.journal.map((entry, idx) => {
                     const config = JOURNAL_ICONS[entry.type] || {
                       icon: Brain,
-                      color: "text-[#71717A]",
+                      color: "text-[#A1A1AA]",
                       bg: "bg-[#27272A]",
                     };
                     const Icon = config.icon;
@@ -219,7 +219,7 @@ export default function IntelligenceDashboard() {
                           <p className="text-xs text-[#FAFAFA] leading-snug">
                             {entry.description}
                           </p>
-                          <p className="text-[10px] text-[#71717A] flex items-center gap-1 mt-0.5">
+                          <p className="text-[10px] text-[#A1A1AA] flex items-center gap-1 mt-0.5">
                             <Clock className="h-2.5 w-2.5" />
                             {formatJournalDate(entry.date)}
                           </p>
@@ -229,7 +229,7 @@ export default function IntelligenceDashboard() {
                   })}
                 </div>
               ) : (
-                <p className="text-xs text-[#71717A] text-center py-3">
+                <p className="text-xs text-[#A1A1AA] text-center py-3">
                   {t("journalEmpty")}
                 </p>
               )}

@@ -12,6 +12,12 @@ export interface PlanningTask {
   id: string;
   duration_days: number;
   is_milestone?: boolean;
+  /**
+   * Hard floor on the Earliest Start, in working days from project start.
+   * Used by resource levelling to push a task without inventing a fake
+   * dependency, and by procurement constraints.
+   */
+  earliest_start?: number;
 }
 
 export interface PlanningDependency {
@@ -72,6 +78,14 @@ export interface CriticalPathAnalysis {
   project_duration: number;
   /** Per-task schedule details */
   task_schedules: Map<string, TaskSchedule>;
+  /**
+   * Task IDs that could not be topologically ordered — i.e. they sit on a
+   * dependency cycle. Non-empty means the schedule is NOT trustworthy; the
+   * caller must surface it instead of silently shipping the dates.
+   */
+  cyclic_task_ids: string[];
+  /** Non-milestone task IDs with no predecessor (orphans). */
+  orphan_task_ids: string[];
 }
 
 /**
@@ -83,20 +97,26 @@ export function analyzeCriticalPath(
   dependencies: PlanningDependency[],
 ): CriticalPathAnalysis {
   if (tasks.length === 0) {
-    return { critical_path: [], project_duration: 0, task_schedules: new Map() };
+    return {
+      critical_path: [], project_duration: 0, task_schedules: new Map(),
+      cyclic_task_ids: [], orphan_task_ids: [],
+    };
   }
 
   if (tasks.length === 1) {
     const t = tasks[0];
+    const es = Math.max(0, t.earliest_start ?? 0);
     const sched: TaskSchedule = {
-      es: 0, ef: t.duration_days,
-      ls: 0, lf: t.duration_days,
+      es, ef: es + t.duration_days,
+      ls: es, lf: es + t.duration_days,
       total_float: 0,
     };
     return {
       critical_path: [t.id],
-      project_duration: t.duration_days,
+      project_duration: es + t.duration_days,
       task_schedules: new Map([[t.id, sched]]),
+      cyclic_task_ids: [],
+      orphan_task_ids: t.is_milestone ? [] : [t.id],
     };
   }
 
@@ -161,14 +181,26 @@ export function analyzeCriticalPath(
     }
   }
 
-  // If topological sort doesn't include all tasks, there may be a cycle.
-  // Include remaining tasks at the end to avoid losing data.
+  // Tasks missing from the topological order sit on a cycle. They are still
+  // scheduled (appended at the end) so nothing is lost, but the caller is told
+  // explicitly instead of receiving quietly meaningless dates.
+  const cyclicTaskIds: string[] = [];
   if (topoOrder.length < tasks.length) {
+    const ordered = new Set(topoOrder);
     for (const t of tasks) {
-      if (!topoOrder.includes(t.id)) {
+      if (!ordered.has(t.id)) {
+        cyclicTaskIds.push(t.id);
         topoOrder.push(t.id);
       }
     }
+  }
+
+  // Orphans: real tasks nothing precedes. Outside phase 1 this is a modelling
+  // bug — the generator asserts on it.
+  const orphanTaskIds: string[] = [];
+  for (const t of tasks) {
+    if (t.is_milestone) continue;
+    if ((predecessorsMap.get(t.id) ?? []).length === 0) orphanTaskIds.push(t.id);
   }
 
   // ── Forward pass: compute ES and EF ──
@@ -181,8 +213,8 @@ export function analyzeCriticalPath(
     const task = taskMap.get(taskId)!;
     const sched = scheduleMap.get(taskId)!;
 
-    // ES = max over all predecessor constraints
-    let maxES = 0;
+    // ES = max over all predecessor constraints, floored by earliest_start
+    let maxES = Math.max(0, task.earliest_start ?? 0);
     for (const pred of predecessorsMap.get(taskId) ?? []) {
       const predSched = scheduleMap.get(pred.id)!;
 
@@ -255,6 +287,8 @@ export function analyzeCriticalPath(
     critical_path: criticalPath,
     project_duration: projectEnd,
     task_schedules: scheduleMap,
+    cyclic_task_ids: cyclicTaskIds,
+    orphan_task_ids: orphanTaskIds,
   };
 }
 

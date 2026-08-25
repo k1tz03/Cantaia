@@ -52,6 +52,11 @@ export const CREDIT_COSTS: Record<string, number> = {
   pv_transcribe: 0,
   visit_report: 10,
   handwritten_notes: 5,
+  // Site-visit audio → Whisper. Unlike `pv_transcribe` (bundled into
+  // `pv_generate`) a visit transcription is a standalone, user-triggered
+  // action that can be run without ever generating a report, so it is
+  // metered on its own.
+  visit_transcribe: 3,
 
   // ---- Plans ----
   plan_analyze: 10,
@@ -108,8 +113,25 @@ export function creditCostFor(actionType: string | null | undefined): number {
   return typeof cost === "number" ? cost : DEFAULT_CREDIT_COST;
 }
 
+/**
+ * Metering key for an agent run.
+ *
+ * Every agent type has its own `agent_<type>` entry above (0 for the bundled
+ * ones such as `email-classifier` / `briefing-generator`, 10 for the heavy
+ * interactive ones). A type that is NOT in the grid must fall back to the
+ * generic `agent_session` price — NOT to DEFAULT_CREDIT_COST, which would
+ * silently sell a 25-iteration Sonnet run for 1 credit.
+ */
+export function agentActionType(agentType: string): string {
+  const key = `agent_${agentType}`;
+  return key in CREDIT_COSTS ? key : "agent_session";
+}
+
 /** Credits granted once, when an organization is created. */
-export const SIGNUP_BONUS_CREDITS = 100;
+// 300 ≈ 3-4 heavy actions (a submission analysis at 20 + a plan estimation at
+// 30 + a PV at 15 still leaves room), so an evaluator can genuinely try the
+// product before hitting the paywall. Marketing copy must match this number.
+export const SIGNUP_BONUS_CREDITS = 300;
 
 // ------------------------------------------------------------
 // Credit packs — one-shot purchase, Stripe mode=payment, 12 months validity
@@ -199,6 +221,21 @@ export function isCreditPlanId(value: unknown): value is CreditPlanId {
 export function monthlyAllocationFor(plan: string | null | undefined): number {
   if (!plan) return 0;
   return CREDIT_PLANS[plan as CreditPlanId]?.monthly_credits ?? 0;
+}
+
+/**
+ * Monthly recurring revenue (CHF) an organization on `plan` generates.
+ *
+ * Flat price PER ORGANIZATION — the credits model has no per-seat component,
+ * so MRR never depends on the member count. Trial / unknown plans → 0.
+ *
+ * This is THE function every MRR/ARR figure must go through (super-admin
+ * dashboard, billing page, analytics) so a price change in CREDIT_PLANS
+ * propagates everywhere at once.
+ */
+export function subscriptionRevenueFor(plan: string | null | undefined): number {
+  if (!plan) return 0;
+  return CREDIT_PLANS[plan as CreditPlanId]?.price_chf ?? 0;
 }
 
 // ------------------------------------------------------------

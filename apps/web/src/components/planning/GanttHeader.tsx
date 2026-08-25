@@ -80,7 +80,7 @@ export default function GanttHeader({
             {planning.title}
           </h2>
           {projectName && (
-            <p className="text-xs text-[#71717A] truncate">{projectName}</p>
+            <p className="text-xs text-[#A1A1AA] truncate">{projectName}</p>
           )}
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function GanttHeader({
               "px-3 py-1 text-xs font-medium rounded-md transition-colors",
               zoom === opt.value
                 ? "bg-[#0F0F11] text-[#FAFAFA] shadow-sm"
-                : "text-[#71717A] hover:text-[#FAFAFA]",
+                : "text-[#A1A1AA] hover:text-[#FAFAFA]",
             ].join(" ")}
           >
             {opt.label}
@@ -120,10 +120,10 @@ export default function GanttHeader({
           className={[
             "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all",
             isCriticalPathHighlighted
-              ? "bg-red-100 text-red-800 ring-2 ring-red-300"
+              ? "bg-[#EF4444]/15 text-[#EF4444] ring-2 ring-[#EF4444]/40"
               : isCriticalHigh
-                ? "bg-red-50 text-red-700 hover:bg-red-100"
-                : "bg-[#27272A] text-[#71717A] hover:bg-[#27272A]",
+                ? "bg-[#EF4444]/10 text-[#EF4444] hover:bg-[#EF4444]/15"
+                : "bg-[#27272A] text-[#A1A1AA] hover:bg-[#27272A]",
           ].join(" ")}
           title={t("criticalPathHighlight")}
         >
@@ -144,7 +144,7 @@ export default function GanttHeader({
           {/* Save baseline */}
           <button
             onClick={onSaveBaseline}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-[#71717A] border border-[#27272A] rounded-md hover:bg-[#27272A] transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-[#A1A1AA] border border-[#27272A] rounded-md hover:bg-[#27272A] transition-colors"
             title={t("baseline.save")}
           >
             <Bookmark className="h-3.5 w-3.5" />
@@ -159,8 +159,8 @@ export default function GanttHeader({
                 className={[
                   "flex items-center gap-1 px-2 py-1 text-xs border rounded-md transition-colors",
                   showBaseline
-                    ? "text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100"
-                    : "text-[#71717A] border-[#27272A] hover:bg-[#27272A]",
+                    ? "text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/30 hover:bg-[#F59E0B]/15"
+                    : "text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]",
                 ].join(" ")}
                 title={showBaseline ? t("baseline.hide") : t("baseline.show")}
               >
@@ -177,7 +177,8 @@ export default function GanttHeader({
               {/* Reset baseline */}
               <button
                 onClick={onResetBaseline}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-[#71717A] border border-[#27272A] rounded-md hover:bg-[#27272A] transition-colors"
+                aria-label={t("baseline.reset")}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-[#A1A1AA] border border-[#27272A] rounded-md hover:bg-[#27272A] transition-colors"
                 title={t("baseline.reset")}
               >
                 <RotateCcw className="h-3.5 w-3.5" />

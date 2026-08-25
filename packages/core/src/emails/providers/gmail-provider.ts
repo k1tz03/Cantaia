@@ -39,22 +39,73 @@ async function gmailFetch<T>(token: string, url: string, options: RequestInit = 
   return response.json();
 }
 
-/** Build RFC 2822 message encoded as base64url for Gmail API */
+/** Encode an RFC 5322 header value safely (RFC 2047 for non-ASCII). */
+function encodeHeaderValue(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7F]*$/.test(value)) return value;
+  return `=?UTF-8?B?${Buffer.from(value, "utf-8").toString("base64")}?=`;
+}
+
+/**
+ * Build an RFC 2822 message encoded as base64url for the Gmail API.
+ *
+ * AUDIT 08/2026 — the previous version built a bare multipart/alternative and
+ * dropped draft.attachments AND draft.bcc entirely: a Gmail send with files
+ * left without them, silently. When attachments are present the message is now
+ * a multipart/mixed carrying the HTML body plus each attachment, and Bcc is
+ * always emitted as a header.
+ */
 function buildRawMessage(from: string, draft: EmailDraft): string {
-  const boundary = `boundary_${Date.now()}`;
   const to = draft.to.join(", ");
   const cc = draft.cc?.join(", ") || "";
+  const bcc = draft.bcc?.join(", ") || "";
+  const attachments = draft.attachments || [];
 
-  let message = `From: ${from}\r\n`;
-  message += `To: ${to}\r\n`;
-  if (cc) message += `Cc: ${cc}\r\n`;
-  message += `Subject: ${draft.subject}\r\n`;
-  message += `MIME-Version: 1.0\r\n`;
-  message += `Content-Type: multipart/alternative; boundary="${boundary}"\r\n\r\n`;
-  message += `--${boundary}\r\n`;
-  message += `Content-Type: text/html; charset="UTF-8"\r\n\r\n`;
-  message += `${draft.bodyHtml}\r\n`;
-  message += `--${boundary}--`;
+  const headers: string[] = [
+    `From: ${from}`,
+    `To: ${to}`,
+  ];
+  if (cc) headers.push(`Cc: ${cc}`);
+  if (bcc) headers.push(`Bcc: ${bcc}`);
+  headers.push(`Subject: ${encodeHeaderValue(draft.subject)}`);
+  headers.push("MIME-Version: 1.0");
+
+  let message: string;
+
+  if (attachments.length > 0) {
+    const boundary = `mixed_${Date.now()}`;
+    headers.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+    message = headers.join("\r\n") + "\r\n\r\n";
+
+    // Body part
+    message += `--${boundary}\r\n`;
+    message += `Content-Type: text/html; charset="UTF-8"\r\n`;
+    message += `Content-Transfer-Encoding: 7bit\r\n\r\n`;
+    message += `${draft.bodyHtml}\r\n\r\n`;
+
+    // Attachment parts
+    for (const att of attachments) {
+      const base64 = Buffer.isBuffer(att.content)
+        ? att.content.toString("base64")
+        : Buffer.from(att.content as string).toString("base64");
+      // Split into 76-char lines per RFC 2045
+      const wrapped = base64.replace(/(.{76})/g, "$1\r\n");
+      message += `--${boundary}\r\n`;
+      message += `Content-Type: ${att.contentType || "application/octet-stream"}; name="${att.filename}"\r\n`;
+      message += `Content-Transfer-Encoding: base64\r\n`;
+      message += `Content-Disposition: attachment; filename="${att.filename}"\r\n\r\n`;
+      message += `${wrapped}\r\n`;
+    }
+    message += `--${boundary}--`;
+  } else {
+    const boundary = `alt_${Date.now()}`;
+    headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+    message = headers.join("\r\n") + "\r\n\r\n";
+    message += `--${boundary}\r\n`;
+    message += `Content-Type: text/html; charset="UTF-8"\r\n\r\n`;
+    message += `${draft.bodyHtml}\r\n`;
+    message += `--${boundary}--`;
+  }
 
   // Base64url encode
   return Buffer.from(message)

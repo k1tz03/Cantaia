@@ -108,7 +108,10 @@ export async function PATCH(
 
   const body = await request.json();
 
-  // Only allow specific fields to be updated
+  // Only allow specific fields to be updated.
+  // overall_score is intentionally NOT here: it is a computed column and the only
+  // legitimate writer is recalculateAndPersistScore. Letting members set it lets
+  // them forge an arbitrary score until the next recalculation.
   const allowedFields = [
     "company_name",
     "contact_name",
@@ -125,16 +128,34 @@ export async function PATCH(
     "languages",
     "certifications",
     "status",
+    "supplier_type",
     "manual_rating",
     "notes",
-    "overall_score",
   ];
+
+  const SUPPLIER_TYPES = ["fournisseur", "prestataire"];
+  const SUPPLIER_STATUSES = ["new", "active", "preferred", "blacklisted", "inactive"];
 
   const updates: Record<string, unknown> = {};
   for (const key of allowedFields) {
     if (body[key] !== undefined) {
       updates[key] = body[key];
     }
+  }
+
+  // Validate constrained fields
+  if (updates.supplier_type !== undefined && !SUPPLIER_TYPES.includes(updates.supplier_type as string)) {
+    return NextResponse.json({ error: "supplier_type invalide" }, { status: 400 });
+  }
+  if (updates.status !== undefined && !SUPPLIER_STATUSES.includes(updates.status as string)) {
+    return NextResponse.json({ error: "status invalide" }, { status: 400 });
+  }
+  if (updates.manual_rating !== undefined) {
+    const r = Number(updates.manual_rating);
+    if (!Number.isFinite(r) || r < 0 || r > 5) {
+      return NextResponse.json({ error: "manual_rating doit être entre 0 et 5" }, { status: 400 });
+    }
+    updates.manual_rating = r;
   }
 
   if (Object.keys(updates).length === 0) {

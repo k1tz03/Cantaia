@@ -167,8 +167,14 @@ Réponds UNIQUEMENT en JSON valide, sans commentaires.`;
 }
 
 /**
- * Detect plans in email attachments (mock implementation)
- * In production, calls Claude API for analysis
+ * Detect plans in email attachments — HEURISTIC (filename + size + keyword).
+ *
+ * This is deliberately NOT an AI call: it is a cheap deterministic pre-filter
+ * on filenames, extensions and email keywords. `buildPlanDetectPrompt()` above
+ * is kept for a future Claude-backed pass (which would carry its own credits +
+ * trackApiUsage), but until that exists we must NOT present the result as an AI
+ * verdict. Callers persist `ai_detected: false` and treat `confidence` as a
+ * heuristic score, not an AI confidence (see plan-storage.savePlanFromAttachment).
  */
 export async function detectPlansInEmail(
   _emailId: string,
@@ -193,13 +199,7 @@ export async function detectPlansInEmail(
 
   for (const attachment of potentialPlans) {
     try {
-      // In production: call Claude API with buildPlanDetectPrompt()
-      // const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      // const client = new Anthropic();
-      // const response = await client.messages.create({ ... });
-
-      // Mock: detect based on filename patterns
-      const result = mockDetectPlan(attachment, context);
+      const result = heuristicDetectPlan(attachment, context);
       if (result) {
         results.push(result);
       }
@@ -212,9 +212,11 @@ export async function detectPlansInEmail(
 }
 
 /**
- * Mock detection based on filename analysis
+ * Heuristic detection based on filename + email-keyword analysis.
+ * Deterministic; no model call. The `confidence` returned is a heuristic score,
+ * not an AI confidence.
  */
-function mockDetectPlan(
+function heuristicDetectPlan(
   attachment: Attachment,
   context: { subject: string; body_excerpt: string }
 ): PlanDetectionResult | null {

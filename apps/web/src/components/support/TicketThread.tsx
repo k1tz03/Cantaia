@@ -62,7 +62,7 @@ export function TicketThread({
     return (
       <div className="flex-1 flex flex-col items-center justify-center" style={{ padding: "60px 20px", textAlign: "center" }}>
         <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }}>🎫</div>
-        <div style={{ fontSize: 14, color: "#71717A" }}>Aucun message</div>
+        <div style={{ fontSize: 14, color: "#A1A1AA" }}>Aucun message</div>
       </div>
     );
   }
@@ -168,7 +168,7 @@ export function TicketThread({
                 </div>
               )}
 
-              <div style={{ fontSize: 9, color: "#52525B", marginTop: 4 }}>
+              <div style={{ fontSize: 9, color: "#A1A1AA", marginTop: 4 }}>
                 {formatShortDate(msg.created_at)}
               </div>
             </div>

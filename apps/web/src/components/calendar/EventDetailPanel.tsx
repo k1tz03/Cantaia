@@ -8,6 +8,8 @@ import {
   X,
   Edit3,
   Trash2,
+  ArrowUpRight,
+  ClipboardList,
   Clock,
   MapPin,
   Calendar,
@@ -21,6 +23,8 @@ import {
   Save,
 } from "lucide-react";
 import type { CalendarEvent, CalendarInvitation } from "@cantaia/core/calendar";
+import { useRouter } from "next/navigation";
+import { isVirtualEvent, sourceMetaFor, sourceUrlFor } from "./event-source";
 
 // ── Props ────────────────────────────────────────────────
 
@@ -121,8 +125,10 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
   const t = useTranslations("calendar");
   const locale = useLocale();
   const localeTag = toLocaleTag(locale);
+  const router = useRouter();
   const [detailedEvent, setDetailedEvent] = useState<CalendarEvent | null>(null);
   const [loading, setLoading] = useState(false);
+  const [creatingPv, setCreatingPv] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -141,6 +147,13 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
   // ── Fetch detailed event ─────────────────────────────
 
   const fetchDetail = useCallback(async (eventId: string) => {
+    // Derived rows ("virt:…") have no calendar_events row — fetching would
+    // 400. The projection already carries everything the panel shows.
+    if (eventId.startsWith("virt:")) {
+      setDetailedEvent(event);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`/api/calendar/events/${eventId}`);
@@ -197,6 +210,14 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
       const endAt = editAllDay
         ? toLocalISOString(editDate, "23:59")
         : toLocalISOString(editDate, editEndTime);
+
+      // Reject an inverted range before hitting the server (the Graph push
+      // fails non-fatally, so a bad range would otherwise be stored silently).
+      if (!editAllDay && new Date(endAt).getTime() <= new Date(startAt).getTime()) {
+        toast.error(t("endBeforeStart"));
+        setSaving(false);
+        return;
+      }
 
       const res = await fetch(`/api/calendar/events/${detailedEvent.id}`, {
         method: "PATCH",
@@ -259,6 +280,23 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
   if (!event) return null;
 
   const ev = detailedEvent || event;
+  // Rows projected from another module: read-only, linked, never editable.
+  const derived = isVirtualEvent(ev);
+  // An expanded recurrence occurrence carries a derived id ("<master>@<iso>")
+  // and/or a parent_event_id. Editing it would route the write to the master
+  // (resolveEventId) and move/cancel the WHOLE series. The current model has
+  // no per-occurrence exception, so occurrences are read-only here; the series
+  // is edited from its master row.
+  const isOccurrence =
+    !derived &&
+    ((typeof ev.id === "string" && ev.id.includes("@")) || !!ev.parent_event_id);
+  const editable = !derived && !isOccurrence;
+  const sourceMeta = sourceMetaFor(ev);
+  const sourceUrl = sourceUrlFor(ev);
+  // "Créer le PV de cette séance" — only for a real meeting event tied to a
+  // project (a virtual PV row already IS a meeting).
+  const canCreatePv =
+    !derived && ev.event_type === "meeting" && !!ev.project_id;
   const typeColor = EVENT_TYPE_COLORS[ev.event_type] || "#71717A";
   const typeLabel = EVENT_TYPE_LABEL_KEYS[ev.event_type]
     ? t(EVENT_TYPE_LABEL_KEYS[ev.event_type])
@@ -288,9 +326,10 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
             </h2>
           </div>
           <div className="flex items-center gap-1">
-            {!editing && (
+            {/* Derived rows and recurrence occurrences are read-only here. */}
+            {!editing && editable && (
               <>
-                <button
+                <button aria-label={t("edit")}
                   onClick={enterEditMode}
                   className="flex items-center justify-center w-8 h-8 rounded-md text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
                   title={t("edit")}
@@ -328,6 +367,92 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
         {/* ── VIEW MODE ─────────────────────────────── */}
         {!loading && !editing && (
           <div className="px-6 py-5 space-y-5">
+
+            {/* ── Origin banner (derived rows) ──────────── */}
+            {derived && sourceMeta && (
+              <div
+                className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5"
+                style={{
+                  borderColor: `${sourceMeta.color}33`,
+                  backgroundColor: `${sourceMeta.color}0D`,
+                }}
+              >
+                <div className="min-w-0">
+                  <p
+                    className="text-[11px] font-semibold uppercase tracking-wider"
+                    style={{ color: sourceMeta.color }}
+                  >
+                    {sourceMeta.label}
+                  </p>
+                  {/* i18n-pending: calendar.derivedEventHint */}
+                  <p className="mt-0.5 text-[12px] leading-relaxed text-[#A1A1AA]">
+                    Échéance issue d&apos;un autre module. Elle se modifie depuis son module d&apos;origine.
+                  </p>
+                </div>
+                {sourceUrl && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(sourceUrl)}
+                    className="flex flex-shrink-0 items-center gap-1.5 rounded-md border border-[#27272A] bg-[#18181B] px-3 py-1.5 text-[12px] font-medium text-[#FAFAFA] transition-colors hover:border-[#3F3F46]"
+                  >
+                    {/* i18n-pending: calendar.openInModule */}
+                    Ouvrir
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ── Recurrence occurrence: read-only, edit the series ─────── */}
+            {isOccurrence && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-[#3B82F6]/20 bg-[#3B82F6]/[0.06] px-3 py-2.5">
+                <Calendar className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#3B82F6]" />
+                <p className="text-[12px] leading-relaxed text-[#A1A1AA]">
+                  {t("recurringOccurrenceHint")}
+                </p>
+              </div>
+            )}
+
+            {/* ── Créer le PV de cette séance ───────────── */}
+            {canCreatePv && (
+              <button
+                type="button"
+                disabled={creatingPv}
+                onClick={async () => {
+                  setCreatingPv(true);
+                  try {
+                    const res = await fetch(
+                      `/api/calendar/events/${encodeURIComponent(ev.id)}/create-pv`,
+                      { method: "POST" }
+                    );
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                      throw new Error(data.error || "Création du PV impossible");
+                    }
+                    // i18n-pending: calendar.pvCreated / calendar.pvAlreadyExists
+                    toast.success(
+                      data.already_existed
+                        ? "PV déjà créé pour cette séance — ouverture."
+                        : "PV de séance créé."
+                    );
+                    router.push(`/pv-chantier/${data.meeting_id}`);
+                  } catch (err: any) {
+                    toast.error(err.message || "Création du PV impossible");
+                  } finally {
+                    setCreatingPv(false);
+                  }
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-4 py-2.5 text-[13px] font-semibold text-[#3B82F6] transition-colors hover:bg-[#3B82F6]/15 disabled:opacity-50"
+              >
+                {creatingPv ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ClipboardList className="h-4 w-4" />
+                )}
+                {/* i18n-pending: calendar.createPvForMeeting */}
+                Créer le PV de cette séance
+              </button>
+            )}
 
             {/* Status + Type badges */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -371,14 +496,14 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
             {/* Date & Time */}
             <div className="space-y-2.5">
               <div className="flex items-start gap-3">
-                <Calendar className="w-4 h-4 text-[#71717A] mt-0.5 flex-shrink-0" />
+                <Calendar className="w-4 h-4 text-[#A1A1AA] mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-[13px] text-[#FAFAFA] capitalize">
                     {formatDateTime(ev.start_at, localeTag)}
                   </p>
                   {!ev.all_day && (
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <Clock className="w-3.5 h-3.5 text-[#52525B]" />
+                      <Clock className="w-3.5 h-3.5 text-[#A1A1AA]" />
                       <p className="text-[12px] text-[#A1A1AA]">
                         {formatTime(ev.start_at, localeTag)} — {formatTime(ev.end_at, localeTag)}
                       </p>
@@ -393,7 +518,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
               {/* Location */}
               {ev.location && (
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 text-[#71717A] mt-0.5 flex-shrink-0" />
+                  <MapPin className="w-4 h-4 text-[#A1A1AA] mt-0.5 flex-shrink-0" />
                   <p className="text-[13px] text-[#FAFAFA]">{ev.location}</p>
                 </div>
               )}
@@ -401,7 +526,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
               {/* Project */}
               {(ev as any).project && (
                 <div className="flex items-start gap-3">
-                  <FolderKanban className="w-4 h-4 text-[#71717A] mt-0.5 flex-shrink-0" />
+                  <FolderKanban className="w-4 h-4 text-[#A1A1AA] mt-0.5 flex-shrink-0" />
                   <div className="flex items-center gap-2">
                     {(ev as any).project.color && (
                       <div
@@ -411,7 +536,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                     )}
                     <p className="text-[13px] text-[#FAFAFA]">{(ev as any).project.name}</p>
                     {(ev as any).project.code && (
-                      <span className="text-[11px] text-[#52525B] font-mono">
+                      <span className="text-[11px] text-[#A1A1AA] font-mono">
                         ({(ev as any).project.code})
                       </span>
                     )}
@@ -424,8 +549,8 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
             {ev.description && (
               <div className="pt-2 border-t border-[#27272A]">
                 <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-4 h-4 text-[#71717A]" />
-                  <span className="text-[12px] font-medium text-[#71717A] uppercase tracking-wider">
+                  <FileText className="w-4 h-4 text-[#A1A1AA]" />
+                  <span className="text-[12px] font-medium text-[#A1A1AA] uppercase tracking-wider">
                     {t("descriptionLabel")}
                   </span>
                 </div>
@@ -439,8 +564,8 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
             {invitations.length > 0 && (
               <div className="pt-2 border-t border-[#27272A]">
                 <div className="flex items-center gap-2 mb-3">
-                  <Users className="w-4 h-4 text-[#71717A]" />
-                  <span className="text-[12px] font-medium text-[#71717A] uppercase tracking-wider">
+                  <Users className="w-4 h-4 text-[#A1A1AA]" />
+                  <span className="text-[12px] font-medium text-[#A1A1AA] uppercase tracking-wider">
                     {t("attendeesCount", { count: invitations.length })}
                   </span>
                 </div>
@@ -459,7 +584,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                               <span className="ml-1.5 text-[10px] text-[#F97316] font-medium">{t("organizer")}</span>
                             )}
                           </p>
-                          <p className="text-[11px] text-[#52525B] truncate">{inv.attendee_email}</p>
+                          <p className="text-[11px] text-[#A1A1AA] truncate">{inv.attendee_email}</p>
                         </div>
                         <span
                           className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium flex-shrink-0"
@@ -498,7 +623,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
 
             {/* Metadata */}
             <div className="pt-2 border-t border-[#27272A]">
-              <div className="flex items-center justify-between text-[11px] text-[#52525B]">
+              <div className="flex items-center justify-between text-[11px] text-[#A1A1AA]">
                 <span>{t("createdOn", { date: new Date(ev.created_at).toLocaleDateString(localeTag) })}</span>
                 {ev.last_synced_at && (
                   <span>{t("syncedAt", { date: new Date(ev.last_synced_at).toLocaleString(localeTag, { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) })}</span>
@@ -513,21 +638,21 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
           <div className="px-6 py-5 space-y-4">
             {/* Title */}
             <div>
-              <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-medium text-[#A1A1AA] uppercase tracking-wider mb-1.5">
                 {t("titleLabel")}
               </label>
               <input
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors"
+                className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors"
                 placeholder={t("editTitlePlaceholder")}
               />
             </div>
 
             {/* Event type */}
             <div>
-              <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-medium text-[#A1A1AA] uppercase tracking-wider mb-1.5">
                 {t("typeLabel")}
               </label>
               <select
@@ -563,7 +688,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
 
             {/* Date */}
             <div>
-              <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-medium text-[#A1A1AA] uppercase tracking-wider mb-1.5">
                 {t("dateLabel")}
               </label>
               <input
@@ -578,7 +703,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
             {!editAllDay && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-medium text-[#A1A1AA] uppercase tracking-wider mb-1.5">
                     {t("startLabel")}
                   </label>
                   <input
@@ -589,7 +714,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-medium text-[#A1A1AA] uppercase tracking-wider mb-1.5">
                     {t("endLabel")}
                   </label>
                   <input
@@ -604,28 +729,28 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
 
             {/* Location */}
             <div>
-              <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-medium text-[#A1A1AA] uppercase tracking-wider mb-1.5">
                 {t("locationLabel")}
               </label>
               <input
                 type="text"
                 value={editLocation}
                 onChange={(e) => setEditLocation(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors"
+                className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors"
                 placeholder={t("locationOptional")}
               />
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-medium text-[#A1A1AA] uppercase tracking-wider mb-1.5">
                 {t("descriptionLabel")}
               </label>
               <textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors resize-none"
+                className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors resize-none"
                 placeholder={t("descriptionOptional")}
               />
             </div>
@@ -635,7 +760,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
               <button
                 onClick={handleSave}
                 disabled={saving || !editTitle.trim()}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#F97316] text-white text-[13px] font-semibold hover:bg-[#EA580C] transition-colors disabled:opacity-50 shadow-sm shadow-[#F97316]/20"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#F97316] text-[#0F0F11] text-[13px] font-semibold hover:bg-[#EA580C] transition-colors disabled:opacity-50 shadow-sm shadow-[#F97316]/20"
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -667,7 +792,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                 <div>
                   <h3 className="text-[15px] font-semibold text-[#FAFAFA]">{t("deleteConfirmTitle")}</h3>
                   {/* CAL.B2: DELETE is a soft delete (status=cancelled), not irreversible destruction */}
-                  <p className="text-[12px] text-[#71717A]">{t("deleteConfirmSubtitle")}</p>
+                  <p className="text-[12px] text-[#A1A1AA]">{t("deleteConfirmSubtitle")}</p>
                 </div>
               </div>
               <p className="text-[13px] text-[#A1A1AA] mb-5">

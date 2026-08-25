@@ -3,60 +3,27 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { syncUserEmails, type SyncDependencies } from "@cantaia/core/outlook";
-import { classifyEmail, classifyEmailByKeywords, isUnknownProjectSubject, type ProjectForClassification } from "@cantaia/core/ai";
-import { isPotentialPlan, detectPlansInEmail, savePlanFromAttachment } from "@cantaia/core/plans";
-import { getAttachments as graphGetAttachments } from "@cantaia/core/outlook";
-import { trackApiUsage, logActivityAsync } from "@cantaia/core/tracking";
-import { checkLocalRules, detectSpamNewsletter, getEmailProvider, isTokenExpired, archiveEmail, type ArchiveableEmail, type ArchiveProjectConfig, type EmailConnectionConfig } from "@cantaia/core/emails";
-import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { logActivityAsync } from "@cantaia/core/tracking";
+import { getEmailProvider, isTokenExpired, type EmailConnectionConfig, type RawEmail } from "@cantaia/core/emails";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  buildClassificationContext,
+  classifyPendingEmails,
+  resetExpiredSnoozes,
+  type EmailConnectionRecord,
+} from "@/lib/email/classification-pipeline";
+import { ensureOutlookWebhook } from "@/lib/email/webhook-subscription";
+import { dedupAndInsertEmails } from "@/lib/email/connection-sync";
 
 // Allow up to 5 minutes for bulk syncs (500+ emails with classification pipeline)
 export const maxDuration = 300;
 
-/**
- * Lightweight action-signal detection used by the local classification levels
- * (L1 learned rules, L2b keywords). These levels only decide *which project* an
- * email belongs to — they must not silently downgrade an urgent email to
- * "info_only" (B12). When the subject/preview carries an explicit ask, we keep
- * the email in the action queue.
- */
-const ACTION_HINT_PATTERNS: RegExp[] = [
-  // FR
-  /\b(urgent|urgence|asap|d[eè]s que possible|au plus vite)\b/i,
-  /\b(merci de|pri[eè]re de|veuillez|pouvez-vous|pourriez-vous|peux-tu|peux tu)\b/i,
-  /\b(relance|rappel|[àa] valider|validation|pour validation|pour approbation|approbation)\b/i,
-  /\b(d[ée]lai|[ée]ch[ée]ance|deadline|avant le|d'ici (le|au)|retour attendu|dans l'attente)\b/i,
-  /\b(action requise|[àa] faire|[àa] traiter|r[ée]ponse (attendue|souhait[ée]e)|confirmez|confirmer)\b/i,
-  /\b(devis|offre de prix|demande de prix|bon de commande|signature|signer)\b/i,
-  // DE
-  /\b(dringend|bitte um|r[üu]ckmeldung|frist|termin|erinnerung|freigabe|best[äa]tigen)\b/i,
-  // EN
-  /\b(urgent|asap|please (send|confirm|review|approve)|action required|reply|deadline|due (by|date)|follow[- ]up|reminder)\b/i,
-];
-
-function hasActionHints(subject?: string | null, bodyPreview?: string | null): boolean {
-  const text = `${subject || ""} ${bodyPreview || ""}`;
-  if (!text.trim()) return false;
-  return ACTION_HINT_PATTERNS.some((re) => re.test(text));
-}
-
-/** Strip HTML tags from email body for AI classification */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+/** Leave ~40 s of headroom before Vercel kills the function. */
+const CLASSIFY_BUDGET_MS = 240_000;
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+
   // 1. Verify auth
   const supabase = await createClient();
   const {
@@ -74,16 +41,19 @@ export async function POST(request: Request) {
   }
 
   const adminClient = createAdminClient();
-  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
   // Support ?full=true to force a full resync (clears last_sync_at)
   const { searchParams } = new URL(request.url);
   if (searchParams.get("full") === "true") {
-    await adminClient
+    const { error: resetErr } = await adminClient
       .from("users")
       .update({ last_sync_at: null })
       .eq("id", user.id);
-    if (process.env.NODE_ENV === "development") console.log("[outlook/sync] Full resync requested — cleared last_sync_at");
+    if (resetErr) {
+      console.warn("[outlook/sync] Full-resync reset failed:", resetErr.message);
+    } else if (process.env.NODE_ENV === "development") {
+      console.log("[outlook/sync] Full resync requested — cleared last_sync_at");
+    }
   }
 
   // 2. Get user's organization
@@ -113,7 +83,7 @@ export async function POST(request: Request) {
 
     if (legacyUser?.microsoft_access_token) {
       if (process.env.NODE_ENV === "development") console.log("[outlook/sync] Auto-creating email_connection from legacy Microsoft tokens");
-      const { data: newConn } = await adminClient
+      const { data: newConn, error: connInsertErr } = await adminClient
         .from("email_connections")
         .insert({
           user_id: user.id,
@@ -130,7 +100,9 @@ export async function POST(request: Request) {
         .select("id, user_id, organization_id, provider, oauth_access_token, oauth_refresh_token, oauth_token_expires_at, oauth_scopes, email_address, display_name, status, last_sync_at, sync_delta_link, total_emails_synced, created_at")
         .maybeSingle();
 
-      if (newConn) {
+      if (connInsertErr) {
+        console.warn("[outlook/sync] Email connection auto-create failed:", connInsertErr.message);
+      } else if (newConn) {
         emailConnection = newConn;
         if (process.env.NODE_ENV === "development") console.log("[outlook/sync] Email connection auto-created successfully");
       }
@@ -149,7 +121,7 @@ export async function POST(request: Request) {
     syncError = result.error;
   } else {
     // ── Legacy Microsoft sync (backward compat) ──
-    const result = await syncLegacyMicrosoft(adminClient, user.id);
+    const result = await syncLegacyMicrosoft(adminClient, user.id, userOrg?.organization_id || null);
     emailsSynced = result.emailsSynced;
     emailsSkipped = result.emailsSkipped;
     syncError = result.error;
@@ -169,867 +141,78 @@ export async function POST(request: Request) {
   }
 
   // 4. Reset expired snoozes → back to unprocessed
-  // triage_status / snooze_until exist since migration 019b.
-  let snoozesReset = 0;
-  try {
-    const { data: expiredSnoozes } = await (adminClient as any)
-      .from("email_records")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("triage_status", "snoozed")
-      .not("snooze_until", "is", null)
-      .lt("snooze_until", new Date().toISOString())
-      .limit(500);
+  const snoozesReset = await resetExpiredSnoozes(adminClient, user.id);
 
-    const expiredIds = (expiredSnoozes || []).map((e: { id: string }) => e.id);
-    if (expiredIds.length > 0) {
-      const { error: resetErr } = await (adminClient as any)
-        .from("email_records")
-        .update({
-          triage_status: "unprocessed",
-          snooze_until: null,
-          process_action: null,
-          is_processed: false,
-        })
-        .in("id", expiredIds);
-      if (resetErr) {
-        console.warn("[sync] Snooze reset failed (non-fatal):", resetErr.message);
-      } else {
-        snoozesReset = expiredIds.length;
-      }
-    }
-  } catch (snoozeErr) {
-    console.warn("[sync] Snooze reset skipped (non-fatal):", snoozeErr);
+  // 5. Classify — SAME cascade as the nightly cron (single implementation).
+  const ctx = await buildClassificationContext(adminClient, user.id, {
+    organizationId: userOrg?.organization_id ?? null,
+    connection: emailConnection as EmailConnectionRecord | null,
+    deadlineAt: startedAt + CLASSIFY_BUDGET_MS,
+    limit: 100,
+  });
+  const stats = await classifyPendingEmails(ctx);
+
+  // 5b. D-FIX4 — keep the Graph change-notification subscription alive. Fire and
+  // forget: real-time mail is a bonus, never a reason to fail a sync.
+  if (emailConnection?.provider === "microsoft" && ctx.graphToken) {
+    ensureOutlookWebhook(adminClient, user.id, ctx.graphToken).catch(() => {});
   }
 
-  // 5. Pre-load archive-enabled projects for auto-archiving
-  const archiveProjectsMap = new Map<string, {
-    name: string;
-    organization_id: string;
-    archive_path: string | null;
-    archive_structure: string;
-    archive_filename_format: string;
-    archive_attachments_mode: string;
-  }>();
-
-  if (userOrg?.organization_id) {
-    const { data: archiveProjects } = await (adminClient as any)
-      .from("projects")
-      .select("id, name, organization_id, archive_path, archive_structure, archive_filename_format, archive_attachments_mode, archive_enabled")
-      .eq("organization_id", userOrg.organization_id)
-      .eq("archive_enabled", true);
-
-    for (const ap of archiveProjects || []) {
-      archiveProjectsMap.set(ap.id, {
-        name: ap.name,
-        organization_id: ap.organization_id,
-        archive_path: ap.archive_path,
-        archive_structure: ap.archive_structure || "by_category",
-        archive_filename_format: ap.archive_filename_format || "date_sender_subject",
-        archive_attachments_mode: ap.archive_attachments_mode || "subfolder",
-      });
-    }
-  }
-
-  // 6. Load user email preferences for auto-dismiss decisions
-  let userPrefs: { auto_dismiss_spam: boolean; auto_dismiss_newsletters: boolean; auto_move_outlook: boolean } = {
-    auto_dismiss_spam: true,
-    auto_dismiss_newsletters: false,
-    auto_move_outlook: false,
-  };
-  if (userOrg?.organization_id) {
-    const { data: prefs } = await (adminClient as any)
-      .from("email_preferences")
-      .select("auto_dismiss_spam, auto_dismiss_newsletters, auto_move_outlook")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (prefs) {
-      userPrefs = prefs;
-    }
-  }
-
-  // 7. Classify unprocessed emails — 3-LEVEL PIPELINE (MAIL.4)
-  let emailsClassified = 0;
-  let tasksCreated = 0;
-  let newProjectsSuggested = 0;
-  let emailsArchived = 0;
-  let spamDismissed = 0;
-  let plansSaved = 0;
-
-  // Get graph token for plan attachment downloads
-  let graphTokenForPlans: string | undefined;
-  try {
-    const tokenResult = await getValidMicrosoftToken(user.id);
-    graphTokenForPlans = tokenResult.accessToken || undefined;
-  } catch { /* no token available */ }
-
-  // Build a function to fetch full email body
-  const getFullBody = await buildBodyFetcher(user.id, emailConnection);
-
-  let projects: ProjectForClassification[] = [];
-  if (userOrg?.organization_id) {
-    const { data: projectsData } = await adminClient
-      .from("projects")
-      .select("id, name, code, email_keywords, email_senders, city, client_name")
-      .eq("organization_id", userOrg.organization_id)
-      .in("status", ["active", "planning"]);
-    projects = (projectsData || []) as ProjectForClassification[];
-  }
-
-  // Get unprocessed emails that haven't been classified yet.
-  // IMPORTANT: Only classify emails with no classification_status (newly synced)
-  // or explicitly marked as "unprocessed" (failed previous classification).
-  // This prevents re-classification of already-classified emails by learned rules
-  // which can cascade incorrectly (e.g., a sender rule overriding AI classification).
-  const { data: unprocessedEmails } = await (adminClient as any)
-    .from("email_records")
-    // body_text / body_html are required by archiveEmail() — without them the
-    // generated .eml was truncated to the 500-char preview (B2).
-    .select("id, subject, sender_email, sender_name, body_preview, body_text, body_html, received_at, project_id, classification, classification_status, is_processed, has_attachments, outlook_message_id, recipients")
-    .eq("user_id", user.id)
-    .eq("is_processed", false)
-    .order("received_at", { ascending: false })
-    .limit(100);
-
-  if (process.env.NODE_ENV === "development") console.log(`[sync] ${(unprocessedEmails || []).length} unprocessed emails to classify, ${projects.length} projects available`);
-
-  // ── AI quota gate (B6) ──
-  // A single sync can fan out to ~100 Claude calls (L3) plus Haiku calls (L0b
-  // price extraction). Check the plan quota ONCE, up front: when exhausted we
-  // skip every AI step but keep the free local levels (L0, L1, L2, L2b) running.
-  let aiQuotaExceeded = false;
-  let aiQuotaInfo: { current: number; limit: number; required_plan: string } | null = null;
-  if (anthropicApiKey && userOrg?.organization_id) {
-    try {
-      const { data: orgPlan } = await (adminClient as any)
-        .from("organizations")
-        .select("subscription_plan")
-        .eq("id", userOrg.organization_id)
-        .maybeSingle();
-
-      const usageCheck = await checkUsageLimit(
-        adminClient,
-        userOrg.organization_id,
-        orgPlan?.subscription_plan || "trial",
-        "email_classify"
-      );
-      if (!usageCheck.allowed) {
-        aiQuotaExceeded = true;
-        aiQuotaInfo = {
-          current: usageCheck.current,
-          limit: usageCheck.limit,
-          required_plan: usageCheck.requiredPlan,
-        };
-        console.warn(`[sync] AI quota reached for org ${userOrg.organization_id} (${usageCheck.current}/${usageCheck.limit}) — AI classification skipped`);
-      }
-    } catch (quotaErr) {
-      // Never block the sync on a quota lookup failure
-      console.warn("[sync] Usage limit check failed (non-fatal):", quotaErr);
-    }
-  }
-
-  for (const email of unprocessedEmails || []) {
-    try {
-      // Skip emails already classified by a previous sync — they have a classification_status set.
-      // Only process fresh emails (null) or previously failed ones ("unprocessed").
-      // This prevents L1 learned rules from overriding correct AI classifications
-      // when the same sender sends emails about multiple different projects.
-      if (email.classification_status && email.classification_status !== "unprocessed") {
-        continue;
-      }
-
-      const senderEmail = email.sender_email || "";
-
-      // ═══════════════════════════════════════════════════════════
-      // LEVEL 0: PRICE REQUEST TRACKING CODE DETECTION
-      // ═══════════════════════════════════════════════════════════
-      if (userOrg?.organization_id) {
-        try {
-          const { detectPriceResponse } = await import("@cantaia/core/submissions");
-          const priceMatch = await detectPriceResponse(
-            adminClient,
-            userOrg.organization_id,
-            {
-              body: email.body_preview || "",
-              sender_email: senderEmail,
-              subject: email.subject || "",
-            }
-          );
-
-          if (priceMatch) {
-            // Get the project_id from the submission
-            const { data: submission } = await (adminClient as any)
-              .from("submissions")
-              .select("project_id")
-              .eq("id", priceMatch.submissionId)
-              .maybeSingle();
-
-            // Update the email record: link to price request and classify as price_response
-            await (adminClient as any)
-              .from("email_records")
-              .update({
-                linked_price_request_id: priceMatch.priceRequestId,
-                classification: "action_required",
-                project_id: submission?.project_id || null,
-                classification_status: "auto_classified",
-                email_category: "price_response",
-                price_extracted: false,
-                ai_reasoning: `Level 0: Linked to price request via ${priceMatch.matchMethod}${priceMatch.trackingCode ? ` (${priceMatch.trackingCode})` : ""}`,
-              })
-              .eq("id", email.id);
-
-            // Update the submission_price_requests status to responded
-            const l0ResponseAt = new Date().toISOString();
-            await (adminClient as any)
-              .from("submission_price_requests")
-              .update({
-                status: "responded",
-                response_received_at: l0ResponseAt,
-              })
-              .eq("id", priceMatch.priceRequestId);
-
-            if (process.env.NODE_ENV === "development") console.log(`[sync] Level 0: Linked email "${email.subject}" to price request ${priceMatch.priceRequestId} (${priceMatch.matchMethod})`);
-            emailsClassified++;
-            continue;
-          }
-        } catch (l0Err) {
-          console.warn("[sync] Level 0 detection error:", l0Err);
-          // Level 0 failure must never block the rest of the pipeline
-        }
-
-        // ── Level 0b: SUB- tracking code detection (new submissions module) ──
-        try {
-          const { extractSubmissionTrackingCodes: extractTrackingCodes } = await import("@cantaia/core/submissions");
-          // Search subject + body_preview first (fast path)
-          let emailText = `${email.subject || ""} ${email.body_preview || ""}`;
-          let subCodes = extractTrackingCodes(emailText);
-
-          // If not found, search full body from DB (tracking code is often in the quoted footer)
-          // IMPORTANT: body_text = bodyPreview (short ~500 chars), body_html = full HTML body.
-          // We must search body_html independently since body_text is truthy but incomplete.
-          if (subCodes.length === 0) {
-            const { data: fullEmailForTracking } = await (adminClient as any)
-              .from("email_records")
-              .select("body_text, body_html")
-              .eq("id", email.id)
-              .maybeSingle();
-            if (fullEmailForTracking) {
-              // Try body_text first (short preview)
-              if (fullEmailForTracking.body_text) {
-                subCodes = extractTrackingCodes(fullEmailForTracking.body_text);
-              }
-              // If still not found, search the full HTML body (stripped of tags)
-              if (subCodes.length === 0 && fullEmailForTracking.body_html) {
-                const strippedHtml = fullEmailForTracking.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-                subCodes = extractTrackingCodes(strippedHtml);
-              }
-            }
-          }
-
-          if (subCodes.length > 0) {
-            const trackingCode = subCodes[0];
-            const { data: priceRequest } = await (adminClient as any)
-              .from("submission_price_requests")
-              .select("id, submission_id, project_id, supplier_id, items_requested, sent_at")
-              .eq("tracking_code", trackingCode)
-              .maybeSingle();
-
-            if (priceRequest) {
-              // ── Price extraction: fetch full body and extract prices via Claude ──
-              let quotesInserted = 0;
-              const requestedItems = (priceRequest.items_requested as any[]) || [];
-
-              if (requestedItems.length > 0) {
-                try {
-                  // Fetch full email body from DB (stored during insert phase)
-                  const { data: fullEmail } = await (adminClient as any)
-                    .from("email_records")
-                    .select("body_text, body_html")
-                    .eq("id", email.id)
-                    .maybeSingle();
-
-                  // IMPORTANT: body_text = bodyPreview (short ~500 chars), body_html = full HTML body.
-                  // Always prefer body_html (stripped) for price extraction since it has the complete content.
-                  let emailBody = "";
-                  if (fullEmail?.body_html) {
-                    emailBody = fullEmail.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-                  } else if (fullEmail?.body_text) {
-                    emailBody = fullEmail.body_text;
-                  } else {
-                    emailBody = email.body_preview || "";
-                  }
-
-                  // If no body in DB, try fetching from provider
-                  if (emailBody.length < 20 && email.outlook_message_id && getFullBody) {
-                    const fetchedBody = await getFullBody(email.outlook_message_id);
-                    if (fetchedBody) emailBody = fetchedBody;
-                  }
-
-                  if (emailBody.length > 10 && !aiQuotaExceeded) {
-                    const extractedPrices = await extractPricesForL0b(emailBody, requestedItems, {
-                      supabase: adminClient,
-                      userId: user.id,
-                      organizationId: userOrg?.organization_id ?? "",
-                      emailId: email.id,
-                    });
-
-                    if (extractedPrices.length > 0) {
-                      const quotesToInsert = extractedPrices
-                        .filter((p: any) => p.unit_price_ht != null)
-                        .map((p: any) => ({
-                          request_id: priceRequest.id,
-                          submission_id: priceRequest.submission_id,
-                          item_id: p.item_id,
-                          unit_price_ht: p.unit_price_ht,
-                          total_ht: p.total_ht || null,
-                          currency: "CHF",
-                          raw_email_id: email.id,
-                          confidence: p.confidence || 0.8,
-                          extracted_at: new Date().toISOString(),
-                        }));
-
-                      const { error: quoteInsertErr } = await (adminClient as any)
-                        .from("submission_quotes")
-                        .insert(quotesToInsert);
-
-                      if (quoteInsertErr) {
-                        console.warn("[sync] L0b quote insert error:", quoteInsertErr.message);
-                      } else {
-                        quotesInserted = quotesToInsert.length;
-                      }
-                    }
-                  }
-                } catch (extractErr) {
-                  console.warn("[sync] L0b price extraction failed (non-fatal):", extractErr);
-                }
-              }
-
-              // Classify email as price_response and link to project
-              await (adminClient as any)
-                .from("email_records")
-                .update({
-                  classification: "action_required",
-                  project_id: priceRequest.project_id || null,
-                  classification_status: "auto_classified",
-                  email_category: "price_response",
-                  ai_reasoning: `Level 0b: Submission tracking code detected (${trackingCode}). ${quotesInserted} prix extraits.`,
-                  price_extracted: quotesInserted > 0,
-                })
-                .eq("id", email.id);
-
-              // Update price request status + response tracking
-              const responseReceivedAt = new Date().toISOString();
-              let responseTimeDays: number | null = null;
-              if (priceRequest.sent_at) {
-                const sentMs = new Date(priceRequest.sent_at).getTime();
-                responseTimeDays = Math.round(((Date.now() - sentMs) / (1000 * 60 * 60 * 24)) * 10) / 10;
-              }
-
-              await (adminClient as any)
-                .from("submission_price_requests")
-                .update({
-                  status: "responded",
-                  response_received_at: responseReceivedAt,
-                  response_time_days: responseTimeDays,
-                })
-                .eq("id", priceRequest.id);
-
-              console.log(`[sync] Level 0b: Linked email "${email.subject}" to submission price request via ${trackingCode} (${quotesInserted} quotes extracted)`);
-              emailsClassified++;
-              continue;
-            }
-          }
-        } catch (l0bErr) {
-          console.warn("[sync] Level 0b detection error:", l0bErr);
-          // Level 0b failure must never block the rest of the pipeline
-        }
-      }
-
-      // ═══════════════════════════════════════════════════════════
-      // LEVEL 1: LOCAL LEARNED RULES (free, no AI)
-      // ═══════════════════════════════════════════════════════════
-      if (userOrg?.organization_id) {
-        const localMatch = await checkLocalRules(adminClient, userOrg.organization_id, senderEmail);
-        if (localMatch) {
-          if (process.env.NODE_ENV === "development") console.log(`[sync] L1 Local rule match for "${email.subject}": project=${localMatch.projectId}, confidence=${localMatch.confidence}`);
-          await (adminClient as any)
-            .from("email_records")
-            .update({
-              project_id: localMatch.projectId,
-              // B12: a learned sender rule only tells us WHICH project — never
-              // downgrade an existing classification, and default to
-              // action_required when the email carries an explicit ask.
-              classification:
-                email.classification ||
-                (hasActionHints(email.subject, email.body_preview) ? "action_required" : "info_only"),
-              ai_classification_confidence: Math.round(localMatch.confidence * 100),
-              ai_project_match_confidence: Math.round(localMatch.confidence * 100),
-              ai_reasoning: "Classified by learned local rule (no AI call)",
-              classification_status: "auto_classified",
-              email_category: "project",
-            })
-            .eq("id", email.id);
-          emailsClassified++;
-          continue;
-        }
-      }
-
-      // ═══════════════════════════════════════════════════════════
-      // LEVEL 2: SPAM / NEWSLETTER FILTER (fast, no AI)
-      // ═══════════════════════════════════════════════════════════
-      const spamCheck = detectSpamNewsletter({
-        from_email: senderEmail,
-        subject: email.subject,
-        body_preview: email.body_preview || "",
-      });
-
-      if (spamCheck.detected) {
-        const shouldAutoDismiss =
-          (spamCheck.type === "spam" && userPrefs.auto_dismiss_spam) ||
-          (spamCheck.type === "newsletter" && userPrefs.auto_dismiss_newsletters);
-
-        if (process.env.NODE_ENV === "development") console.log(`[sync] L2 ${spamCheck.type} detected: "${email.subject}" (dismiss=${shouldAutoDismiss})`);
-
-        await (adminClient as any)
-          .from("email_records")
-          .update({
-            email_category: spamCheck.type === "spam" ? "spam" : "newsletter",
-            ai_classification_confidence: Math.round(spamCheck.confidence * 100),
-            ai_reasoning: spamCheck.reason,
-            classification_status: "auto_classified",
-            // B5: auto-dismiss must actually take the email out of the decision
-            // queue, otherwise the "unprocessed" counter grows forever.
-            ...(shouldAutoDismiss
-              ? { is_processed: true, classification: "archived" as const }
-              : {}),
-          })
-          .eq("id", email.id);
-        emailsClassified++;
-        if (shouldAutoDismiss) spamDismissed++;
-        continue;
-      }
-
-      // ═══════════════════════════════════════════════════════════
-      // LEVEL 2b: LOCAL KEYWORD CLASSIFICATION (fast, no AI)
-      // ═══════════════════════════════════════════════════════════
-      if (projects.length > 0) {
-        const keywordMatch = classifyEmailByKeywords(
-          {
-            subject: email.subject,
-            sender_email: senderEmail,
-            sender_name: email.sender_name || undefined,
-            body_preview: email.body_preview || undefined,
-            recipients: email.recipients || [],
-          },
-          projects
-        );
-
-        if (keywordMatch && keywordMatch.confidence >= 0.6) {
-          if (process.env.NODE_ENV === "development") console.log(`[sync] L2b Keyword match for "${email.subject}": project=${keywordMatch.projectId}, score=${keywordMatch.score}`);
-          await (adminClient as any)
-            .from("email_records")
-            .update({
-              project_id: keywordMatch.projectId,
-              // B12: keyword matching identifies the project, not the urgency.
-              classification:
-                email.classification ||
-                (hasActionHints(email.subject, email.body_preview) ? "action_required" : "info_only"),
-              ai_classification_confidence: Math.round(keywordMatch.confidence * 100),
-              ai_project_match_confidence: Math.round(keywordMatch.confidence * 100),
-              classification_status: "auto_classified",
-              email_category: "project",
-              ai_reasoning: `Local keyword match: ${keywordMatch.reasons.join(", ")}`,
-            })
-            .eq("id", email.id);
-          emailsClassified++;
-          continue;
-        }
-      }
-
-      // Skip AI if subject clearly identifies an unknown project
-      if (isUnknownProjectSubject(email.subject, projects)) {
-        if (process.env.NODE_ENV === "development") console.log(`[sync] SKIP AI: "${email.subject}" — first segment is unknown project`);
-        await (adminClient as any)
-          .from("email_records")
-          .update({ classification_status: "auto_classified" })
-          .eq("id", email.id);
-        continue;
-      }
-
-      // ═══════════════════════════════════════════════════════════
-      // LEVEL 3: CLAUDE AI CLASSIFICATION
-      // ═══════════════════════════════════════════════════════════
-      if (!anthropicApiKey || aiQuotaExceeded) {
-        // No AI key, or the org's monthly AI quota is exhausted (B6):
-        // mark as unprocessed so it stays in the manual classification queue.
-        await (adminClient as any)
-          .from("email_records")
-          .update({
-            classification_status: "unprocessed",
-          })
-          .eq("id", email.id);
-        continue;
-      }
-
-      // Fetch full body for better classification
-      let bodyFull: string | undefined;
-      const messageId = email.outlook_message_id;
-      if (messageId) {
-        try {
-          bodyFull = await getFullBody(messageId);
-        } catch (bodyErr) {
-          console.warn(`[sync] Full body fetch error:`, bodyErr);
-        }
-      }
-
-      const result = await classifyEmail(
-        anthropicApiKey,
-        {
-          sender_email: senderEmail,
-          sender_name: email.sender_name || "",
-          subject: email.subject,
-          body_preview: email.body_preview || "",
-          body_full: bodyFull,
-          received_at: email.received_at,
-          recipients: email.recipients || [],
-        },
-        projects,
-        undefined,
-        (usage) => {
-          trackApiUsage({
-            supabase: adminClient,
-            userId: user.id,
-            organizationId: userOrg?.organization_id ?? "",
-            actionType: "email_classify",
-            apiProvider: "anthropic",
-            model: usage.model,
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            metadata: { email_id: email.id },
-          });
-        }
-      );
-
-      // Build update payload based on match_type
-      const confidencePercent = Math.round(result.confidence * 100);
-
-      // Collect enriched signals from L3 classification to persist in suggested_project_data
-      const enrichedSignals: Record<string, unknown> = {};
-      if (result.prices_detected && result.prices_detected.length > 0) {
-        enrichedSignals.prices_detected = result.prices_detected;
-      }
-      if (result.deadlines_detected && result.deadlines_detected.length > 0) {
-        enrichedSignals.deadlines_detected = result.deadlines_detected;
-      }
-      if (result.supplier_match) {
-        enrichedSignals.supplier_match = result.supplier_match;
-      }
-      if (result.delay_detected) {
-        enrichedSignals.delay_detected = result.delay_detected;
-      }
-      if (result.order_confirmation) {
-        enrichedSignals.order_confirmation = result.order_confirmation;
-      }
-      const hasEnrichedSignals = Object.keys(enrichedSignals).length > 0;
-
-      if (result.match_type === "existing_project") {
-        const isAutoClassified = result.confidence >= 0.85;
-        await (adminClient as any)
-          .from("email_records")
-          .update({
-            project_id: result.project_id || null,
-            classification: result.classification || "info_only",
-            ai_summary: result.summary_fr,
-            ai_classification_confidence: result.classification_confidence || confidencePercent,
-            ai_project_match_confidence: confidencePercent,
-            classification_status: isAutoClassified ? "auto_classified" : "suggested",
-            email_category: "project",
-            ai_reasoning: result.reasoning || null,
-            ...(hasEnrichedSignals ? { suggested_project_data: enrichedSignals } : {}),
-          })
-          .eq("id", email.id);
-
-      } else if (result.match_type === "new_project") {
-        const newProjectData = {
-          ...(result.suggested_project || {}),
-          ...(hasEnrichedSignals ? enrichedSignals : {}),
-        };
-        await (adminClient as any)
-          .from("email_records")
-          .update({
-            project_id: null,
-            classification: result.classification || "action_required",
-            ai_summary: result.summary_fr,
-            ai_classification_confidence: result.classification_confidence || confidencePercent,
-            ai_project_match_confidence: 0,
-            classification_status: "new_project_suggested",
-            email_category: "project",
-            suggested_project_data: Object.keys(newProjectData).length > 0 ? newProjectData : null,
-            ai_reasoning: result.reasoning || null,
-          })
-          .eq("id", email.id);
-        newProjectsSuggested++;
-
-      } else {
-        // no_project — could be personal, admin, etc.
-        const isLowConfidence = result.confidence < 0.50;
-        await (adminClient as any)
-          .from("email_records")
-          .update({
-            project_id: null,
-            classification: "info_only",
-            ai_summary: result.summary_fr,
-            ai_classification_confidence: confidencePercent,
-            ai_project_match_confidence: 0,
-            classification_status: isLowConfidence ? "unprocessed" : "classified_no_project",
-            email_category: result.email_category || "personal",
-            ai_reasoning: result.reasoning || null,
-            ...(hasEnrichedSignals ? { suggested_project_data: enrichedSignals } : {}),
-          })
-          .eq("id", email.id);
-      }
-
-      emailsClassified++;
-
-      // Learn from high-confidence AI classification.
-      // NOTE: We intentionally only confirm ONCE per email classification.
-      // The previous "double-confirm" pattern (for confidence >= 0.90) was removed because
-      // it immediately promoted sender rules to times_confirmed=2, which caused ALL emails
-      // from that sender to be captured by L1 rules regardless of content — even when the
-      // same sender sends emails about multiple different projects.
-      // Rules now build up naturally: times_confirmed increments once per distinct email.
-      if (result.confidence >= 0.85 && result.project_id && userOrg?.organization_id) {
-        try {
-          const { learnFromClassificationAction } = await import("@cantaia/core/emails");
-          await learnFromClassificationAction({
-            supabase: adminClient,
-            organizationId: userOrg.organization_id,
-            senderEmail,
-            subject: email.subject,
-            projectId: result.project_id,
-            action: "confirm",
-          });
-        } catch { /* learning must never block sync */ }
-      }
-
-      // Create task if detected and project exists
-      if (result.contains_task && result.task?.title && result.project_id) {
-        await (adminClient as any).from("tasks").insert({
-          project_id: result.project_id,
-          created_by: user.id,
-          title: result.task.title,
-          priority: result.task.priority || "medium",
-          source: "email" as const,
-          source_id: email.id,
-          source_reference: `Email: ${email.subject}`,
-          assigned_to_name: result.task.assigned_to_name,
-          assigned_to_company: result.task.assigned_to_company,
-          due_date: result.task.due_date,
-        });
-        tasksCreated++;
-      }
-
-      // Auto-archive if project has archiving enabled — generates .eml + uploads to Supabase Storage
-      const classifiedProjectId = result.project_id;
-      if (classifiedProjectId && archiveProjectsMap.has(classifiedProjectId)) {
-        try {
-          const archiveProject = archiveProjectsMap.get(classifiedProjectId)!;
-
-          const archiveableEmail: ArchiveableEmail = {
-            id: email.id,
-            outlook_message_id: email.outlook_message_id || null,
-            subject: email.subject,
-            sender_email: senderEmail,
-            sender_name: email.sender_name || null,
-            recipients: email.recipients || null,
-            received_at: email.received_at,
-            body_text: email.body_text || null,
-            body_html: email.body_html || null,
-            body_preview: email.body_preview || null,
-            classification: result.classification || null,
-            has_attachments: email.has_attachments || false,
-          };
-
-          const archiveProjectConfig: ArchiveProjectConfig = {
-            id: classifiedProjectId,
-            name: archiveProject.name,
-            organization_id: archiveProject.organization_id,
-            archive_path: archiveProject.archive_path,
-            archive_structure: archiveProject.archive_structure || "by_category",
-            archive_filename_format: archiveProject.archive_filename_format || "date_sender_subject",
-            archive_attachments_mode: archiveProject.archive_attachments_mode || "subfolder",
-          };
-
-          const archiveResult = await archiveEmail(
-            adminClient,
-            archiveableEmail,
-            archiveProjectConfig,
-            graphTokenForPlans || null
-          );
-
-          // Delete any previous failed/pending records for this email
-          await (adminClient as any)
-            .from("email_archives")
-            .delete()
-            .eq("email_id", email.id)
-            .eq("project_id", classifiedProjectId)
-            .in("status", ["pending", "failed"]);
-
-          // Insert archive record with storage info
-          await (adminClient as any).from("email_archives").insert({
-            email_id: email.id,
-            project_id: classifiedProjectId,
-            organization_id: archiveProject.organization_id,
-            local_path: archiveResult.storage_path,
-            folder_name: archiveResult.folder_name,
-            file_name: archiveResult.file_name,
-            storage_path: archiveResult.storage_path,
-            storage_bucket: "email-archives",
-            file_size: archiveResult.file_size,
-            attachments_saved: archiveResult.attachments_saved,
-            status: archiveResult.status,
-            error_message: archiveResult.error_message || null,
-            archived_at: archiveResult.status === "saved" ? new Date().toISOString() : null,
-          });
-
-          if (archiveResult.status === "saved") emailsArchived++;
-        } catch (archiveErr) {
-          console.warn(`[sync] Auto-archive failed for email ${email.id}:`, archiveErr);
-        }
-      }
-
-      // Auto-save plan attachments if email is classified under a project
-      if (classifiedProjectId && email.has_attachments && email.outlook_message_id && graphTokenForPlans) {
-        try {
-          const attachments = await graphGetAttachments(graphTokenForPlans, email.outlook_message_id);
-          const potentialPlans = attachments.filter((a) =>
-            isPotentialPlan({ id: a.id, name: a.name, contentType: a.contentType, size: a.size })
-          );
-
-          if (potentialPlans.length > 0) {
-            const detections = await detectPlansInEmail(
-              email.id,
-              potentialPlans.map((a) => ({ id: a.id, name: a.name, contentType: a.contentType, size: a.size })),
-              {
-                sender_email: senderEmail,
-                sender_name: email.sender_name || "",
-                subject: email.subject,
-                body_excerpt: email.body_preview || "",
-                project_name: projects.find((p) => p.id === classifiedProjectId)?.name || "",
-                project_code: projects.find((p) => p.id === classifiedProjectId)?.code || "",
-                lots_list: "",
-                existing_plans_summary: "",
-              }
-            );
-
-            for (let i = 0; i < detections.length; i++) {
-              const det = detections[i];
-              if (det.is_plan && det.confidence >= 0.7) {
-                const att = potentialPlans[i];
-                const saved = await savePlanFromAttachment({
-                  supabase: adminClient,
-                  graphAccessToken: graphTokenForPlans,
-                  messageId: email.outlook_message_id,
-                  attachment: { id: att.id, name: att.name, contentType: att.contentType, size: att.size },
-                  detection: det,
-                  emailId: email.id,
-                  projectId: classifiedProjectId,
-                  organizationId: userOrg?.organization_id || "",
-                  userId: user.id,
-                });
-                if (saved) plansSaved++;
-              }
-            }
-          }
-        } catch (planErr) {
-          console.warn(`[sync] Plan detection failed for email ${email.id}:`, planErr);
-        }
-      }
-    } catch (err) {
-      console.error(`[sync] Failed to classify email ${email.id} ("${email.subject}"):`, err);
-      await (adminClient as any)
-        .from("email_records")
-        .update({ classification_status: "unprocessed" })
-        .eq("id", email.id);
-    }
-  }
-
-  // 8. Log results
+  // 6. Log results
   const providerName = emailConnection?.provider || "microsoft_legacy";
-  await adminClient.from("app_logs").insert({
+  const details = {
+    provider: providerName,
+    emails_synced: emailsSynced,
+    emails_skipped: emailsSkipped,
+    emails_classified: stats.emailsClassified,
+    tasks_created: stats.tasksCreated,
+    new_projects_suggested: stats.newProjectsSuggested,
+    emails_archived: stats.emailsArchived,
+    plans_saved: stats.plansSaved,
+    spam_dismissed: stats.spamDismissed,
+    quotes_extracted: stats.quotesExtracted,
+    snoozes_reset: snoozesReset,
+    classification_timed_out: stats.timedOut,
+  };
+
+  const { error: logErr } = await adminClient.from("app_logs").insert({
     user_id: user.id,
     level: "info",
     source: "email_sync",
     message: `Sync pipeline completed (${providerName})`,
-    details: {
-      provider: providerName,
-      emails_synced: emailsSynced,
-      emails_skipped: emailsSkipped,
-      emails_classified: emailsClassified,
-      tasks_created: tasksCreated,
-      new_projects_suggested: newProjectsSuggested,
-      emails_archived: emailsArchived,
-      plans_saved: plansSaved,
-      spam_dismissed: spamDismissed,
-      snoozes_reset: snoozesReset,
-    },
+    details,
   });
+  if (logErr) console.warn("[outlook/sync] app_logs insert failed:", logErr.message);
 
   logActivityAsync({
     supabase: adminClient,
     userId: user.id,
     organizationId: userOrg?.organization_id ?? "",
     action: "sync_emails",
-    metadata: {
-      provider: providerName,
-      emails_synced: emailsSynced,
-      emails_classified: emailsClassified,
-      tasks_created: tasksCreated,
-      new_projects_suggested: newProjectsSuggested,
-      emails_archived: emailsArchived,
-      plans_saved: plansSaved,
-      spam_dismissed: spamDismissed,
-      snoozes_reset: snoozesReset,
-    },
+    metadata: details,
   });
 
   return NextResponse.json({
     success: true,
     provider: providerName,
     emails_synced: emailsSynced,
-    emails_classified: emailsClassified,
-    tasks_created: tasksCreated,
-    new_projects_suggested: newProjectsSuggested,
-    emails_archived: emailsArchived,
-    plans_saved: plansSaved,
-    spam_dismissed: spamDismissed,
+    emails_classified: stats.emailsClassified,
+    tasks_created: stats.tasksCreated,
+    new_projects_suggested: stats.newProjectsSuggested,
+    emails_archived: stats.emailsArchived,
+    plans_saved: stats.plansSaved,
+    spam_dismissed: stats.spamDismissed,
+    quotes_extracted: stats.quotesExtracted,
     snoozes_reset: snoozesReset,
+    classification_timed_out: stats.timedOut,
     // B6: surface the quota state so the client can warn the user that emails
     // were synced but not AI-classified.
-    ai_classification_skipped: aiQuotaExceeded,
-    ...(aiQuotaInfo ? { usage_limit: aiQuotaInfo } : {}),
+    ai_classification_skipped: ctx.aiQuotaExceeded,
+    ...(ctx.aiQuotaInfo ? { usage_limit: ctx.aiQuotaInfo } : {}),
   });
 }
 
 // ── Multi-provider sync via email_connections table ──────────────────────────
-
-interface EmailConnectionRecord {
-  id: string;
-  user_id: string;
-  organization_id: string;
-  provider: string;
-  oauth_access_token: string | null;
-  oauth_refresh_token: string | null;
-  oauth_token_expires_at: string | null;
-  oauth_scopes: string | null;
-  email_address: string;
-  display_name: string | null;
-  status: string;
-  last_sync_at: string | null;
-  sync_delta_link: string | null;
-  total_emails_synced: number;
-  created_at: string;
-}
 
 async function syncViaProvider(
   adminClient: ReturnType<typeof createAdminClient>,
@@ -1057,7 +240,7 @@ async function syncViaProvider(
           : connection.oauth_token_expires_at;
         const newRefreshToken = tokens.refresh_token || connection.oauth_refresh_token;
 
-        await adminClient
+        const { error: refreshWriteErr } = await adminClient
           .from("email_connections")
           .update({
             oauth_access_token: tokens.access_token,
@@ -1065,6 +248,9 @@ async function syncViaProvider(
             oauth_token_expires_at: newExpiresAt,
           })
           .eq("id", connection.id);
+        if (refreshWriteErr) {
+          console.warn(`[sync] Token refresh persist failed for ${connection.id}: ${refreshWriteErr.message}`);
+        }
 
         connection.oauth_access_token = tokens.access_token;
         if (tokens.refresh_token) connection.oauth_refresh_token = tokens.refresh_token;
@@ -1091,77 +277,21 @@ async function syncViaProvider(
       rawEmails = await provider.fetchEmails(connection as unknown as EmailConnectionConfig, sinceDate);
     }
 
-    let synced = 0;
-    let skipped = 0;
-
-    if (rawEmails.length === 0) {
-      // Nothing to sync
-    } else {
-      // Batch check existing IDs
-      const externalIds = rawEmails.map((r) => r.externalId).filter(Boolean);
-      const existingIds = new Set<string>();
-
-      const CHUNK_SIZE = 200;
-      for (let i = 0; i < externalIds.length; i += CHUNK_SIZE) {
-        const chunk = externalIds.slice(i, i + CHUNK_SIZE);
-        // Check by outlook_message_id to deduplicate
-        const { data: existingRows } = await (adminClient as any)
-          .from("email_records")
-          .select("outlook_message_id")
-          .eq("user_id", userId)
-          .in("outlook_message_id", chunk);
-        for (const row of existingRows || []) {
-          if (row.outlook_message_id) existingIds.add(row.outlook_message_id);
-        }
-      }
-
-      // Prepare batch of new emails to insert — save full body alongside preview
-      const toInsert = [];
-      for (const raw of rawEmails) {
-        if (existingIds.has(raw.externalId)) {
-          skipped++;
-          continue;
-        }
-
-        const plainText = raw.bodyText || (raw.bodyHtml ? stripHtml(raw.bodyHtml) : null);
-        const bodyPreview = plainText ? plainText.substring(0, 500) : null;
-
-        toInsert.push({
-          user_id: userId,
-          organization_id: organizationId || connection.organization_id || null,
-          outlook_message_id: raw.externalId,
-          sender_email: raw.from || "",
-          sender_name: raw.fromName || null,
-          recipients: [...raw.to, ...(raw.cc || [])],
-          received_at: raw.date.toISOString(),
-          body_preview: bodyPreview,
-          body_html: raw.bodyHtml || null,
-          body_text: plainText || null,
-          has_attachments: raw.hasAttachments || false,
-          is_processed: false,
-          subject: raw.subject || "(Sans objet)",
-        });
-      }
-
-      // Batch insert in chunks
-      for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
-        const chunk = toInsert.slice(i, i + CHUNK_SIZE);
-        try {
-          await (adminClient as any).from("email_records").insert(chunk);
-          synced += chunk.length;
-        } catch {
-          // Fallback: insert individually
-          for (const record of chunk) {
-            try {
-              await (adminClient as any).from("email_records").insert(record);
-              synced++;
-            } catch (individualErr) {
-              console.warn(`[sync] Failed to sync email ${record.outlook_message_id}:`, individualErr);
-            }
-          }
-        }
-      }
-    }
+    // Persist via the CANONICAL multi-provider writer (connection-sync). The
+    // previous inline implementation dedup'd only on outlook_message_id and set
+    // outlook_message_id for Gmail/IMAP too — which, after DP-A aligned the cron
+    // to insert Gmail/IMAP rows with provider_message_id + outlook_message_id
+    // NULL, guaranteed duplicate rows whenever the interactive sync and the cron
+    // both ran. dedupAndInsertEmails dedups on BOTH id columns and only mirrors
+    // outlook_message_id for Microsoft, so the two paths now agree.
+    (connection as { organization_id?: string | null }).organization_id =
+      organizationId || connection.organization_id || null;
+    // rawEmails is annotated with a narrower inline shape than RawEmail (it omits
+    // `attachments`), but the provider returns full RawEmail objects at runtime.
+    const synced = await dedupAndInsertEmails(adminClient, connection, rawEmails as unknown as RawEmail[], {
+      mirrorOutlookId: connection.provider === "microsoft",
+    });
+    const skipped = Math.max(0, rawEmails.length - synced);
 
     // Update connection: last sync + delta link + totals
     const syncAt = new Date().toISOString();
@@ -1172,16 +302,22 @@ async function syncViaProvider(
     if (newDeltaLink) {
       updatePayload.sync_delta_link = newDeltaLink;
     }
-    await (adminClient as any)
+    const { error: connUpdateErr } = await (adminClient as any)
       .from("email_connections")
       .update(updatePayload)
       .eq("id", connection.id);
+    if (connUpdateErr) {
+      console.warn(`[sync] Connection update failed for ${connection.id}: ${connUpdateErr.message}`);
+    }
 
     // Also update legacy last_sync_at on users
-    await adminClient
+    const { error: userSyncErr } = await adminClient
       .from("users")
       .update({ last_sync_at: syncAt })
       .eq("id", userId);
+    if (userSyncErr) {
+      console.warn(`[sync] users.last_sync_at update failed for ${userId}: ${userSyncErr.message}`);
+    }
 
     return { emailsSynced: synced, emailsSkipped: skipped };
   } catch (err) {
@@ -1195,7 +331,8 @@ async function syncViaProvider(
 
 async function syncLegacyMicrosoft(
   adminClient: ReturnType<typeof createAdminClient>,
-  userId: string
+  userId: string,
+  organizationId: string | null = null
 ): Promise<{ emailsSynced: number; emailsSkipped: number; error?: string }> {
   const existingMsgIds = new Set<string>();
   const { data: existingRows } = await adminClient
@@ -1230,167 +367,36 @@ async function syncLegacyMicrosoft(
     },
 
     insertEmail: async (emailData) => {
-      await (adminClient as any).from("email_records").insert(emailData);
+      const { error } = await (adminClient as any).from("email_records").insert(emailData);
+      if (error) {
+        console.warn(`[sync/legacy] email insert failed: ${error.message}`);
+      }
     },
 
     updateLastSync: async (uid, syncAt) => {
-      await adminClient
+      const { error } = await adminClient
         .from("users")
         .update({ last_sync_at: syncAt })
         .eq("id", uid);
+      if (error) console.warn(`[sync/legacy] last_sync_at update failed: ${error.message}`);
     },
 
     logSync: async (uid, level, message, details) => {
-      await adminClient.from("app_logs").insert({
+      const { error } = await adminClient.from("app_logs").insert({
         user_id: uid,
         level: level as "info" | "warning" | "error" | "critical",
         source: "outlook_sync",
         message,
         details: details || {},
       });
+      if (error) console.warn(`[sync/legacy] app_logs insert failed: ${error.message}`);
     },
   };
 
-  const syncResult = await syncUserEmails(userId, deps);
+  const syncResult = await syncUserEmails(userId, deps, organizationId ?? null);
   return {
     emailsSynced: syncResult.emailsSynced,
     emailsSkipped: syncResult.emailsSkipped,
     error: syncResult.success ? undefined : syncResult.error,
   };
-}
-
-// ── Build a function to fetch full email body via the right provider ──
-
-async function buildBodyFetcher(
-  userId: string,
-  emailConnection: EmailConnectionRecord | null
-): Promise<(messageId: string) => Promise<string | undefined>> {
-  if (emailConnection) {
-    const provider = getEmailProvider(emailConnection.provider);
-    if (provider.getEmailBody) {
-      return async (messageId: string) => {
-        try {
-          const body = await provider.getEmailBody!(emailConnection as unknown as EmailConnectionConfig, messageId);
-          if (body.bodyHtml) return stripHtml(body.bodyHtml).substring(0, 10000);
-          if (body.bodyText) return body.bodyText.substring(0, 10000);
-        } catch {
-          // Fall through
-        }
-        return undefined;
-      };
-    }
-    return async () => undefined;
-  }
-
-  // Legacy: fetch from Microsoft Graph
-  let graphAccessToken: string | undefined;
-  try {
-    const tokenResult = await getValidMicrosoftToken(userId);
-    graphAccessToken = tokenResult.accessToken || undefined;
-  } catch {
-    console.warn("[sync] Could not get Microsoft token for full body fetch");
-  }
-
-  return async (messageId: string) => {
-    if (!graphAccessToken) return undefined;
-    try {
-      const graphRes = await fetch(
-        `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=body`,
-        { headers: { Authorization: `Bearer ${graphAccessToken}` } }
-      );
-      if (graphRes.ok) {
-        const graphData = await graphRes.json();
-        if (graphData.body?.content) {
-          return stripHtml(graphData.body.content).substring(0, 10000);
-        }
-      }
-    } catch {
-      // Fall through
-    }
-    return undefined;
-  };
-}
-
-// ── Extract prices from email body for L0b (reuses receive-quote logic) ──
-
-async function extractPricesForL0b(
-  emailContent: string,
-  requestedItems: any[],
-  tracking: {
-    supabase: ReturnType<typeof createAdminClient>;
-    userId: string;
-    organizationId: string;
-    emailId: string;
-  }
-): Promise<any[]> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return [];
-
-  const itemsList = requestedItems
-    .map((i: any) => `- ID: ${i.id} | N°${i.item_number} | ${i.description} | ${i.unit} | Qté: ${i.quantity}`)
-    .join("\n");
-
-  const prompt = `Tu es un expert en extraction de prix de construction suisse.
-
-Voici un email de réponse d'un fournisseur. Extrais les prix unitaires HT pour chaque poste demandé.
-
-## Postes demandés :
-${itemsList}
-
-## Email du fournisseur :
-${emailContent.substring(0, 8000)}
-
-## Instructions :
-- Cherche les prix dans le format "numéro_poste : prix" ou "numéro_poste = prix" ou tout autre format
-- Le prix peut être en CHF, EUR, ou sans devise (suppose CHF)
-- Retourne UNIQUEMENT le JSON, sans commentaire
-
-## Format de sortie (JSON strict) :
-[
-  {
-    "item_id": "UUID du poste",
-    "item_number": "numéro du poste",
-    "unit_price_ht": number,
-    "total_ht": number | null,
-    "confidence": number (0-1)
-  }
-]`;
-
-  try {
-    const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey, timeout: 30_000 });
-
-    const model = "claude-haiku-4-5-20251001";
-    const response = await client.messages.create({
-      model,
-      max_tokens: 2048,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    // B13: this Haiku call was previously invisible in api_usage_logs.
-    trackApiUsage({
-      supabase: tracking.supabase,
-      userId: tracking.userId,
-      organizationId: tracking.organizationId,
-      actionType: "price_extract",
-      apiProvider: "anthropic",
-      model,
-      inputTokens: response.usage?.input_tokens ?? 0,
-      outputTokens: response.usage?.output_tokens ?? 0,
-      metadata: { email_id: tracking.emailId, level: "L0b" },
-    });
-
-    const text = response.content.find((c: any) => c.type === "text");
-    if (!text || text.type !== "text") return [];
-
-    let jsonStr = text.text.trim();
-    const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (match) jsonStr = match[1].trim();
-    const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
-    if (arrayMatch) jsonStr = arrayMatch[0];
-    return JSON.parse(jsonStr);
-  } catch (err) {
-    console.warn("[sync] extractPricesForL0b Claude call failed:", err);
-    return [];
-  }
 }

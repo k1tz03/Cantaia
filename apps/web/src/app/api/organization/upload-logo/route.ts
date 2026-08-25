@@ -64,7 +64,15 @@ export async function POST(request: NextRequest) {
   }
 
   // 5. Upload to Supabase Storage
-  const ext = file.name.split(".").pop() || "png";
+  // Derive the extension from the (whitelisted) MIME type, never from the
+  // client-supplied filename — an unsanitized filename could inject characters
+  // outside [a-zA-Z0-9._-] or a "svg" extension into the storage path.
+  const EXT_BY_TYPE: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/x-icon": "ico",
+  };
+  const ext = EXT_BY_TYPE[file.type] || "png";
   const fileName = `${orgId}/${variant === "dark" ? "logo-dark" : "logo"}.${ext}`;
 
   console.log(`[upload-logo] Uploading ${fileName} (${(file.size / 1024).toFixed(1)} KB)`);

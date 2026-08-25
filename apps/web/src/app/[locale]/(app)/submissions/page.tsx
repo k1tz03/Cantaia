@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { formatDate } from "@/lib/format";
 import {
   FileSpreadsheet,
   FileText,
@@ -54,10 +56,13 @@ interface SubmissionRow {
 }
 
 export default function SubmissionsPage() {
+  const t = useTranslations("submissions");
+  const locale = useLocale();
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSubmissions();
@@ -76,13 +81,23 @@ export default function SubmissionsPage() {
   }
 
   async function handleDelete(id: string) {
+    // The row is only removed once the server confirmed the deletion — the old
+    // code removed it unconditionally, showing a false success on any failure.
+    setDeleteError(null);
     try {
-      await fetch(`/api/submissions/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/submissions/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setDeleteError(json?.error || t("list.deleteFailed"));
+        return;
+      }
       setSubmissions((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
       console.error("[submissions] delete error:", err);
+      setDeleteError(t("list.deleteFailed"));
+    } finally {
+      setDeleteId(null);
     }
-    setDeleteId(null);
   }
 
   const filtered = useMemo(() => {
@@ -127,10 +142,10 @@ export default function SubmissionsPage() {
   }, [submissions]);
 
   const statusConfig: Record<string, { label: string; className: string; dot: string }> = {
-    pending: { label: "En attente", className: "bg-[#27272A] text-[#71717A] border border-[#27272A]", dot: "bg-[#71717A]" },
-    analyzing: { label: "Analyse...", className: "bg-purple-500/10 text-purple-400 border border-purple-500/20 animate-pulse", dot: "bg-purple-500" },
-    done: { label: "Analysé", className: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20", dot: "bg-emerald-500" },
-    error: { label: "Erreur", className: "bg-red-500/10 text-red-400 border border-red-500/20", dot: "bg-red-500" },
+    pending: { label: t("list.statusPending"), className: "bg-[#27272A] text-[#A1A1AA] border border-[#27272A]", dot: "bg-[#71717A]" },
+    analyzing: { label: t("list.statusAnalyzing"), className: "bg-purple-500/10 text-purple-400 border border-purple-500/20 animate-pulse", dot: "bg-purple-500" },
+    done: { label: t("list.statusDone"), className: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20", dot: "bg-emerald-500" },
+    error: { label: t("list.statusError"), className: "bg-red-500/10 text-red-400 border border-red-500/20", dot: "bg-red-500" },
   };
 
   return (
@@ -140,20 +155,35 @@ export default function SubmissionsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-xl font-extrabold text-[#FAFAFA]">
-              Soumissions
+              {t("title")}
             </h1>
-            <p className="text-[13px] text-[#71717A] mt-0.5">
-              {submissions.length} soumission{submissions.length !== 1 ? "s" : ""} · {grouped.length} chantier{grouped.length !== 1 ? "s" : ""}
+            <p className="text-[13px] text-[#A1A1AA] mt-0.5">
+              {t("list.countSummary", { submissions: submissions.length, sites: grouped.length })}
             </p>
           </div>
           <Link
             href="/submissions/new"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#F97316] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#EA580C] hover:shadow"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] shadow-sm transition-all hover:bg-[#EA580C] hover:shadow"
           >
             <Plus className="h-4 w-4" />
-            Nouvelle soumission
+            {t("newSubmission")}
           </Link>
         </div>
+
+        {/* Delete failure banner — never a silent false success */}
+        {deleteError && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 flex items-center gap-3">
+            <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
+            <p className="text-sm text-red-400 flex-1">{deleteError}</p>
+            <button
+              onClick={() => setDeleteError(null)}
+              className="text-red-400 hover:text-red-300"
+              aria-label={t("list.deleteFailed")}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Global KPIs */}
         {submissions.length > 0 && (
@@ -161,35 +191,35 @@ export default function SubmissionsPage() {
             <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
               <div className="flex items-center gap-2 mb-1">
                 <Send className="h-3.5 w-3.5 text-[#F97316]" />
-                <span className="text-[11px] font-medium text-[#71717A] uppercase">Envoyées</span>
+                <span className="text-[11px] font-medium text-[#A1A1AA] uppercase">{t("list.kpiSent")}</span>
               </div>
               <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.totalSent}</div>
             </div>
             <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
               <div className="flex items-center gap-2 mb-1">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                <span className="text-[11px] font-medium text-[#71717A] uppercase">Réponses</span>
+                <span className="text-[11px] font-medium text-[#A1A1AA] uppercase">{t("list.kpiResponses")}</span>
               </div>
               <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.totalResponded}</div>
             </div>
             <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
               <div className="flex items-center gap-2 mb-1">
                 <Clock className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-[11px] font-medium text-[#71717A] uppercase">En attente</span>
+                <span className="text-[11px] font-medium text-[#A1A1AA] uppercase">{t("list.kpiPending")}</span>
               </div>
               <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.totalPending}</div>
             </div>
             <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
               <div className="flex items-center gap-2 mb-1">
                 <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
-                <span className="text-[11px] font-medium text-[#71717A] uppercase">Taux réponse</span>
+                <span className="text-[11px] font-medium text-[#A1A1AA] uppercase">{t("list.kpiResponseRate")}</span>
               </div>
               <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.responseRate}%</div>
             </div>
             <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
               <div className="flex items-center gap-2 mb-1">
                 <Trophy className="h-3.5 w-3.5 text-[#F97316]" />
-                <span className="text-[11px] font-medium text-[#71717A] uppercase">Attribuées</span>
+                <span className="text-[11px] font-medium text-[#A1A1AA] uppercase">{t("list.kpiAwarded")}</span>
               </div>
               <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.totalAwarded}</div>
             </div>
@@ -202,16 +232,16 @@ export default function SubmissionsPage() {
         {/* Search */}
         {submissions.length > 0 && (
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A1A1AA]" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par nom, projet, client, ville..."
-              className="w-full pl-10 pr-4 py-2 border border-[#27272A] rounded-xl text-sm bg-[#18181B] text-[#FAFAFA] placeholder:text-[#52525B] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 focus:border-[#F97316] transition-all"
+              placeholder={t("list.searchPlaceholder")}
+              className="w-full pl-10 pr-4 py-2 border border-[#27272A] rounded-xl text-sm bg-[#18181B] text-[#FAFAFA] placeholder:text-[#71717A] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 focus:border-[#F97316] transition-all"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717A] hover:text-[#FAFAFA]">
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A1A1AA] hover:text-[#FAFAFA]">
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
@@ -232,13 +262,13 @@ export default function SubmissionsPage() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-center">
             <div className="w-14 h-14 rounded-2xl bg-[#27272A] border border-[#27272A] flex items-center justify-center mb-4 shadow-sm">
-              <FileSpreadsheet className="h-7 w-7 text-[#71717A]" />
+              <FileSpreadsheet className="h-7 w-7 text-[#A1A1AA]" />
             </div>
-            <p className="text-sm font-semibold text-[#71717A]">
-              {search ? "Aucun résultat" : "Aucune soumission"}
+            <p className="text-sm font-semibold text-[#A1A1AA]">
+              {search ? t("list.noResults") : t("noSubmissions")}
             </p>
-            <p className="text-xs text-[#71717A] mt-1">
-              {search ? "Essayez un autre terme" : "Importez un descriptif pour commencer"}
+            <p className="text-xs text-[#A1A1AA] mt-1">
+              {search ? t("list.noResultsHint") : t("noSubmissionsDesc")}
             </p>
           </div>
         ) : (
@@ -258,15 +288,15 @@ export default function SubmissionsPage() {
                       <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: project.color }} />
                     )}
                     <span className="text-sm font-semibold text-[#FAFAFA]">
-                      {project?.name || "Sans projet"}
+                      {project?.name || t("list.noProject")}
                     </span>
                     {project?.client_name && (
-                      <span className="text-xs text-[#71717A]">— {project.client_name}</span>
+                      <span className="text-xs text-[#A1A1AA]">— {project.client_name}</span>
                     )}
                     {project?.city && (
-                      <span className="text-xs text-[#52525B]">{project.city}</span>
+                      <span className="text-xs text-[#A1A1AA]">{project.city}</span>
                     )}
-                    <div className="flex items-center gap-3 ml-auto text-[11px] text-[#71717A]">
+                    <div className="flex items-center gap-3 ml-auto text-[11px] text-[#A1A1AA]">
                       {projSent > 0 && (
                         <>
                           <span className="flex items-center gap-1">
@@ -287,7 +317,7 @@ export default function SubmissionsPage() {
                           <Trophy className="h-3 w-3" />{projAwarded}
                         </span>
                       )}
-                      <span className="text-[#52525B]">{subs.length} soumission{subs.length > 1 ? "s" : ""}</span>
+                      <span className="text-[#A1A1AA]">{t("list.submissionCount", { count: subs.length })}</span>
                     </div>
                   </div>
 
@@ -309,22 +339,30 @@ export default function SubmissionsPage() {
                           deadlineLabel = (
                             <span className="text-red-400 flex items-center gap-1 text-[11px]">
                               <AlertTriangle className="h-3 w-3" />
-                              Expiré{hasMissing ? ` · ${missingPct}% sans réponse` : ""}
+                              {hasMissing
+                                ? t("list.deadlineExpiredMissing", { pct: missingPct })
+                                : t("expired")}
                             </span>
                           );
                         } else if (daysLeft <= 5 && hasMissing) {
                           deadlineLabel = (
                             <span className={`flex items-center gap-1 text-[11px] ${daysLeft <= 2 ? "text-red-400" : "text-amber-400"}`}>
                               <AlertTriangle className="h-3 w-3" />
-                              {daysLeft}j · {missingPct}% sans réponse
+                              {t("list.deadlineSoonMissing", { days: daysLeft, pct: missingPct })}
                             </span>
                           );
                         } else if (daysLeft <= 3) {
-                          deadlineLabel = <span className="text-amber-400 text-[11px]">{daysLeft}j restant{daysLeft > 1 ? "s" : ""}</span>;
+                          deadlineLabel = (
+                            <span className="text-amber-400 text-[11px]">
+                              {t("list.deadlineRemaining", { days: daysLeft })}
+                            </span>
+                          );
                         } else {
                           deadlineLabel = (
-                            <span className="text-[#71717A] text-[11px]">
-                              {daysLeft}j{hasMissing ? ` · ${missingPct}% en attente` : ""}
+                            <span className="text-[#A1A1AA] text-[11px]">
+                              {hasMissing
+                                ? t("list.deadlinePendingPct", { days: daysLeft, pct: missingPct })
+                                : t("list.deadlineDays", { days: daysLeft })}
                             </span>
                           );
                         }
@@ -351,7 +389,7 @@ export default function SubmissionsPage() {
                             {/* Name + status */}
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-[13px] text-[#FAFAFA] truncate group-hover:text-[#F97316] transition-colors">
-                                {sub.file_name || "Sans nom"}
+                                {sub.file_name || t("list.untitled")}
                               </p>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${sc.className}`}>
@@ -374,8 +412,8 @@ export default function SubmissionsPage() {
                                 <div className="flex flex-col items-end gap-0.5">
                                   <div className="flex items-center gap-1.5 text-[11px] text-[#A1A1AA] tabular-nums">
                                     <span>{responded}/{sent}</span>
-                                    <span className="text-[#52525B]">·</span>
-                                    <span className={responseRate >= 75 ? "text-emerald-400" : responseRate >= 50 ? "text-amber-400" : "text-[#71717A]"}>
+                                    <span className="text-[#A1A1AA]">·</span>
+                                    <span className={responseRate >= 75 ? "text-emerald-400" : responseRate >= 50 ? "text-amber-400" : "text-[#A1A1AA]"}>
                                       {responseRate}%
                                     </span>
                                   </div>
@@ -390,7 +428,7 @@ export default function SubmissionsPage() {
                                 </div>
                                 {pending > 0 && (
                                   <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
-                                    {pending} en attente
+                                    {t("list.pendingCount", { count: pending })}
                                   </span>
                                 )}
                               </div>
@@ -404,14 +442,14 @@ export default function SubmissionsPage() {
                             )}
 
                             {/* Date */}
-                            <p className="text-xs text-[#71717A] shrink-0 tabular-nums">
-                              {new Date(sub.created_at).toLocaleDateString("fr-CH")}
+                            <p className="text-xs text-[#A1A1AA] shrink-0 tabular-nums">
+                              {formatDate(sub.created_at, locale)}
                             </p>
-                            <ChevronRight className="h-4 w-4 text-[#71717A] group-hover:text-[#F97316] transition-colors shrink-0" />
+                            <ChevronRight className="h-4 w-4 text-[#A1A1AA] group-hover:text-[#F97316] transition-colors shrink-0" />
                           </Link>
                           <button
                             onClick={() => setDeleteId(sub.id)}
-                            className="p-1.5 text-[#71717A] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                            className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -430,8 +468,8 @@ export default function SubmissionsPage() {
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={() => { if (deleteId) handleDelete(deleteId); }}
-        title="Supprimer cette soumission ?"
-        description="La soumission et toutes les données associées seront supprimées définitivement."
+        title={t("list.deleteTitle")}
+        description={t("list.deleteDescription")}
         variant="danger"
       />
     </div>

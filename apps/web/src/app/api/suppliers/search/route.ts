@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildSupplierSearchPrompt, MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
+import { buildSupplierSearchPrompt, MODEL_FOR_TASK, classifyAIError, callAnthropicWithRetry, parseAIJson } from "@cantaia/core/ai";
+import { trackApiUsage } from "@cantaia/core/tracking";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 60;
 
@@ -31,6 +34,40 @@ export async function POST(request: NextRequest) {
 
   if (!userOrg?.organization_id) {
     return NextResponse.json({ error: "No organization" }, { status: 403 });
+  }
+
+  // ── Metering ────────────────────────────────────────────
+  // This route runs a 4096-token Sonnet call. It was billing Anthropic without
+  // ever debiting the org or writing an api_usage_logs row.
+  const { data: searchOrg } = await (adminClient as any)
+    .from("organizations")
+    .select("subscription_plan")
+    .eq("id", userOrg.organization_id)
+    .maybeSingle();
+
+  const usageCheck = await checkUsageLimit(
+    adminClient,
+    userOrg.organization_id,
+    searchOrg?.subscription_plan || "trial",
+    "supplier_search"
+  );
+  if (!usageCheck.allowed) {
+    if (usageCheck.insufficient_credits) {
+      return insufficientCreditsResponse(
+        usageCheck.required_credits ?? 1,
+        usageCheck.remaining_credits ?? 0
+      );
+    }
+    return NextResponse.json(
+      {
+        error: "usage_limit_reached",
+        current: usageCheck.current,
+        limit: usageCheck.limit,
+        required_plan: usageCheck.requiredPlan,
+        suggestions: [],
+      },
+      { status: 429 }
+    );
   }
 
   const body = await request.json();
@@ -80,64 +117,55 @@ export async function POST(request: NextRequest) {
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
       timeout: 60_000,
+      maxRetries: 0, // retries handled by callAnthropicWithRetry
     });
 
-    const response = await anthropic.messages.create({
+    // No assistant prefill (breaks Sonnet 4.6+/5) and no cache_control on a prompt
+    // that is unique to every search (it would add the +25% write surcharge for
+    // nothing). The prompt already instructs "Réponds UNIQUEMENT en JSON".
+    const response = await callAnthropicWithRetry(() =>
+      anthropic.messages.create({
+        model: MODEL_FOR_TASK.supplier_search,
+        max_tokens: 4096,
+        messages: [{ role: "user", content: prompt }],
+      })
+    );
+
+    trackApiUsage({
+      supabase: adminClient,
+      userId: user.id,
+      organizationId: userOrg.organization_id,
+      actionType: "supplier_search",
+      apiProvider: "anthropic",
       model: MODEL_FOR_TASK.supplier_search,
-      max_tokens: 4096,
-      messages: [
-        { role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] },
-        { role: "assistant", content: '{"suggestions": [' },
-      ],
-    });
+      inputTokens: response.usage?.input_tokens || 0,
+      outputTokens: response.usage?.output_tokens || 0,
+      metadata: {
+        geo_zone: body.geo_zone,
+        cfc_codes: body.cfc_codes || [],
+      },
+    }).catch(() => {});
 
     const rawText =
       response.content[0].type === "text" ? response.content[0].text : "";
 
-    // Prepend the assistant prefill to reconstruct full JSON
-    const fullJson = '{"suggestions": [' + rawText;
-
-    // Robust JSON parsing with multiple strategies
-    let result: any;
-    const cleaned = fullJson.replace(/,\s*([\]}])/g, "$1").trim();
-    try {
-      result = JSON.parse(cleaned);
-    } catch {
-      // If truncated, try closing the JSON
-      let fixed = cleaned;
-      if (!fixed.endsWith("}")) fixed += "}";
-      if (!fixed.includes("]}")) fixed = fixed.replace(/\]?\s*\}?\s*$/, "]}");
-      try {
-        result = JSON.parse(fixed);
-      } catch {
-        // Last resort: extract individual suggestion objects
-        const objects: any[] = [];
-        const regex = /\{[^{}]*"company_name"[^{}]*\}/g;
-        let match;
-        while ((match = regex.exec(fullJson)) !== null) {
-          try { objects.push(JSON.parse(match[0])); } catch { /* skip malformed */ }
-        }
-        if (objects.length > 0) {
-          result = { suggestions: objects };
-        } else {
-          throw new SyntaxError("No valid supplier objects found in AI response");
-        }
-      }
-    }
-
-    return NextResponse.json({
-      suggestions: result.suggestions || [],
-    });
-  } catch (err: any) {
-    console.error("[suppliers/search] AI search error:", err?.message || err);
-
-    if (err instanceof SyntaxError) {
+    const result = parseAIJson<{ suggestions?: any[] }>(rawText);
+    if (!result) {
       return NextResponse.json(
         { error: "Failed to parse AI response", suggestions: [] },
         { status: 500 }
       );
     }
 
+    // The model is asked for confidence-scored guesses; only keep the ones it is
+    // reasonably sure about (the old core filter lived in dead code).
+    const suggestions = (result.suggestions || []).filter(
+      (s: any) => (typeof s?.confidence === "number" ? s.confidence : 1) >= 0.5
+    );
+
+    return NextResponse.json({ suggestions });
+  } catch (err: any) {
+    console.error("[suppliers/search] AI search error:", err?.message || err);
     const aiErr = classifyAIError(err);
     return NextResponse.json(
       { error: aiErr.message, suggestions: [] },

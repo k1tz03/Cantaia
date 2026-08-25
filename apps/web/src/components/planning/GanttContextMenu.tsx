@@ -125,7 +125,7 @@ export default function GanttContextMenu({
                 className={[
                   "flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors",
                   item.disabled
-                    ? "text-[#71717A] cursor-not-allowed"
+                    ? "text-[#A1A1AA] cursor-not-allowed"
                     : item.variant === "danger"
                       ? "text-red-600 hover:bg-red-50"
                       : "text-[#FAFAFA] hover:bg-[#F97316]/10 hover:text-[#F97316]",

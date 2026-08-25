@@ -2,20 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
-import { PLAN_PRICING, type PlanName } from "@cantaia/config/plan-features";
+import { subscriptionRevenueFor, SIGNUP_BONUS_CREDITS } from "@cantaia/config/credit-costs";
+import { grantCredits } from "@/lib/credits";
+import { isAssignableRole } from "@/lib/admin/require-org-admin";
 import crypto from "crypto";
 
 /**
- * Estimated monthly revenue for an org on the per-user pricing model:
- * pricePerUser × max(memberCount, minUsers).
- *
- * NOTE: interim estimate — the upcoming credits-based billing model will
- * replace this calculation entirely.
+ * Monthly revenue for an organization: the FLAT price of its plan
+ * (`CREDIT_PLANS[plan].price_chf`). The per-user model it used to multiply by
+ * a member count is gone — an org pays 49/149/399 CHF whether it has 2 seats
+ * or 40 — so member counts no longer enter the MRR at all.
  */
-function orgMonthlyRevenue(plan: string, memberCount: number): number {
-  const pricing = PLAN_PRICING[plan as PlanName];
-  if (!pricing || pricing.pricePerUser === 0) return 0;
-  return pricing.pricePerUser * Math.max(memberCount, pricing.minUsers);
+function orgMonthlyRevenue(plan: string): number {
+  return subscriptionRevenueFor(plan);
 }
 
 /**
@@ -225,8 +224,8 @@ export async function GET(request: NextRequest) {
       }
     } catch { /* table may not exist */ }
 
-    // MRR: per-user pricing (PLAN_PRICING) × member count, floored at the
-    // plan's minUsers. Interim — replaced by the credits model later.
+    // Member counts are still reported per organization (seat usage), but they
+    // no longer feed the MRR: the credits model bills a flat price per org.
     const memberCountByOrg = new Map<string, number>();
     try {
       const { data: memberRows } = await (admin as any)
@@ -244,7 +243,7 @@ export async function GET(request: NextRequest) {
     let mrr = 0;
     for (const o of (orgsList.data || [])) {
       const plan = o.plan || o.subscription_plan || "trial";
-      mrr += orgMonthlyRevenue(plan, memberCountByOrg.get(o.id) || 0);
+      mrr += orgMonthlyRevenue(plan);
     }
 
     // Storage usage across all buckets
@@ -499,8 +498,8 @@ export async function GET(request: NextRequest) {
         const stats = orgMap.get(oid)!;
         const orgInfo = orgLookup.get(oid);
         const plan = orgInfo?.plan || orgInfo?.subscription_plan || "trial";
-        // Per-user pricing estimate — replaced by the credits model later.
-        const revenueMonthly = orgMonthlyRevenue(plan, memberCountMap.get(oid) || 0);
+        // Flat plan price per organization (credits model).
+        const revenueMonthly = orgMonthlyRevenue(plan);
         const costMonthly = days > 0 ? (stats.cost / days) * 30 : 0;
         return {
           org_id: oid,
@@ -725,6 +724,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: orgError?.message || "Failed to create organization" }, { status: 500 });
     }
 
+    // Grant the signup bonus, matching the two auto-create paths
+    // (auth/callback + projects/create). Without this, a super-admin-created
+    // org has no `credit_balances` row and silently falls back to legacy
+    // quotas — a different billing behaviour from every other org.
+    const bonus = await grantCredits(
+      org.id as string,
+      SIGNUP_BONUS_CREDITS,
+      "signup_bonus",
+      `superadmin_create:${org.id}`
+    );
+    if (!bonus.granted) {
+      console.error(`[super-admin] Signup bonus grant failed for org ${org.id}`);
+    }
+
     // Create invite for first admin if email provided
     let invite = null;
     if (invite_email) {
@@ -844,6 +857,12 @@ export async function POST(request: NextRequest) {
     const { organization_id, email, first_name, last_name, role, job_title, message } = body;
     if (!organization_id || !email) {
       return NextResponse.json({ error: "organization_id and email required" }, { status: 400 });
+    }
+
+    // Validate the invited role against the shared whitelist (ASSIGNABLE_ROLES)
+    // instead of accepting an arbitrary string straight into the invite row.
+    if (role !== undefined && role !== null && !isAssignableRole(role)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
     const token = crypto.randomBytes(32).toString("hex");

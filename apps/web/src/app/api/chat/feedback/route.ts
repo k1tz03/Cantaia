@@ -5,7 +5,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 /**
  * POST /api/chat/feedback
  * Store user feedback (thumbs up/down) on a chat AI message.
- * Body: { message_id, conversation_id, rating: 'up' | 'down', comment?: string }
+ * Body: { conversation_id, message_index: number, rating: 'up' | 'down', comment?: string }
+ *
+ * NOTE: the `chat_feedback` table (migration 029) keys feedback by
+ * `message_index` (position in the conversation) and attributes it via
+ * `created_by` — it has no `message_id` / `user_id` column. Writing those
+ * names made every insert fail with a PostgREST 400.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -21,11 +26,19 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient();
 
     const body = await request.json();
-    const { message_id, conversation_id, rating, comment } = body;
+    const { conversation_id, rating, comment } = body;
+    const messageIndex = Number(body.message_index);
 
-    if (!message_id || !conversation_id) {
+    if (!conversation_id) {
       return NextResponse.json(
-        { error: "message_id and conversation_id are required" },
+        { error: "conversation_id is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isInteger(messageIndex) || messageIndex < 0) {
+      return NextResponse.json(
+        { error: "message_index must be a non-negative integer" },
         { status: 400 }
       );
     }
@@ -59,13 +72,21 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    // Insert feedback into chat_feedback table
+    // Re-rating the same message replaces the previous vote rather than
+    // stacking duplicate rows (the table has no unique constraint).
+    await (admin as any)
+      .from("chat_feedback")
+      .delete()
+      .eq("conversation_id", conversation_id)
+      .eq("message_index", messageIndex)
+      .eq("created_by", user.id);
+
     const { error: insertError } = await (admin as any)
       .from("chat_feedback")
       .insert({
-        message_id,
         conversation_id,
-        user_id: user.id,
+        message_index: messageIndex,
+        created_by: user.id,
         organization_id: userProfile?.organization_id || conversation.organization_id,
         rating,
         comment: comment?.substring(0, 1000) || null,
@@ -79,7 +100,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true, rating });
+    return NextResponse.json({ success: true, rating, message_index: messageIndex });
   } catch (err: any) {
     console.error("[chat/feedback] Error:", err?.message);
     return NextResponse.json({ error: err.message }, { status: 500 });

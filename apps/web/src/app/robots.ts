@@ -5,7 +5,12 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: "/",
+        // The app-route disallow patterns below are prefix matches, so
+        // `/*/pv` would also swallow `/fr/solutions/pv-chantier` and
+        // `/*/rapports` would swallow `/fr/solutions/rapports-chantier`.
+        // These longer Allow rules win by specificity and keep the public
+        // solution pages crawlable.
+        allow: ["/", "/*/solutions", "/*/solutions/*"],
         disallow: [
           "/api/",
           "/admin/",

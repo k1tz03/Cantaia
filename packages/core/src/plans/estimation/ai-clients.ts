@@ -2,7 +2,12 @@
 // Chaque client envoie un plan (image base64) avec un prompt et retourne le JSON parsé
 
 import type { Passe2Result } from './types';
-import { parseAIJson } from '../../ai/ai-utils';
+import { parseAIJson, AI_MODELS, callAnthropicWithRetry } from '../../ai/ai-utils';
+
+// Modèles tiers (hors Anthropic) — centralisés ici plutôt que dispersés en
+// littéraux. Les modèles Claude passent par AI_MODELS (convention MODEL_FOR_TASK).
+const GPT4O_MODEL = 'gpt-4o';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 interface AICallResult<T> {
   result: T | null;
@@ -32,7 +37,9 @@ export async function callClaudeVision<T = Passe2Result>(
   const start = Date.now();
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ timeout: 90_000 });
+    // maxRetries:0 sur le client SDK — le retry contrôlé est délégué à
+    // callAnthropicWithRetry (sinon double retry, cf. convention IA).
+    const client = new Anthropic({ timeout: 90_000, maxRetries: 0 });
 
     // Claude supporte les PDF via type "document", les images via type "image"
     const isPdf = mediaType === 'application/pdf';
@@ -54,23 +61,27 @@ export async function callClaudeVision<T = Passe2Result>(
           },
         };
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 8000,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: [
-            fileContent,
+    const response = await callAnthropicWithRetry(
+      () =>
+        client.messages.create({
+          model: AI_MODELS.SONNET,
+          max_tokens: 8000,
+          system: systemPrompt,
+          messages: [
             {
-              type: "text",
-              text: userPrompt,
+              role: "user",
+              content: [
+                fileContent,
+                {
+                  type: "text",
+                  text: userPrompt,
+                },
+              ],
             },
           ],
-        },
-      ],
-    });
+        }),
+      { maxRetries: 2 }
+    );
 
     const latency_ms = Date.now() - start;
     const textBlock = response.content.find((b) => b.type === "text");
@@ -97,16 +108,20 @@ export async function callClaudeText<T>(
   const start = Date.now();
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ timeout: 90_000 });
+    const client = new Anthropic({ timeout: 90_000, maxRetries: 0 });
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 8000,
-      system: systemPrompt,
-      messages: [
-        { role: "user", content: userPrompt },
-      ],
-    });
+    const response = await callAnthropicWithRetry(
+      () =>
+        client.messages.create({
+          model: AI_MODELS.SONNET,
+          max_tokens: 8000,
+          system: systemPrompt,
+          messages: [
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      { maxRetries: 2 }
+    );
 
     const latency_ms = Date.now() - start;
     const textBlock = response.content.find((b) => b.type === "text");
@@ -156,7 +171,7 @@ export async function callGPT4oVision<T = Passe2Result>(
         };
 
     const response = await client.chat.completions.create({
-      model: "gpt-4o",
+      model: GPT4O_MODEL,
       max_tokens: 8000,
       messages: [
         { role: "system", content: systemPrompt },
@@ -201,7 +216,7 @@ export async function callGeminiVision<T = Passe2Result>(
   try {
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
     const result = await model.generateContent({
       contents: [

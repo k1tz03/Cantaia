@@ -62,6 +62,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No organization" }, { status: 400 });
   }
 
+  // Anti-IDOR: a caller-supplied correct_project_id must belong to the caller's
+  // org. The admin client bypasses RLS, so validate ownership explicitly before
+  // writing it into email_records or feeding it to the learning engine.
+  if (body.correct_project_id) {
+    const { data: proj } = await admin
+      .from("projects")
+      .select("id, organization_id")
+      .eq("id", body.correct_project_id)
+      .maybeSingle();
+    if (!proj || proj.organization_id !== userOrg.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   try {
     const targetProjectId = body.correct_project_id || email.project_id;
 

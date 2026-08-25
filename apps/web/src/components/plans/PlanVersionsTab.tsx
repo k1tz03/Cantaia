@@ -13,7 +13,7 @@ export function PlanVersionsTab({
   t: (key: string) => string;
 }) {
   if (versions.length === 0) {
-    return <div className="text-center py-10 text-sm text-[#71717A]">Aucune version</div>;
+    return <div className="text-center py-10 text-sm text-[#A1A1AA]">Aucune version</div>;
   }
 
   return (
@@ -44,24 +44,24 @@ export function PlanVersionsTab({
                       <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium text-brand">{t("versionCurrent")}</span>
                     )}
                   </div>
-                  <p className="text-[11px] text-[#71717A]">
+                  <p className="text-[11px] text-[#A1A1AA]">
                     {formatDate(version.version_date)} · {version.file_name} · {formatFileSize(version.file_size)}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
                 {version.file_url && (
-                  <a href={version.file_url} target="_blank" rel="noopener noreferrer" className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]" title={t("download")}>
+                  <a href={version.file_url} target="_blank" rel="noopener noreferrer" className="rounded-md p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]" title={t("download")}>
                     <Download className="h-4 w-4" />
                   </a>
                 )}
-                <button className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]" title={t("copyLink")}>
+                <button aria-label="Copier" className="rounded-md p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]" title={t("copyLink")}>
                   <Copy className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="mb-2 flex items-center gap-2 text-[11px] text-[#71717A]">
+            <div className="mb-2 flex items-center gap-2 text-[11px] text-[#A1A1AA]">
               {version.ai_detected && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-purple-600">
                   <Sparkles className="h-3 w-3" />
@@ -80,7 +80,7 @@ export function PlanVersionsTab({
 
             <div className="flex items-center gap-4 text-[11px]">
               <div className="flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5 text-[#71717A]" />
+                <Shield className="h-3.5 w-3.5 text-[#A1A1AA]" />
                 <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium", validCfg.bg, validCfg.color)}>
                   <ValidIcon className="h-3 w-3" />
                   {t(validCfg.labelKey)}

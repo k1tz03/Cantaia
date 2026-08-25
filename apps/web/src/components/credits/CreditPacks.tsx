@@ -20,7 +20,11 @@ export function CreditPacks() {
   const t = useTranslations("credits");
   const locale = useLocale();
   const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState<"forbidden" | "error" | null>(null);
+  // Packs never return `already_subscribed`, but startCreditCheckout's result
+  // type includes it — widen the state so the assignment below type-checks.
+  const [error, setError] = useState<
+    "forbidden" | "error" | "already_subscribed" | null
+  >(null);
 
   async function handleBuy(pack: CreditPackView) {
     setPending(pack.id);
@@ -43,7 +47,7 @@ export function CreditPacks() {
         <h3 className="font-display text-[15px] font-bold text-[#FAFAFA]">
           {t("packsTitle")}
         </h3>
-        <p className="mt-0.5 text-[11px] text-[#71717A]">{t("packsSubtitle")}</p>
+        <p className="mt-0.5 text-[11px] text-[#A1A1AA]">{t("packsSubtitle")}</p>
       </div>
 
       {error && (
@@ -72,7 +76,7 @@ export function CreditPacks() {
               }`}
             >
               {isBest && (
-                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#F97316] to-[#EA580C] px-2.5 py-0.5 text-[10px] font-semibold text-white shadow-lg shadow-[#F97316]/25">
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#F97316] to-[#EA580C] px-2.5 py-0.5 text-[10px] font-semibold text-[#0F0F11] shadow-lg shadow-[#F97316]/25">
                   {t("bestPrice")}
                 </div>
               )}
@@ -87,12 +91,12 @@ export function CreditPacks() {
                     {formatNumber(pack.credits, locale)}
                   </span>
                 </div>
-                <div className="text-[10px] text-[#52525B]">{t("creditsUnit")}</div>
+                <div className="text-[10px] text-[#A1A1AA]">{t("creditsUnit")}</div>
 
                 <div className="mt-3 font-display text-[16px] font-bold text-[#FAFAFA]">
                   {formatCHF(pack.priceCHF, locale)}
                 </div>
-                <div className="text-[10px] text-[#71717A]">
+                <div className="text-[10px] text-[#A1A1AA]">
                   {t("perCredit", {
                     price: formatNumber(pack.pricePerCredit, locale, {
                       minimumFractionDigits: 3,
@@ -108,7 +112,7 @@ export function CreditPacks() {
                 disabled={pending !== null}
                 className={`mt-4 w-full rounded-lg py-2 text-[12px] font-medium transition-all disabled:opacity-50 ${
                   isBest
-                    ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-[#F97316]/25 hover:shadow-xl"
+                    ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] text-[#0F0F11] shadow-lg shadow-[#F97316]/25 hover:shadow-xl"
                     : "bg-[#FAFAFA] text-[#0F0F11] hover:bg-[#A1A1AA]"
                 }`}
               >

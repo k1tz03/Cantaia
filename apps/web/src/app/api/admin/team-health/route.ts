@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
+import { isTaskOverdue } from "@cantaia/core/projects/counters";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(_request: NextRequest) {
@@ -31,16 +32,18 @@ export async function GET(_request: NextRequest) {
 
     const projectIds = (orgProjects || []).map((p: { id: string }) => p.id);
 
-    const now = new Date().toISOString();
-
+    // Overdue is computed in JS with the shared date-only predicate
+    // (@cantaia/core/projects/counters): the previous `.lt("due_date", now)`
+    // compared a DATE column against a full ISO timestamp, so every task due
+    // TODAY was reported as late from midnight onwards.
     const [overdueRes, inProgressRes, unprocessedRes] = await Promise.all([
       projectIds.length > 0
         ? (admin as any)
             .from("tasks")
-            .select("assigned_to, id")
+            .select("assigned_to, id, status, due_date")
             .in("project_id", projectIds)
             .not("status", "in", '("done","cancelled")')
-            .lt("due_date", now)
+            .not("due_date", "is", null)
         : Promise.resolve({ data: [] }),
       projectIds.length > 0
         ? (admin as any)
@@ -56,7 +59,9 @@ export async function GET(_request: NextRequest) {
         .eq("is_processed", false),
     ]);
 
-    const overdueTasks = overdueRes.data || [];
+    const overdueTasks = (overdueRes.data || []).filter((t: { status: string; due_date: string | null }) =>
+      isTaskOverdue(t)
+    );
     const inProgressTasks = inProgressRes.data || [];
     const unprocessedEmails = unprocessedRes.data || [];
 

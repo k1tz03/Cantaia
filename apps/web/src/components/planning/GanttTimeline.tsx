@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useCallback, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import {
   DndContext,
   PointerSensor,
@@ -27,6 +27,7 @@ import GanttBar from "./GanttBar";
 import GanttMilestone from "./GanttMilestone";
 import GanttDependencyArrows from "./GanttDependencyArrows";
 import GanttBaseline from "./GanttBaseline";
+import { toIsoDateLocal } from "./date-utils";
 
 /** Minimum column width in px -- ensures columns are readable even with many months */
 const MIN_COLUMN_WIDTH = 30;
@@ -85,13 +86,16 @@ function formatWeekLabel(date: Date): string {
   return `${day}.${month}`;
 }
 
-const MONTH_NAMES_FR = [
-  "Janv.", "Fev.", "Mars", "Avr.", "Mai", "Juin",
-  "Juil.", "Aout", "Sept.", "Oct.", "Nov.", "Dec.",
-];
+/** Abbreviated month names for the active locale (Jan..Dec). */
+function buildMonthNames(locale: string): string[] {
+  const fmt = new Intl.DateTimeFormat(locale, { month: "short" });
+  return Array.from({ length: 12 }, (_, m) =>
+    fmt.format(new Date(2021, m, 1)),
+  );
+}
 
-function formatMonthLabel(date: Date): string {
-  return `${MONTH_NAMES_FR[date.getMonth()]} ${date.getFullYear()}`;
+function formatMonthLabel(date: Date, monthNames: string[]): string {
+  return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function formatDayLabel(date: Date): string {
@@ -117,6 +121,7 @@ function generateColumns(
   start: Date,
   end: Date,
   zoom: ZoomLevel,
+  monthNames: string[],
 ): TimeColumn[] {
   const cols: TimeColumn[] = [];
   const totalDays = daysBetween(start, end) + 1;
@@ -127,7 +132,7 @@ function generateColumns(
       const d = addDays(start, i);
       cols.push({
         label: formatDayLabel(d),
-        subLabel: d.getDate() === 1 ? MONTH_NAMES_FR[d.getMonth()] : undefined,
+        subLabel: d.getDate() === 1 ? monthNames[d.getMonth()] : undefined,
         x: i * colW,
         width: colW,
         isWeekend: isWeekend(d),
@@ -154,7 +159,7 @@ function generateColumns(
       const offsetDays = Math.max(0, daysBetween(start, current));
       const x = offsetDays * PIXELS_PER_DAY.month;
       cols.push({
-        label: formatMonthLabel(current),
+        label: formatMonthLabel(current, monthNames),
         x,
         width: colW,
       });
@@ -168,7 +173,7 @@ function generateColumns(
 // --- Build flat row list (phases + their tasks + milestones) ---
 
 interface RowItem {
-  type: "phase" | "task" | "milestone";
+  type: "phase" | "task" | "milestone" | "section";
   id: string;
   task?: PlanningTask;
   phaseColor?: string;
@@ -200,12 +205,18 @@ function buildRowItems(
       }
     }
   }
-  for (const ms of milestones) {
-    items.push({
-      type: "milestone",
-      id: ms.id,
-      task: ms,
-    });
+  // The task list renders a "Milestones" header row before the milestone block.
+  // Mirror it here as an empty section row so every milestone lands on the SAME
+  // y as its list counterpart (otherwise diamonds were one row too high).
+  if (milestones.length > 0) {
+    items.push({ type: "section", id: "__milestones_header__" });
+    for (const ms of milestones) {
+      items.push({
+        type: "milestone",
+        id: ms.id,
+        task: ms,
+      });
+    }
   }
   return items;
 }
@@ -242,6 +253,8 @@ export default function GanttTimeline({
   showBaseline,
 }: GanttTimelineProps) {
   const t = useTranslations("planning");
+  const locale = useLocale();
+  const monthNames = useMemo(() => buildMonthNames(locale), [locale]);
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const bodyContainerRef = useRef<HTMLDivElement>(null);
@@ -255,8 +268,8 @@ export default function GanttTimeline({
 
   // Generate time columns
   const columns = useMemo(
-    () => generateColumns(timelineStartDate, timelineEndDate, zoom),
-    [timelineStartDate, timelineEndDate, zoom],
+    () => generateColumns(timelineStartDate, timelineEndDate, zoom, monthNames),
+    [timelineStartDate, timelineEndDate, zoom, monthNames],
   );
 
   // Build flat row list
@@ -265,10 +278,9 @@ export default function GanttTimeline({
     [phases, milestones],
   );
 
-  // Milestone separator row count (the "Milestones" header row in task list)
-  const milestoneHeaderOffset = milestones.length > 0 ? 1 : 0;
-  const totalBodyHeight =
-    (rowItems.length + milestoneHeaderOffset) * ROW_HEIGHT;
+  // buildRowItems already includes the "Milestones" header as a section row, so
+  // the body height is simply one ROW_HEIGHT per row item.
+  const totalBodyHeight = rowItems.length * ROW_HEIGHT;
 
   // Calculate "today" line position
   const today = new Date();
@@ -286,9 +298,15 @@ export default function GanttTimeline({
         const taskStart = new Date(item.task.start_date);
         const offsetD = daysBetween(timelineStartDate, taskStart);
         const x = offsetD * ppd;
+        // Match GanttBar: width spans calendar days (start → end inclusive), not
+        // the working-day duration, so dependency arrows land on the bar's end.
+        const spanDays = Math.max(
+          1,
+          daysBetween(taskStart, new Date(item.task.end_date)) + 1,
+        );
         const width = item.task.is_milestone
           ? 16
-          : Math.max(item.task.duration_days * ppd, 4);
+          : Math.max(spanDays * ppd, 4);
         map.set(item.id, {
           x,
           y: idx * ROW_HEIGHT + BAR_V_PADDING,
@@ -347,8 +365,8 @@ export default function GanttTimeline({
       const newStart = addDays(new Date(task.start_date), daysDelta);
       const newEnd = addDays(new Date(task.end_date), daysDelta);
       onTaskUpdate(taskId, {
-        start_date: newStart.toISOString().split("T")[0],
-        end_date: newEnd.toISOString().split("T")[0],
+        start_date: toIsoDateLocal(newStart),
+        end_date: toIsoDateLocal(newEnd),
       });
     },
     [readOnly, onTaskUpdate, ppd, tasks],
@@ -429,7 +447,7 @@ export default function GanttTimeline({
           {columns.map((col, i) => (
             <div
               key={i}
-              className="absolute top-0 flex flex-col items-center justify-center border-r border-[#27272A] text-xs text-[#71717A]"
+              className="absolute top-0 flex flex-col items-center justify-center border-r border-[#27272A] text-xs text-[#A1A1AA]"
               style={{
                 left: col.x,
                 width: col.width,
@@ -437,7 +455,7 @@ export default function GanttTimeline({
               }}
             >
               {col.subLabel && (
-                <span className="text-[10px] text-[#71717A] leading-none">
+                <span className="text-[10px] text-[#A1A1AA] leading-none">
                   {col.subLabel}
                 </span>
               )}
@@ -570,20 +588,6 @@ export default function GanttTimeline({
                     pixelsPerDay={ppd}
                     timelineStartDate={timelineStartDate}
                     onSelect={() => onSelectTask(item.id)}
-                    onDragEnd={(newStartDate) => {
-                      if (onTaskUpdate) {
-                        const newEnd = addDays(
-                          newStartDate,
-                          item.task!.duration_days,
-                        );
-                        onTaskUpdate(item.id, {
-                          start_date: newStartDate
-                            .toISOString()
-                            .split("T")[0],
-                          end_date: newEnd.toISOString().split("T")[0],
-                        });
-                      }
-                    }}
                     onResizeEnd={(newDuration) => {
                       if (onTaskUpdate) {
                         const newEnd = addDays(
@@ -592,7 +596,7 @@ export default function GanttTimeline({
                         );
                         onTaskUpdate(item.id, {
                           duration_days: newDuration,
-                          end_date: newEnd.toISOString().split("T")[0],
+                          end_date: toIsoDateLocal(newEnd),
                         });
                       }
                     }}

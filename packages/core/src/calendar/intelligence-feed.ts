@@ -5,6 +5,7 @@
 // panel in the Calendar Hub. Uses dependency injection.
 
 import type { IntelligenceFeedItem, TeamMemberAvailability, CalendarWeather } from "./types";
+import { zurichWallToUtc } from "./virtual-events";
 
 // ── Data Input Types ───────────────────────────────────────
 
@@ -321,7 +322,17 @@ async function collectFollowups(
 // ── Team Availability ──────────────────────────────────────
 
 /**
- * Build team availability strip from calendar events.
+ * Build the team availability strip for ONE day.
+ *
+ * Two fixes over the previous version:
+ *  • CAL: the 08–18 slots were built with `Date#setHours`, i.e. in the SERVER
+ *    timezone (UTC on Vercel). A 14:00 Zurich meeting landed in the 12–14
+ *    slot. Boundaries are now computed as Europe/Zurich wall clock.
+ *  • CAL: a member who never connected a calendar was painted five "free"
+ *    slots — a confident lie. Those members are now reported with
+ *    `synced: false` and "unknown" slots.
+ *
+ * @param today  Target day, YYYY-MM-DD (honours the ?date= query param).
  */
 export async function buildTeamAvailability(
   admin: any,
@@ -337,19 +348,42 @@ export async function buildTeamAvailability(
 
   if (!members?.length) return [];
 
-  const dayStart = new Date(today);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(today);
-  dayEnd.setHours(23, 59, 59, 999);
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(today)
+    ? today
+    : new Date(today).toISOString().slice(0, 10);
 
-  // Get all events for the org today
-  const { data: events } = await admin
-    .from("calendar_events")
-    .select("user_id, start_at, end_at, status")
-    .eq("organization_id", orgId)
-    .gte("start_at", dayStart.toISOString())
-    .lte("start_at", dayEnd.toISOString())
-    .neq("status", "cancelled");
+  const dayStartIso = zurichWallToUtc(`${day}T00:00:00`);
+  const dayEndIso = zurichWallToUtc(`${day}T23:59:59`);
+
+  const memberIds = members.map((m: any) => m.id);
+
+  // Events of that day + evidence that the member has ANY calendar data.
+  const [{ data: events }, { data: syncStates }, { data: everEvents }] =
+    await Promise.all([
+      admin
+        .from("calendar_events")
+        .select("user_id, start_at, end_at, status")
+        .eq("organization_id", orgId)
+        .lt("start_at", dayEndIso)
+        .gte("end_at", dayStartIso)
+        .neq("status", "cancelled"),
+      admin
+        .from("calendar_sync_state")
+        .select("user_id, last_sync_at")
+        .in("user_id", memberIds)
+        .not("last_sync_at", "is", null),
+      admin
+        .from("calendar_events")
+        .select("user_id")
+        .eq("organization_id", orgId)
+        .in("user_id", memberIds)
+        .limit(500),
+    ]);
+
+  const syncedUsers = new Set<string>([
+    ...(syncStates || []).map((s: any) => s.user_id),
+    ...(everEvents || []).map((e: any) => e.user_id),
+  ]);
 
   const eventsByUser = new Map<string, Array<{ start: Date; end: Date }>>();
   for (const e of events || []) {
@@ -358,33 +392,38 @@ export async function buildTeamAvailability(
     eventsByUser.set(e.user_id, list);
   }
 
-  // Build 5 time slots: 08-10, 10-12, 12-14, 14-16, 16-18
+  // 5 slots: 08-10, 10-12, 12-14, 14-16, 16-18 — Europe/Zurich wall clock.
   const slotBoundaries = [8, 10, 12, 14, 16, 18];
+  const slotInstants = slotBoundaries.map((h) =>
+    new Date(zurichWallToUtc(`${day}T${String(h).padStart(2, "0")}:00:00`)).getTime()
+  );
   const colors = ["#3B82F6", "#10B981", "#A855F7", "#F59E0B", "#EF4444", "#F97316", "#06B6D4", "#EC4899"];
 
   return members.map((m: any, idx: number) => {
     const userEvents = eventsByUser.get(m.id) || [];
+    const isSynced = syncedUsers.has(m.id);
     const slots: TeamMemberAvailability["slots"] = [];
 
     for (let i = 0; i < 5; i++) {
-      const slotStart = new Date(today);
-      slotStart.setHours(slotBoundaries[i], 0, 0, 0);
-      const slotEnd = new Date(today);
-      slotEnd.setHours(slotBoundaries[i + 1], 0, 0, 0);
+      if (!isSynced) {
+        slots.push("unknown");
+        continue;
+      }
+      const slotStart = slotInstants[i];
+      const slotEnd = slotInstants[i + 1];
 
       const overlapping = userEvents.filter(
-        (e) => e.start < slotEnd && e.end > slotStart
+        (e) => e.start.getTime() < slotEnd && e.end.getTime() > slotStart
       );
 
       if (overlapping.length === 0) {
         slots.push("free");
       } else {
-        // Check how much of the slot is occupied
-        const totalMinutes = (slotBoundaries[i + 1] - slotBoundaries[i]) * 60;
+        const totalMinutes = (slotEnd - slotStart) / 60000;
         let busyMinutes = 0;
         for (const e of overlapping) {
-          const overlapStart = Math.max(e.start.getTime(), slotStart.getTime());
-          const overlapEnd = Math.min(e.end.getTime(), slotEnd.getTime());
+          const overlapStart = Math.max(e.start.getTime(), slotStart);
+          const overlapEnd = Math.min(e.end.getTime(), slotEnd);
           busyMinutes += (overlapEnd - overlapStart) / 60000;
         }
         const ratio = busyMinutes / totalMinutes;
@@ -404,8 +443,90 @@ export async function buildTeamAvailability(
       initials,
       slots,
       events_today: userEvents.length,
+      synced: isSynced,
     };
   });
+}
+
+// ── Free slots (Europe/Zurich) ─────────────────────────────
+
+export interface FreeSlot {
+  start_at: string;
+  end_at: string;
+  /** Minutes of continuous availability. */
+  duration_min: number;
+}
+
+/**
+ * Compute the user's free slots for a day inside working hours
+ * (08:00–18:00 Europe/Zurich, lunch 12:00–13:00 excluded).
+ *
+ * CAL: the previous availability maths ran on the server clock; on Vercel
+ * (UTC) every proposed slot was shifted by one or two hours.
+ */
+export async function computeFreeSlots(
+  admin: any,
+  orgId: string,
+  userId: string,
+  day: string,
+  minDurationMin = 30
+): Promise<FreeSlot[]> {
+  const dayStart = new Date(zurichWallToUtc(`${day}T08:00:00`)).getTime();
+  const dayEnd = new Date(zurichWallToUtc(`${day}T18:00:00`)).getTime();
+  const lunchStart = new Date(zurichWallToUtc(`${day}T12:00:00`)).getTime();
+  const lunchEnd = new Date(zurichWallToUtc(`${day}T13:00:00`)).getTime();
+
+  const { data: events } = await admin
+    .from("calendar_events")
+    .select("start_at, end_at")
+    .eq("organization_id", orgId)
+    .eq("user_id", userId)
+    .neq("status", "cancelled")
+    .lt("start_at", new Date(dayEnd).toISOString())
+    .gte("end_at", new Date(dayStart).toISOString());
+
+  const busy: Array<[number, number]> = [[lunchStart, lunchEnd]];
+  for (const e of events || []) {
+    const s = new Date(e.start_at).getTime();
+    const en = new Date(e.end_at).getTime();
+    if (!isNaN(s) && !isNaN(en) && en > s) busy.push([s, en]);
+  }
+  busy.sort((a, b) => a[0] - b[0]);
+
+  // Merge overlapping busy blocks, then take the gaps.
+  const merged: Array<[number, number]> = [];
+  for (const block of busy) {
+    const last = merged[merged.length - 1];
+    if (last && block[0] <= last[1]) {
+      last[1] = Math.max(last[1], block[1]);
+    } else {
+      merged.push([block[0], block[1]]);
+    }
+  }
+
+  const slots: FreeSlot[] = [];
+  let cursor = dayStart;
+  for (const [bStart, bEnd] of merged) {
+    if (bStart > cursor) {
+      pushSlot(cursor, Math.min(bStart, dayEnd));
+    }
+    cursor = Math.max(cursor, bEnd);
+    if (cursor >= dayEnd) break;
+  }
+  if (cursor < dayEnd) pushSlot(cursor, dayEnd);
+
+  function pushSlot(start: number, end: number) {
+    const duration = (end - start) / 60000;
+    if (duration >= minDurationMin) {
+      slots.push({
+        start_at: new Date(start).toISOString(),
+        end_at: new Date(end).toISOString(),
+        duration_min: Math.round(duration),
+      });
+    }
+  }
+
+  return slots;
 }
 
 // ── Weather (Open-Meteo, free, no API key) ─────────────────
@@ -430,7 +551,15 @@ export async function fetchConstructionWeather(
 
     // Check for rain in upcoming hours
     const precipProbs = data.hourly?.precipitation_probability || [];
-    const currentHour = new Date().getHours();
+    // Open-Meteo returns the hourly series in Europe/Zurich (timezone param),
+    // so the index must be the Zurich hour — not the server's.
+    const currentHour = Number(
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Zurich",
+        hour: "2-digit",
+        hour12: false,
+      }).format(new Date())
+    );
     let rainAlert: string | null = null;
     for (let i = currentHour; i < Math.min(currentHour + 6, precipProbs.length); i++) {
       if (precipProbs[i] > 60) {

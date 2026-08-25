@@ -56,18 +56,6 @@ export default function SuperAdminOperationsPage() {
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
-  // Force sync state
-  const [syncUserId, setSyncUserId] = useState("");
-  const [syncLoading, setSyncLoading] = useState(false);
-  const [syncResult, setSyncResult] = useState<ActionResult | null>(null);
-
-  // Force briefing state
-  const [briefingUserId, setBriefingUserId] = useState("");
-  const [briefingLoading, setBriefingLoading] = useState(false);
-  const [briefingResult, setBriefingResult] = useState<ActionResult | null>(
-    null
-  );
-
   // CRON state
   const [cronLoading, setCronLoading] = useState<string | null>(null);
   const [cronResults, setCronResults] = useState<
@@ -96,55 +84,6 @@ export default function SuperAdminOperationsPage() {
       .catch(() => {})
       .finally(() => setLoadingUsers(false));
   }, []);
-
-  async function handleForceSync() {
-    if (!syncUserId) return;
-    setSyncLoading(true);
-    setSyncResult(null);
-    try {
-      const res = await fetch("/api/super-admin/force-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: syncUserId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSyncResult({ success: true, message: "Sync declenche avec succes" });
-      } else {
-        setSyncResult({ error: data.error || "Echec du sync" });
-      }
-    } catch {
-      setSyncResult({ error: "Erreur reseau" });
-    } finally {
-      setSyncLoading(false);
-    }
-  }
-
-  async function handleForceBriefing() {
-    if (!briefingUserId) return;
-    setBriefingLoading(true);
-    setBriefingResult(null);
-    try {
-      const res = await fetch("/api/super-admin/force-briefing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: briefingUserId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setBriefingResult({
-          success: true,
-          message: "Briefing genere avec succes",
-        });
-      } else {
-        setBriefingResult({ error: data.error || "Echec du briefing" });
-      }
-    } catch {
-      setBriefingResult({ error: "Erreur reseau" });
-    } finally {
-      setBriefingLoading(false);
-    }
-  }
 
   async function handleRunCron(cronName: string) {
     setCronLoading(cronName);
@@ -252,99 +191,17 @@ export default function SuperAdminOperationsPage() {
         </p>
       </div>
 
-      {/* Section 1: Force Actions */}
+      {/* Section 1: Scheduled jobs */}
       <div className="space-y-4">
         <h2 className="text-base font-semibold text-[#FAFAFA]">
-          Actions forcees
+          Taches planifiees
         </h2>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* Force Sync */}
-          <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#A1A1AA]">
-              <RefreshCw className="h-4 w-4 text-blue-500" />
-              Forcer sync email
-            </div>
-            <p className="mt-1 text-xs text-[#A1A1AA]">
-              Declenche une synchronisation Outlook pour un utilisateur
-            </p>
-            <div className="mt-3 space-y-2">
-              <select
-                value={syncUserId}
-                onChange={(e) => setSyncUserId(e.target.value)}
-                className="w-full rounded-md border border-[#27272A] px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                disabled={loadingUsers}
-              >
-                <option value="">
-                  {loadingUsers
-                    ? "Chargement des utilisateurs..."
-                    : "Selectionner un utilisateur"}
-                </option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {userLabel(u)}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleForceSync}
-                disabled={!syncUserId || syncLoading}
-                className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {syncLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-                Lancer sync
-              </button>
-            </div>
-            <ActionResultBanner result={syncResult} />
-          </div>
-
-          {/* Force Briefing */}
-          <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#A1A1AA]">
-              <Newspaper className="h-4 w-4 text-amber-500" />
-              Forcer briefing
-            </div>
-            <p className="mt-1 text-xs text-[#A1A1AA]">
-              Genere le briefing quotidien pour un utilisateur
-            </p>
-            <div className="mt-3 space-y-2">
-              <select
-                value={briefingUserId}
-                onChange={(e) => setBriefingUserId(e.target.value)}
-                className="w-full rounded-md border border-[#27272A] px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                disabled={loadingUsers}
-              >
-                <option value="">
-                  {loadingUsers
-                    ? "Chargement des utilisateurs..."
-                    : "Selectionner un utilisateur"}
-                </option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {userLabel(u)}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleForceBriefing}
-                disabled={!briefingUserId || briefingLoading}
-                className="flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {briefingLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-                Generer briefing
-              </button>
-            </div>
-            <ActionResultBanner result={briefingResult} />
-          </div>
-        </div>
+        {/* Per-user "force sync / force briefing" actions were removed: the
+            target routes act only on the authenticated user's own mailbox, so
+            they could never sync another user and always reported a fake
+            success. Use impersonation (below) then trigger the sync in-session,
+            or run the org-wide CRON jobs here. */}
 
         {/* CRON Jobs */}
         <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle, Server } from "lucide-react";
 import { EmailSyncPreview } from "../EmailSyncPreview";
 
 interface EmailConnectionStepProps {
@@ -11,7 +11,10 @@ interface EmailConnectionStepProps {
   emailCount: number;
   onConnect: (provider: "microsoft" | "google") => void;
   onContinue: () => void;
-  onSkip: () => void;
+  /** Defer IMAP setup to Settings and move on. */
+  onChooseImap: () => void;
+  /** Connection failure to surface — the step no longer fails silently. */
+  error?: string | null;
 }
 
 export function EmailConnectionStep({
@@ -19,11 +22,18 @@ export function EmailConnectionStep({
   emailCount,
   onConnect,
   onContinue,
-  onSkip,
+  onChooseImap,
+  error,
 }: EmailConnectionStepProps) {
   const t = useTranslations("onboarding.email");
   const tProgress = useTranslations("onboarding.progress");
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
+
+  // A failed OAuth attempt must release the buttons, otherwise the step
+  // stays stuck on a spinner with no way back.
+  useEffect(() => {
+    if (error) setLoadingProvider(null);
+  }, [error]);
 
   const handleConnect = (provider: "microsoft" | "google") => {
     setLoadingProvider(provider);
@@ -80,7 +90,7 @@ export function EmailConnectionStep({
         <motion.button
           type="button"
           onClick={onContinue}
-          className="rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-white transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
+          className="rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-8 py-3 font-medium text-[#0F0F11] transition-shadow hover:shadow-lg hover:shadow-[#F97316]/25"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}
@@ -107,6 +117,16 @@ export function EmailConnectionStep({
         <p className="mt-2 text-sm text-[#A1A1AA]">{t("subtitle")}</p>
       </motion.div>
 
+      {error && (
+        <div
+          role="alert"
+          className="mb-4 flex w-full max-w-md items-start gap-2 rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2.5 text-[13px] text-[#FCA5A5]"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       <motion.div
         className="flex w-full max-w-md flex-col gap-3"
         initial={{ opacity: 0, y: 20 }}
@@ -132,7 +152,7 @@ export function EmailConnectionStep({
           )}
           <div>
             <p className="font-medium text-[#FAFAFA]">{t("connectOutlook")}</p>
-            <p className="text-xs text-[#71717A]">Microsoft 365 / Outlook</p>
+            <p className="text-xs text-[#A1A1AA]">Microsoft 365 / Outlook</p>
           </div>
         </button>
 
@@ -167,30 +187,38 @@ export function EmailConnectionStep({
           )}
           <div>
             <p className="font-medium text-[#FAFAFA]">{t("connectGmail")}</p>
-            <p className="text-xs text-[#71717A]">Google Workspace / Gmail</p>
+            <p className="text-xs text-[#A1A1AA]">Google Workspace / Gmail</p>
+          </div>
+        </button>
+
+        {/* Any other mailbox — IMAP is configured from Settings, so this
+            records the intent and hands the user off there at the end. */}
+        <button
+          type="button"
+          onClick={onChooseImap}
+          disabled={!!loadingProvider}
+          className="flex w-full items-center gap-4 rounded-xl border border-[#27272A] bg-[#18181B] p-4 text-left transition-all hover:border-[#F97316] disabled:opacity-50"
+        >
+          <Server className="h-6 w-6 shrink-0 text-[#A1A1AA]" />
+          <div>
+            <p className="font-medium text-[#FAFAFA]">Autre fournisseur (IMAP)</p>
+            <p className="text-xs text-[#A1A1AA]">
+              Configuration dans Réglages, à la fin de l&apos;installation
+            </p>
           </div>
         </button>
       </motion.div>
 
       <motion.p
-        className="mt-4 text-center text-xs text-[#52525B]"
+        className="mt-4 max-w-md text-center text-xs text-[#A1A1AA]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
       >
         {t("skipNote")}
       </motion.p>
-
-      <motion.button
-        type="button"
-        onClick={onSkip}
-        className="mt-4 text-sm text-[#52525B] transition-colors hover:text-[#A1A1AA]"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-      >
-        {tProgress("later")}
-      </motion.button>
+      {/* No second skip control here — the shell owns the single
+          "passer cette étape" affordance. */}
     </div>
   );
 }

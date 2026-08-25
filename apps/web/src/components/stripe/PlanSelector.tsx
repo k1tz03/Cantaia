@@ -1,8 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { useTranslations } from "next-intl";
-import { X, Check, Loader2, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { X, Check, Loader2, Coins, ShieldAlert } from "lucide-react";
+import { formatNumber } from "@/lib/format";
+import {
+  CREDIT_PLAN_LIST,
+  RECOMMENDED_PLAN_ID,
+  planLabelKey,
+  savingsVsPacks,
+  type CreditPlanView,
+} from "@/components/credits/credit-config";
+import { startCreditCheckout } from "@/components/credits/credit-checkout";
+
+/**
+ * Plan picker modal (Admin → Abonnement → "Changer de plan").
+ *
+ * ONE pricing grid. The cards are built from CREDIT_PLAN_LIST — i.e. from
+ * `CREDIT_PLANS` in @cantaia/config/credit-costs, the same source the Settings
+ * → Abonnement tab, the paywall and the Stripe checkout routes read. There is
+ * NO per-user price, no minimum-seat multiplication and no "X CHF/utilisateur"
+ * anywhere: Cantaia bills one flat price per ORGANIZATION plus a monthly
+ * credit allocation.
+ *
+ * Two flows:
+ *   - no subscription yet → Stripe Checkout   (/api/credits/checkout)
+ *   - already subscribed  → prorated in-place plan change
+ *                           (/api/stripe/update-subscription)
+ */
 
 interface PlanSelectorProps {
   currentPlan: string;
@@ -11,207 +36,233 @@ interface PlanSelectorProps {
   onSuccess: () => void;
 }
 
-const PLANS = [
-  {
-    id: "starter",
-    pricePerUser: 49,
-    minUsers: 1,
-    maxUsers: 5,
-    features: [
-      "1-5 utilisateurs",
-      "5 projets",
-      "Mail IA (1 boite)",
-      "Chat IA (200 msg/mois)",
-      "Briefing quotidien",
-      "Fournisseurs (50 max)",
-      "Support email (48h)",
-    ],
-  },
-  {
-    id: "pro",
-    pricePerUser: 89,
-    minUsers: 5,
-    maxUsers: 30,
-    popular: true,
-    features: [
-      "5-30 utilisateurs",
-      "30 projets",
-      "Tout le Starter +",
-      "Soumissions completes",
-      "PV + transcription vocale",
-      "Planning IA + Gantt",
-      "Portail terrain (PIN)",
-      "Plans + analyse IA",
-      "Chat IA (1000 msg/mois)",
-      "Support prioritaire (24h)",
-    ],
-  },
-  {
-    id: "enterprise",
-    pricePerUser: 119,
-    minUsers: 15,
-    maxUsers: Infinity,
-    features: [
-      "15+ utilisateurs",
-      "Projets illimites",
-      "Tout le Pro +",
-      "Direction & rentabilite",
-      "Data Intelligence",
-      "Branding custom",
-      "API access",
-      "Chat IA illimite",
-      "Support dedie (<4h)",
-    ],
-  },
-];
-
 export default function PlanSelector({
   currentPlan,
   hasSubscription,
   onClose,
   onSuccess,
 }: PlanSelectorProps) {
-  const t = useTranslations("admin");
-  const [loading, setLoading] = useState<string | null>(null);
+  const t = useTranslations("credits");
+  const tAdmin = useTranslations("admin");
+  const locale = useLocale();
+  const [pending, setPending] = useState<string | null>(null);
+  // `already_subscribed` cannot occur here (this branch only runs when the org
+  // has no subscription yet), but startCreditCheckout's result type includes it
+  // — widen the state so the assignment type-checks, treated as a generic error.
+  const [error, setError] = useState<
+    "forbidden" | "error" | "already_subscribed" | null
+  >(null);
 
-  async function handleSelectPlan(planId: string) {
-    if (planId === "enterprise") {
-      window.open("mailto:contact@cantaia.io?subject=Cantaia Enterprise", "_blank");
-      return;
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
     }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
-    setLoading(planId);
+  async function handleSelectPlan(plan: CreditPlanView) {
+    setPending(plan.id);
+    setError(null);
+
     try {
-      const endpoint = hasSubscription
-        ? "/api/stripe/update-subscription"
-        : "/api/stripe/create-checkout";
+      if (hasSubscription) {
+        const res = await fetch("/api/stripe/update-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: plan.id }),
+        });
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planId }),
-      });
+        if (res.status === 403) {
+          setError("forbidden");
+          return;
+        }
+        if (!res.ok) {
+          setError("error");
+          return;
+        }
 
-      const data = await res.json();
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else if (data.success) {
         onSuccess();
         onClose();
+        return;
       }
-    } catch (err) {
-      console.error("Failed to select plan:", err);
+
+      // No subscription yet → Stripe Checkout. On success the browser navigates
+      // away, so nothing after this line runs.
+      const result = await startCreditCheckout("subscription", plan.id);
+      if (!result.ok) setError(result.reason);
+    } catch {
+      setError("error");
     } finally {
-      setLoading(null);
+      setPending(null);
     }
   }
 
+  function planName(plan: CreditPlanView): string {
+    const key = planLabelKey(plan);
+    return key ? t(key) : plan.id;
+  }
+
+  function planFeatures(plan: CreditPlanView): string[] {
+    const key = planLabelKey(plan);
+    if (key) {
+      // planStarter → planFeatures.starter
+      const slug = key.replace(/^plan/, "").toLowerCase();
+      try {
+        const raw = t.raw(`planFeatures.${slug}`);
+        if (Array.isArray(raw) && raw.length > 0) return raw as string[];
+      } catch {
+        // fall through to the config-provided list
+      }
+    }
+    return plan.features;
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-3xl rounded-lg bg-[#0F0F11] p-6 shadow-xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-[#FAFAFA]">
-            {t("changePlan")}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl rounded-xl border border-[#27272A] bg-[#0F0F11] p-6 shadow-2xl shadow-black/50"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-1 flex items-start justify-between">
+          <h3 className="font-display text-[16px] font-bold text-[#FAFAFA]">
+            {tAdmin("changePlan")}
           </h3>
           <button
+            type="button"
             onClick={onClose}
-            className="text-[#71717A] hover:text-[#FAFAFA]"
+            aria-label={t("paywallClose")}
+            className="rounded-md p-1 text-[#A1A1AA] transition-colors hover:bg-[#27272A] hover:text-[#FAFAFA]"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
+        <p className="mb-5 text-[11px] text-[#A1A1AA]">{t("plansSubtitle")}</p>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          {PLANS.map((plan) => {
-            const isCurrent = currentPlan === plan.id;
-            const isEnterprise = plan.id === "enterprise";
+        {error && (
+          <div
+            className={`mb-4 flex items-center gap-2 rounded-lg border px-4 py-3 text-[12px] ${
+              error === "forbidden"
+                ? "border-[#F59E0B]/30 bg-[#F59E0B]/10 text-[#F59E0B]"
+                : "border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]"
+            }`}
+          >
+            <ShieldAlert className="h-4 w-4 shrink-0" />
+            {error === "forbidden" ? t("adminOnly") : t("checkoutError")}
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {CREDIT_PLAN_LIST.map((plan) => {
+            const isCurrent =
+              !!currentPlan && plan.id.toLowerCase() === currentPlan.toLowerCase();
+            const recommended = plan.id === RECOMMENDED_PLAN_ID;
+            const savings = savingsVsPacks(plan);
+            const features = planFeatures(plan);
 
             return (
               <div
                 key={plan.id}
-                className={`relative rounded-lg border-2 p-5 ${
-                  plan.popular
-                    ? "border-[#F97316] shadow-md shadow-[#F97316]/10"
-                    : isCurrent
-                      ? "border-green-300 bg-green-500/10"
-                      : "border-[#27272A]"
+                className={`relative rounded-[10px] border p-5 transition-colors ${
+                  isCurrent
+                    ? "border-[#10B981]/40 bg-[#10B981]/5"
+                    : recommended
+                      ? "border-[#F97316]/50 bg-[#18181B] shadow-md shadow-[#F97316]/5"
+                      : "border-[#27272A] bg-[#18181B] hover:border-[#3F3F46]"
                 }`}
               >
-                {/* Popular badge */}
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#F97316] to-[#EA580C] px-3 py-0.5 text-xs font-medium text-white">
-                      <Sparkles className="h-3 w-3" />
-                      Populaire
+                {isCurrent ? (
+                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-[#10B981]/30 bg-[#10B981]/20 px-3 py-0.5 text-[10px] font-semibold text-[#10B981]">
+                    {t("currentPlan")}
+                  </div>
+                ) : recommended ? (
+                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#F97316] to-[#EA580C] px-3 py-0.5 text-[10px] font-semibold text-[#0F0F11] shadow-lg shadow-[#F97316]/25">
+                    {t("recommended")}
+                  </div>
+                ) : null}
+
+                <div className="mb-4 mt-1 text-center">
+                  <div className="font-display text-[15px] font-bold text-[#FAFAFA]">
+                    {planName(plan)}
+                  </div>
+
+                  <div className="mt-2">
+                    <span className="font-display text-[30px] font-extrabold text-[#FAFAFA]">
+                      {plan.priceCHF}
+                    </span>
+                    <span className="ml-1 text-[12px] text-[#A1A1AA]">
+                      CHF {t("perMonth")}
                     </span>
                   </div>
-                )}
 
-                {/* Current badge */}
-                {isCurrent && (
-                  <span className="mb-2 inline-block rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
-                    {t("currentPlan")}
-                  </span>
-                )}
-
-                <h4 className="text-lg font-bold text-[#FAFAFA]">
-                  {t(`plan${plan.id.charAt(0).toUpperCase() + plan.id.slice(1)}`)}
-                </h4>
-
-                <div className="mt-2">
-                  <p className="text-2xl font-bold text-[#FAFAFA]">
-                    {plan.pricePerUser} CHF
-                    <span className="text-sm font-normal text-[#71717A]">
-                      /utilisateur/mois
-                    </span>
-                  </p>
-                  <p className="mt-0.5 text-xs text-[#52525B]">
-                    {plan.minUsers === 1
-                      ? `des ${plan.pricePerUser} CHF/mois`
-                      : `min. ${plan.minUsers} utilisateurs = ${plan.pricePerUser * plan.minUsers} CHF/mois`}
-                  </p>
+                  <div className="mt-2 flex items-center justify-center gap-1.5 text-[12px] text-[#F97316]">
+                    <Coins className="h-3.5 w-3.5" />
+                    {t("creditsPerMonth", {
+                      credits: formatNumber(plan.credits, locale),
+                    })}
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-[#A1A1AA]">
+                    {t("perCredit", {
+                      price: formatNumber(plan.pricePerCredit, locale, {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      }),
+                    })}
+                  </div>
+                  {savings > 0 && (
+                    <div className="mt-1 text-[10px] font-medium text-[#10B981]">
+                      {t("vsPacks", { percent: savings })}
+                    </div>
+                  )}
                 </div>
 
-                <ul className="mt-4 space-y-2">
-                  {plan.features.map((feature, i) => (
-                    <li
-                      key={i}
-                      className="flex items-start gap-2 text-sm text-[#A1A1AA]"
-                    >
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#22C55E]" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
+                {features.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {features.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-start gap-2 text-[11px] text-[#A1A1AA]"
+                      >
+                        <Check className="mt-[2px] h-3 w-3 shrink-0 text-[#22C55E]" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 <button
-                  onClick={() => handleSelectPlan(plan.id)}
-                  disabled={isCurrent || loading !== null}
-                  className={`mt-5 w-full rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
+                  type="button"
+                  onClick={() => handleSelectPlan(plan)}
+                  disabled={isCurrent || pending !== null}
+                  className={`mt-4 w-full rounded-lg py-2.5 text-[12px] font-medium transition-all disabled:opacity-50 ${
                     isCurrent
-                      ? "cursor-default border border-green-300 bg-green-500/10 text-green-700 dark:text-green-400"
-                      : isEnterprise
-                        ? "border border-[#27272A] bg-[#0F0F11] text-[#FAFAFA] hover:bg-[#27272A]"
-                        : plan.popular
-                          ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-[#F97316]/25 hover:shadow-xl"
-                          : "bg-[#FAFAFA] text-[#0F0F11] hover:bg-[#A1A1AA]"
-                  } disabled:opacity-50`}
+                      ? "cursor-default border border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]"
+                      : recommended
+                        ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] text-[#0F0F11] shadow-lg shadow-[#F97316]/25 hover:shadow-xl"
+                        : "bg-[#FAFAFA] text-[#0F0F11] hover:bg-[#A1A1AA]"
+                  }`}
                 >
-                  {loading === plan.id ? (
+                  {pending === plan.id ? (
                     <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                   ) : isCurrent ? (
                     t("currentPlan")
-                  ) : isEnterprise ? (
-                    t("contact")
                   ) : (
-                    t("upgrade")
+                    t("subscribe")
                   )}
                 </button>
               </div>
             );
           })}
         </div>
+
+        <p className="mt-4 text-center text-[11px] text-[#A1A1AA]">
+          {t("plansFootnote")}
+        </p>
       </div>
     </div>
   );

@@ -2,10 +2,11 @@
 // POST /api/agents/[type]/respond
 // Send a follow-up user message to an agent session.
 //
-// NOTE: With the Messages API architecture, the agentic loop runs
-// entirely within the stream route. This route is reserved for
-// future multi-turn support (e.g., user sends a follow-up after
-// the agent completes). Currently, all 5 agents are single-turn.
+// @deprecated NOT IMPLEMENTED. With the Messages API architecture the agentic
+// loop runs entirely within the stream route; all agents are single-turn, so
+// this endpoint always returns 409. It is kept only as a reserved slot for a
+// future multi-turn design. Do NOT wire new callers to it — `useAgent.respond`
+// exists but no component uses it, and any caller will fail unconditionally.
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";

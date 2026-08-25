@@ -67,11 +67,14 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
       const body: Record<string, unknown> = { draft_id: draftId, status };
       if (editedBody) body.edited_body = editedBody;
 
-      await fetch("/api/agents/drafts", {
+      const res = await fetch("/api/agents/drafts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      // Only drop the draft from the list once the server confirms — a failed
+      // PATCH used to remove it locally, making the draft "disappear".
+      if (!res.ok) return;
 
       setDrafts((prev) => prev.filter((d) => d.id !== draftId));
       setEditingId(null);
@@ -91,8 +94,14 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
     updateDraftStatus(draftId, "dismissed");
   };
 
-  const handleSaveEdit = (draftId: string) => {
-    updateDraftStatus(draftId, "edited", editBody);
+  // Saving an edit used to PATCH status="edited" and drop the draft — but no
+  // screen ever shows "edited" drafts, so the user's edit was lost. Instead,
+  // open the composer pre-filled with the edited body (same as "Utiliser") and
+  // retire the draft as accepted.
+  const handleSaveEdit = (draft: EmailDraft) => {
+    const edited = { ...draft, draft_body: editBody };
+    if (onAcceptDraft) onAcceptDraft(edited);
+    updateDraftStatus(draft.id, "accepted", editBody);
   };
 
   if (loading) {
@@ -126,12 +135,12 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
               ? `${drafts.length} brouillon${drafts.length > 1 ? "s" : ""} IA`
               : "Brouillons IA"}
           </span>
-          <span className="text-[11px] text-[#71717A]">Email Drafter</span>
+          <span className="text-[11px] text-[#A1A1AA]">Email Drafter</span>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-[#71717A]" />
+          <ChevronUp className="h-4 w-4 text-[#A1A1AA]" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-[#71717A]" />
+          <ChevronDown className="h-4 w-4 text-[#A1A1AA]" />
         )}
       </button>
 
@@ -141,7 +150,7 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
           {drafts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-6 text-center">
               <Sparkles className="h-7 w-7 text-[#27272A] mb-2" />
-              <p className="text-[12px] text-[#52525B]">Aucun brouillon en attente</p>
+              <p className="text-[12px] text-[#A1A1AA]">Aucun brouillon en attente</p>
               <p className="text-[11px] text-[#3F3F46] mt-1">
                 L&apos;agent Email Drafter analyse chaque nuit vos emails en attente de réponse et prépare des brouillons.
               </p>
@@ -185,8 +194,8 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
                       Annuler
                     </button>
                     <button
-                      onClick={() => handleSaveEdit(draft.id)}
-                      className="px-3 py-1.5 text-[11px] font-medium bg-[#F97316] text-white rounded-md hover:bg-[#EA580C] transition-colors"
+                      onClick={() => handleSaveEdit(draft)}
+                      className="px-3 py-1.5 text-[11px] font-medium bg-[#F97316] text-[#0F0F11] rounded-md hover:bg-[#EA580C] transition-colors"
                     >
                       Sauvegarder
                     </button>
@@ -203,7 +212,7 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
               {/* Draft actions */}
               {editingId !== draft.id && (
                 <div className="px-3 py-2 border-t border-[#27272A]/60 flex items-center justify-between">
-                  <span className="text-[10px] text-[#52525B]">
+                  <span className="text-[10px] text-[#A1A1AA]">
                     {draft.email?.sender_name || draft.email?.sender_email || ""}
                   </span>
                   <div className="flex items-center gap-1">
@@ -212,7 +221,7 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
                       className="p-1.5 rounded-md hover:bg-[#27272A] transition-colors"
                       title="Ignorer"
                     >
-                      <X className="h-3.5 w-3.5 text-[#71717A]" />
+                      <X className="h-3.5 w-3.5 text-[#A1A1AA]" />
                     </button>
                     <button
                       onClick={() => {
@@ -222,7 +231,7 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
                       className="p-1.5 rounded-md hover:bg-[#27272A] transition-colors"
                       title="Modifier"
                     >
-                      <Edit3 className="h-3.5 w-3.5 text-[#71717A]" />
+                      <Edit3 className="h-3.5 w-3.5 text-[#A1A1AA]" />
                     </button>
                     <button
                       onClick={() => handleAccept(draft)}

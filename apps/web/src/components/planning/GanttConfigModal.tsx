@@ -84,7 +84,7 @@ export default function GanttConfigModal({
           </div>
           <button
             onClick={onCancel}
-            className="p-1 text-[#71717A] hover:text-[#71717A] transition-colors rounded-md hover:bg-[#27272A]"
+            className="p-1 text-[#A1A1AA] hover:text-[#A1A1AA] transition-colors rounded-md hover:bg-[#27272A]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -99,7 +99,7 @@ export default function GanttConfigModal({
               <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A1A1AA]" />
               <input
                 type="date"
                 value={startDate}
@@ -114,12 +114,12 @@ export default function GanttConfigModal({
           <div>
             <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
               {t("config.endDate")}
-              <span className="ml-1 text-xs text-[#71717A] font-normal">
+              <span className="ml-1 text-xs text-[#A1A1AA] font-normal">
                 ({t("config.optional")})
               </span>
             </label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A1A1AA]" />
               <input
                 type="date"
                 value={endDate}
@@ -133,7 +133,7 @@ export default function GanttConfigModal({
           {/* Project type */}
           <div>
             <label className="block text-sm font-medium text-[#FAFAFA] mb-2">
-              <Building2 className="inline h-4 w-4 mr-1 text-[#71717A]" />
+              <Building2 className="inline h-4 w-4 mr-1 text-[#A1A1AA]" />
               {t("config.projectType")}
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -146,7 +146,7 @@ export default function GanttConfigModal({
                     "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors text-left",
                     projectType === pt.value
                       ? "border-blue-500 bg-[#F97316]/10 text-[#F97316]"
-                      : "border-[#27272A] text-[#71717A] hover:border-[#27272A] hover:bg-[#27272A]",
+                      : "border-[#27272A] text-[#A1A1AA] hover:border-[#27272A] hover:bg-[#27272A]",
                   ].join(" ")}
                 >
                   <span>{pt.icon}</span>
@@ -159,7 +159,7 @@ export default function GanttConfigModal({
           {/* Canton */}
           <div>
             <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
-              <MapPin className="inline h-4 w-4 mr-1 text-[#71717A]" />
+              <MapPin className="inline h-4 w-4 mr-1 text-[#A1A1AA]" />
               {t("config.canton")}
             </label>
             <select
@@ -179,7 +179,7 @@ export default function GanttConfigModal({
           <div>
             <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
               {t("config.constraints")}
-              <span className="ml-1 text-xs text-[#71717A] font-normal">
+              <span className="ml-1 text-xs text-[#A1A1AA] font-normal">
                 ({t("config.optional")})
               </span>
             </label>
@@ -194,7 +194,7 @@ export default function GanttConfigModal({
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg text-sm text-red-700">
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#EF4444]/10 rounded-lg text-sm text-[#EF4444]">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {error}
             </div>

@@ -11,30 +11,32 @@ import {
   Clock,
   FileText,
   Download,
+  Truck,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { toLocalDateString } from "@/components/calendar/datetime-utils";
 
-/* ── helpers (same as app site-reports page) ── */
+/* ── date helpers (LOCAL calendar, never UTC) ──
+ * `new Date(str)` + `toISOString().split("T")[0]` returns the UTC date, which
+ * pushed the week one day back in Europe/Zurich before 01:00/02:00 — the exact
+ * bug the app site-reports page already fixed. Mirror that here. */
+
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
 
 function getMonday(date: Date): string {
-  const d = new Date(date);
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  return d.toISOString().split("T")[0];
+  d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+  return toLocalDateString(d);
 }
 
-function formatWeek(mondayStr: string): string {
-  const mon = new Date(mondayStr);
-  const sun = new Date(mon);
-  sun.setDate(sun.getDate() + 6);
-  const weekNum = getISOWeekNumber(mon);
-  return `Sem ${weekNum} (${mon.toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })} \u2014 ${sun.toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit", year: "numeric" })})`;
-}
-
-function getISOWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+function getISOWeekNumber(dateStr: string): number {
+  const local = parseLocalDate(dateStr);
+  const d = new Date(Date.UTC(local.getFullYear(), local.getMonth(), local.getDate()));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -42,20 +44,23 @@ function getISOWeekNumber(date: Date): number {
 }
 
 function shiftWeek(mondayStr: string, delta: number): string {
-  const d = new Date(mondayStr);
+  const d = parseLocalDate(mondayStr);
   d.setDate(d.getDate() + 7 * delta);
-  return d.toISOString().split("T")[0];
+  return toLocalDateString(d);
 }
 
 function getDayDates(mondayStr: string): string[] {
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(mondayStr);
+    const d = parseLocalDate(mondayStr);
     d.setDate(d.getDate() + i);
-    return d.toISOString().split("T")[0];
+    return toLocalDateString(d);
   });
 }
 
-const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+function shortDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  return parseLocalDate(dateStr).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" });
+}
 
 /* ── types ── */
 
@@ -67,6 +72,7 @@ export default function PublicSiteReportsPage() {
   const params = useParams();
   const token = params.token as string;
   const t = useTranslations("siteReports.share");
+  const tp = useTranslations("siteReports.public");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,8 +87,13 @@ export default function PublicSiteReportsPage() {
   const [orgName, setOrgName] = useState("");
   const [exporting, setExporting] = useState(false);
 
+  const DAY_LABELS = [
+    tp("dayMon"), tp("dayTue"), tp("dayWed"), tp("dayThu"), tp("dayFri"), tp("daySat"), tp("daySun"),
+  ];
+
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       params.set("week_start", weekStart);
@@ -94,19 +105,20 @@ export default function PublicSiteReportsPage() {
       const res = await fetch(`/api/site-reports/public/${token}?${params}`);
 
       if (res.status === 410) {
-        const json = await res.json();
-        const reason = json.reason || "revoked";
-        setErrorType(reason === "expired" ? "expired" : "revoked");
-        setError(json.error || "Lien indisponible");
+        const json = await res.json().catch(() => ({}));
+        setErrorType(json.reason === "expired" ? "expired" : "revoked");
+        setError(json.error || tp("loadError"));
         return;
       }
       if (res.status === 404) {
         setErrorType("invalid");
-        setError("Lien invalide");
+        setError(tp("loadError"));
         return;
       }
       if (!res.ok) {
-        setError("Erreur de chargement");
+        // A real server error is NOT an empty week: show it (don't render the
+        // "no hours" empty state and let the reader believe there is no data).
+        setError(tp("loadError"));
         return;
       }
 
@@ -119,10 +131,11 @@ export default function PublicSiteReportsPage() {
         setNotesData(json);
       }
     } catch {
-      setError("Erreur de chargement");
+      setError(tp("loadError"));
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, weekStart, projectFilter, crewFilter, supplierFilter, activeTab]);
 
   useEffect(() => {
@@ -140,11 +153,14 @@ export default function PublicSiteReportsPage() {
           type: activeTab,
           week_start: weekStart,
           project_id: projectFilter || undefined,
+          // Reflect the on-screen filters in the exported file.
+          crew_member_id: activeTab === "hours" && crewFilter ? crewFilter : undefined,
+          supplier: activeTab === "notes" && supplierFilter ? supplierFilter : undefined,
         },
         fallbackFilename: `export.${format}`,
       });
     } catch {
-      /* ignore */
+      /* the download helper surfaces its own failure */
     } finally {
       setExporting(false);
     }
@@ -159,19 +175,15 @@ export default function PublicSiteReportsPage() {
       <div className="flex items-center justify-center min-h-screen bg-[#0F0F11]">
         <div className="text-center max-w-md p-8">
           <AlertCircle
-            className={`h-16 w-16 mx-auto mb-4 ${isRevoked ? "text-[#EF4444]" : isExpired ? "text-[#F59E0B]" : "text-[#71717A]"}`}
+            className={`h-16 w-16 mx-auto mb-4 ${isRevoked ? "text-[#EF4444]" : isExpired ? "text-[#F59E0B]" : "text-[#A1A1AA]"}`}
           />
           <h2 className="text-lg font-display font-bold text-[#FAFAFA] mb-2">
-            {isRevoked
-              ? t("revoked")
-              : isExpired
-                ? t("expired")
-                : t("invalid")}
+            {isRevoked ? t("revoked") : isExpired ? t("expired") : t("invalid")}
           </h2>
-          <p className="text-sm text-[#71717A] mb-6">{error}</p>
+          <p className="text-sm text-[#A1A1AA] mb-6">{error}</p>
           <Link
             href="/register"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#F97316] text-white text-sm font-medium rounded-lg hover:bg-[#EA580C] transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#F97316] text-[#0F0F11] text-sm font-medium rounded-lg hover:bg-[#EA580C] transition-colors"
           >
             {t("tryFree")}
             <ExternalLink className="h-4 w-4" />
@@ -191,6 +203,7 @@ export default function PublicSiteReportsPage() {
 
   const projects = hoursData?.projects || notesData?.projects || [];
   const dayDates = getDayDates(weekStart);
+  const machineSummary = hoursData?.machine_summary || [];
 
   return (
     <div className="min-h-screen bg-[#0F0F11]">
@@ -205,12 +218,12 @@ export default function PublicSiteReportsPage() {
           </div>
           <span className="text-sm text-[#3F3F46] hidden sm:inline">|</span>
           <span className="text-sm text-[#A1A1AA] hidden sm:inline">
-            {t("publicTitle")} {orgName ? `\u2014 ${orgName}` : ""}
+            {t("publicTitle")} {orgName ? `— ${orgName}` : ""}
           </span>
         </div>
         <Link
           href="/register"
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#F97316] text-white text-sm font-medium rounded-lg hover:bg-[#EA580C] transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#F97316] text-[#0F0F11] text-sm font-medium rounded-lg hover:bg-[#EA580C] transition-colors"
         >
           {t("tryFree")}
           <ExternalLink className="h-3.5 w-3.5" />
@@ -226,21 +239,21 @@ export default function PublicSiteReportsPage() {
               onClick={() => setActiveTab("hours")}
               className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === "hours"
-                  ? "bg-[#F97316] text-white shadow-sm"
-                  : "text-[#71717A] hover:text-[#FAFAFA]"
+                  ? "bg-[#F97316] text-[#0F0F11] shadow-sm"
+                  : "text-[#A1A1AA] hover:text-[#FAFAFA]"
               }`}
             >
-              <Clock className="h-4 w-4" /> Heures
+              <Clock className="h-4 w-4" /> {tp("tabHours")}
             </button>
             <button
               onClick={() => setActiveTab("notes")}
               className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === "notes"
-                  ? "bg-[#F97316] text-white shadow-sm"
-                  : "text-[#71717A] hover:text-[#FAFAFA]"
+                  ? "bg-[#F97316] text-[#0F0F11] shadow-sm"
+                  : "text-[#A1A1AA] hover:text-[#FAFAFA]"
               }`}
             >
-              <FileText className="h-4 w-4" /> Bons de livraison
+              <FileText className="h-4 w-4" /> {tp("tabNotes")}
             </button>
           </div>
 
@@ -253,7 +266,15 @@ export default function PublicSiteReportsPage() {
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="text-sm font-medium text-[#FAFAFA] min-w-[260px] text-center">
-              {formatWeek(weekStart)}
+              {tp("weekLabel", {
+                week: getISOWeekNumber(weekStart),
+                from: shortDate(weekStart),
+                to: parseLocalDate(dayDates[6]).toLocaleDateString("fr-CH", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                }),
+              })}
             </span>
             <button
               onClick={() => setWeekStart(shiftWeek(weekStart, 1))}
@@ -271,7 +292,7 @@ export default function PublicSiteReportsPage() {
             onChange={(e) => setProjectFilter(e.target.value)}
             className="rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2 text-sm text-[#FAFAFA]"
           >
-            <option value="">Tous les projets</option>
+            <option value="">{tp("allProjects")}</option>
             {projects.map((p: any) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -285,7 +306,7 @@ export default function PublicSiteReportsPage() {
               onChange={(e) => setCrewFilter(e.target.value)}
               className="rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2 text-sm text-[#FAFAFA]"
             >
-              <option value="">Tous les ouvriers</option>
+              <option value="">{tp("allWorkers")}</option>
               {hoursData.crew.map((c: any) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -301,7 +322,7 @@ export default function PublicSiteReportsPage() {
               onChange={(e) => setSupplierFilter(e.target.value)}
               className="rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2 text-sm text-[#FAFAFA]"
             >
-              <option value="">Tous les fournisseurs</option>
+              <option value="">{tp("allSuppliers")}</option>
               {notesData.suppliers.map((s: any) => (
                 <option key={s.name} value={s.name}>
                   {s.name} ({s.count})
@@ -328,6 +349,13 @@ export default function PublicSiteReportsPage() {
           </div>
         </div>
 
+        {/* Error banner (a server error must not read as an empty week) */}
+        {error && (
+          <div className="mb-4 rounded-lg border border-[#EF4444]/40 bg-[#EF4444]/10 px-4 py-3 text-sm text-[#FCA5A5]">
+            {error}
+          </div>
+        )}
+
         {/* ── Data display ── */}
         {loading ? (
           <div className="flex justify-center py-12">
@@ -341,53 +369,36 @@ export default function PublicSiteReportsPage() {
                 <table className="w-full min-w-[700px]">
                   <thead>
                     <tr className="border-b border-[#27272A] bg-[#27272A]/50">
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">
-                        Ouvrier
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-[#A1A1AA]">
+                        {tp("worker")}
                       </th>
-                      {DAYS.map((day, i) => (
+                      {DAY_LABELS.map((day, i) => (
                         <th
-                          key={day}
-                          className="px-3 py-2.5 text-center text-xs font-medium text-[#71717A]"
+                          key={i}
+                          className="px-3 py-2.5 text-center text-xs font-medium text-[#A1A1AA]"
                         >
                           {day}
                           <br />
-                          <span className="font-normal">
-                            {new Date(dayDates[i]).toLocaleDateString("fr-CH", {
-                              day: "2-digit",
-                              month: "2-digit",
-                            })}
-                          </span>
+                          <span className="font-normal">{shortDate(dayDates[i])}</span>
                         </th>
                       ))}
                       <th className="px-4 py-2.5 text-right text-xs font-bold text-[#FAFAFA]">
-                        Total
+                        {tp("total")}
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {hoursData.summary.map((row: any, idx: number) => (
-                      <tr
-                        key={idx}
-                        className="border-b border-[#27272A] last:border-0"
-                      >
+                      <tr key={idx} className="border-b border-[#27272A] last:border-0">
                         <td className="px-4 py-2.5">
-                          <span className="text-sm font-medium text-[#FAFAFA]">
-                            {row.name}
-                          </span>
+                          <span className="text-sm font-medium text-[#FAFAFA]">{row.name}</span>
                           {row.role && (
-                            <span className="text-xs text-[#71717A] ml-1">
-                              ({row.role})
-                            </span>
+                            <span className="text-xs text-[#A1A1AA] ml-1">({row.role})</span>
                           )}
                         </td>
                         {dayDates.map((date) => (
-                          <td
-                            key={date}
-                            className="px-3 py-2.5 text-center text-sm text-[#FAFAFA]"
-                          >
-                            {row.days[date]
-                              ? `${row.days[date].toFixed(1)}`
-                              : "\u2014"}
+                          <td key={date} className="px-3 py-2.5 text-center text-sm text-[#FAFAFA]">
+                            {row.days[date] ? `${row.days[date].toFixed(1)}` : "—"}
                           </td>
                         ))}
                         <td className="px-4 py-2.5 text-right text-sm font-bold text-[#FAFAFA]">
@@ -400,70 +411,64 @@ export default function PublicSiteReportsPage() {
               </div>
             )}
 
+            {/* Machine summary — collected on site and previously never shown */}
+            {machineSummary.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {machineSummary.map((m: any) => (
+                  <div key={m.description} className="rounded-lg border border-[#27272A] bg-[#18181B] p-3">
+                    <div className="flex items-center gap-1.5">
+                      <Truck className="h-4 w-4 text-[#A1A1AA]" />
+                      <p className="text-sm font-semibold text-[#FAFAFA] truncate">{m.description}</p>
+                    </div>
+                    <p className="text-2xl font-bold text-[#FAFAFA] mt-1">{m.hours.toFixed(1)}h</p>
+                    {m.is_rented && <p className="text-xs text-[#A1A1AA]">{tp("machineRented")}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Detail table */}
             {hoursData?.hours && hoursData.hours.length > 0 && (
               <div className="rounded-lg border border-[#27272A] bg-[#18181B] overflow-hidden">
                 <div className="px-4 py-3 border-b border-[#27272A] bg-[#27272A]/30">
-                  <h3 className="text-sm font-semibold text-[#FAFAFA]">
-                    D\u00e9tail des heures
-                  </h3>
+                  <h3 className="text-sm font-semibold text-[#FAFAFA]">{tp("detailHours")}</h3>
                 </div>
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[#27272A] bg-[#27272A]/50">
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        Date
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        Projet
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        Ouvrier
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        Travail
-                      </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-[#71717A]">
-                        Heures
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hoursData.hours.map((h: any) => (
-                      <tr
-                        key={h.id}
-                        className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/20"
-                      >
-                        <td className="px-4 py-2 text-sm text-[#FAFAFA]">
-                          {new Date(h.report_date).toLocaleDateString("fr-CH", {
-                            day: "2-digit",
-                            month: "2-digit",
-                          })}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-[#FAFAFA]">
-                          {h.project_name}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-[#FAFAFA]">
-                          {h.crew_member_name}
-                          {h.is_driver ? " \ud83d\ude90" : ""}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-[#71717A]">
-                          {h.work_description || "\u2014"}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-right font-medium text-[#FAFAFA]">
-                          {h.duration_hours.toFixed(1)}h
-                        </td>
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("colDate")}</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("colProject")}</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("worker")}</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("colWork")}</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-[#A1A1AA]">{tp("colHours")}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {hoursData.hours.map((h: any) => (
+                        <tr key={h.id} className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/20">
+                          <td className="px-4 py-2 text-sm text-[#FAFAFA]">{shortDate(h.report_date)}</td>
+                          <td className="px-4 py-2 text-sm text-[#FAFAFA]">{h.project_name}</td>
+                          <td className="px-4 py-2 text-sm text-[#FAFAFA]">
+                            {h.crew_member_name}
+                            {h.is_driver ? " 🚐" : ""}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-[#A1A1AA]">{h.work_description || "—"}</td>
+                          <td className="px-4 py-2 text-sm text-right font-medium text-[#FAFAFA]">
+                            {h.duration_hours.toFixed(1)}h
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
-            {(!hoursData?.hours || hoursData.hours.length === 0) && (
-              <div className="flex flex-col items-center py-12 text-[#71717A]">
+            {(!hoursData?.hours || hoursData.hours.length === 0) && machineSummary.length === 0 && (
+              <div className="flex flex-col items-center py-12 text-[#A1A1AA]">
                 <Clock className="h-10 w-10 mb-3 opacity-30" />
-                <p>Aucune heure pour cette p\u00e9riode</p>
+                <p>{tp("emptyHours")}</p>
               </div>
             )}
           </div>
@@ -473,18 +478,11 @@ export default function PublicSiteReportsPage() {
             {notesData?.suppliers && notesData.suppliers.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {notesData.suppliers.map((s: any) => (
-                  <div
-                    key={s.name}
-                    className="rounded-lg border border-[#27272A] bg-[#18181B] p-3"
-                  >
-                    <p className="text-sm font-semibold text-[#FAFAFA]">
-                      {s.name}
-                    </p>
-                    <p className="text-2xl font-bold text-[#FAFAFA] mt-1">
-                      {s.count}
-                    </p>
-                    <p className="text-xs text-[#71717A]">
-                      bons \u2014 {s.projects.join(", ")}
+                  <div key={s.name} className="rounded-lg border border-[#27272A] bg-[#18181B] p-3">
+                    <p className="text-sm font-semibold text-[#FAFAFA]">{s.name}</p>
+                    <p className="text-2xl font-bold text-[#FAFAFA] mt-1">{s.count}</p>
+                    <p className="text-xs text-[#A1A1AA]">
+                      {tp("notesLabel")} — {s.projects.join(", ")}
                     </p>
                   </div>
                 ))}
@@ -494,84 +492,52 @@ export default function PublicSiteReportsPage() {
             {/* Notes table */}
             {notesData?.notes && notesData.notes.length > 0 && (
               <div className="rounded-lg border border-[#27272A] bg-[#18181B] overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[#27272A] bg-[#27272A]/50">
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        Date
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        Projet
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        N\u00b0 Bon
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        Fournisseur
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        Photo
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">
-                        Soumis par
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {notesData.notes.map((n: any) => (
-                      <tr
-                        key={n.id}
-                        className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/20"
-                      >
-                        <td className="px-4 py-2 text-sm text-[#FAFAFA]">
-                          {new Date(n.report_date).toLocaleDateString("fr-CH", {
-                            day: "2-digit",
-                            month: "2-digit",
-                          })}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-[#FAFAFA]">
-                          {n.project_name}
-                        </td>
-                        <td className="px-4 py-2 text-sm font-mono text-[#FAFAFA]">
-                          {n.note_number || "\u2014"}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-[#FAFAFA]">
-                          {n.supplier_name || "\u2014"}
-                        </td>
-                        <td className="px-4 py-2">
-                          {n.photo_url ? (
-                            <a
-                              href={n.photo_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={n.photo_url}
-                                alt="Bon"
-                                className="h-10 w-10 rounded object-cover border border-[#27272A]"
-                              />
-                            </a>
-                          ) : (
-                            <span className="text-xs text-[#71717A]">
-                              \u2014
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-[#71717A]">
-                          {n.submitted_by || "\u2014"}
-                        </td>
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("colDate")}</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("colProject")}</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("noteNumber")}</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("supplier")}</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("photo")}</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-[#A1A1AA]">{tp("submittedBy")}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {notesData.notes.map((n: any) => (
+                        <tr key={n.id} className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/20">
+                          <td className="px-4 py-2 text-sm text-[#FAFAFA]">{shortDate(n.report_date)}</td>
+                          <td className="px-4 py-2 text-sm text-[#FAFAFA]">{n.project_name}</td>
+                          <td className="px-4 py-2 text-sm font-mono text-[#FAFAFA]">{n.note_number || "—"}</td>
+                          <td className="px-4 py-2 text-sm text-[#FAFAFA]">{n.supplier_name || "—"}</td>
+                          <td className="px-4 py-2">
+                            {n.photo_url ? (
+                              <a href={n.photo_url} target="_blank" rel="noopener noreferrer">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={n.photo_url}
+                                  alt={tp("photo")}
+                                  className="h-10 w-10 rounded object-cover border border-[#27272A]"
+                                />
+                              </a>
+                            ) : (
+                              <span className="text-xs text-[#A1A1AA]">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-[#A1A1AA]">{n.submitted_by || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
             {(!notesData?.notes || notesData.notes.length === 0) && (
-              <div className="flex flex-col items-center py-12 text-[#71717A]">
+              <div className="flex flex-col items-center py-12 text-[#A1A1AA]">
                 <FileText className="h-10 w-10 mb-3 opacity-30" />
-                <p>Aucun bon de livraison pour cette p\u00e9riode</p>
+                <p>{tp("emptyNotes")}</p>
               </div>
             )}
           </div>
@@ -581,7 +547,7 @@ export default function PublicSiteReportsPage() {
       {/* ── Footer ── */}
       <footer className="border-t border-[#27272A] px-6 py-4 mt-8">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-[#71717A]">
+          <div className="flex items-center gap-2 text-sm text-[#A1A1AA]">
             <div className="h-5 w-5 bg-gradient-to-br from-[#F97316] to-[#EA580C] rounded flex items-center justify-center">
               <span className="text-white text-[10px] font-bold">C</span>
             </div>

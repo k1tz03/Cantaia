@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import {
   Search, Send, Eye, Trash2, X, Plus, Check,
   ChevronDown, ChevronRight, Zap, Paperclip,
@@ -54,7 +56,23 @@ interface AssignmentPackage {
   suppliers: PackageSupplier[];
   itemIds: string[];
   customBodies: Record<string, string>; // material_group → custom body text
+  /**
+   * Language of the supplier-facing email AND of the portal page.
+   * The API has always accepted `language` and always ignored it, so a
+   * German-speaking supplier received French — on a market that is 70 %
+   * German-speaking. Per package, because one submission routinely mixes
+   * a Romandy supplier and a Swiss-German one.
+   */
+  language: SupplierLanguage;
 }
+
+type SupplierLanguage = "fr" | "de" | "en";
+
+const SUPPLIER_LANGUAGES: { value: SupplierLanguage; label: string }[] = [
+  { value: "fr", label: "FR" },
+  { value: "de", label: "DE" },
+  { value: "en", label: "EN" },
+];
 
 interface AttachmentFile {
   file: File;
@@ -87,13 +105,33 @@ type FilterMode = "all" | "unassigned" | "assigned";
    Helpers
    ═══════════════════════════════════════════════════════════════ */
 
+/**
+ * Lowercase + strip diacritics.
+ *
+ * Swiss construction vocabulary is full of accents ("béton", "Fenêtres",
+ * "Maçonnerie") and supplier specialties are typed by hand, so "Béton" and
+ * "beton" are the same trade to a human and were two different strings to the
+ * matcher — which then silently suggested nobody.
+ */
+function normalizeForMatch(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
 function matchSuppliersByRelevance(
   groupName: string,
   groupCfc: string | null,
   suppliers: SupplierInfo[]
 ): (SupplierInfo & { relevance_score: number })[] {
   const lotCfc = groupCfc || "";
-  const nameLower = groupName.toLowerCase();
+  const nameNorm = normalizeForMatch(groupName);
+
+  // ">= 3" rather than "> 3": the trades that matter most in a Swiss lot name
+  // are short words — "bois", "fer", "PVC", "sol", "toit". The old threshold
+  // dropped every one of them before scoring.
+  const keywords = nameNorm.split(/[\s,/()-]+/).filter((w) => w.length >= 3);
 
   const scored = suppliers
     .filter((s) => s.status !== "blacklisted" && s.status !== "inactive")
@@ -101,6 +139,7 @@ function matchSuppliersByRelevance(
       let score = 0;
       const cfcs = Array.isArray(s.cfc_codes) ? s.cfc_codes : [];
       const specs = Array.isArray(s.specialties) ? s.specialties : [];
+      const specsNorm = specs.map((sp: unknown) => normalizeForMatch(String(sp)));
 
       // CFC code match (exact, prefix, or reverse prefix)
       if (lotCfc && cfcs.some((c: string) => c === lotCfc || lotCfc.startsWith(c) || c.startsWith(lotCfc))) {
@@ -108,19 +147,16 @@ function matchSuppliersByRelevance(
       }
 
       // Specialty keyword match (group name words found in supplier specialties)
-      const keywords = nameLower.split(/[\s,/()-]+/).filter((w: string) => w.length > 3);
       let keywordMatches = 0;
       for (const kw of keywords) {
-        if (specs.some((sp: string) => sp.toLowerCase().includes(kw))) {
-          keywordMatches++;
-        }
+        if (specsNorm.some((sp) => sp.includes(kw))) keywordMatches++;
       }
       if (keywordMatches > 0) score += Math.min(keywordMatches * 15, 40);
 
       // Also check if supplier company name matches group keywords
-      const companyLower = s.company_name.toLowerCase();
+      const companyNorm = normalizeForMatch(s.company_name);
       for (const kw of keywords) {
-        if (companyLower.includes(kw)) {
+        if (companyNorm.includes(kw)) {
           score += 10;
           break;
         }
@@ -154,6 +190,24 @@ function nextPkgId(): string {
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file
 const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25 MB total per email
 
+/**
+ * File → base64 via FileReader.readAsDataURL.
+ * The previous implementation reduced byte-by-byte with string concatenation —
+ * O(n²) on the main thread, seconds of freeze on a 10 MB PDF.
+ */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error("file_read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Main Component
    ═══════════════════════════════════════════════════════════════ */
@@ -166,10 +220,17 @@ export function PriceRequestV2({
   deadline,
   onComplete,
 }: PriceRequestV2Props) {
+  const t = useTranslations("submissions");
+  const locale = useLocale();
+  const router = useRouter();
+
   // ── AI filtering state ──────────────────────────────────────
   const [excludedItems, setExcludedItems] = useState<Map<string, string>>(new Map()); // id → reason
   const [aiFilterLoading, setAiFilterLoading] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
+  // Non-null when the AI pre-filter could not run (credits exhausted / network):
+  // shown as a discreet hint instead of silently keeping every item.
+  const [aiFilterNotice, setAiFilterNotice] = useState<"credits" | "network" | null>(null);
 
   // ── Selection state ─────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -183,10 +244,27 @@ export function PriceRequestV2({
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerSelected, setPickerSelected] = useState<Set<string>>(new Set());
 
+  // Suppliers created without leaving the wizard. The annuaire is empty on day
+  // one, so "choisir un fournisseur" used to be a dead end that forced a detour
+  // through /suppliers and a full reload of the wizard.
+  const [createdSuppliers, setCreatedSuppliers] = useState<SupplierInfo[]>([]);
+  const [inlineFormOpen, setInlineFormOpen] = useState(false);
+  const [inlineName, setInlineName] = useState("");
+  const [inlineEmail, setInlineEmail] = useState("");
+  const [inlineContact, setInlineContact] = useState("");
+  const [inlineSaving, setInlineSaving] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
+
+  // Recap shown before the irreversible batch send.
+  const [confirmSendOpen, setConfirmSendOpen] = useState(false);
+
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPkgId, setPreviewPkgId] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<PreviewData[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  // All previews failed → blocking error + retry. Some failed → warning banner.
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewPartialFailures, setPreviewPartialFailures] = useState(0);
   const [previewTab, setPreviewTab] = useState(0);
   const [editedBodies, setEditedBodies] = useState<Record<string, string>>({});
   const [editedSubjects, setEditedSubjects] = useState<Record<string, string>>({});
@@ -194,6 +272,11 @@ export function PriceRequestV2({
   // ── Attachments (per-package — each supplier package has its own attachments) ──
   const [packageAttachments, setPackageAttachments] = useState<Record<string, AttachmentFile[]>>({});
   const [attachTargetPkg, setAttachTargetPkg] = useState<string | null>(null);
+  // Files silently dropped (>10 MB, would exceed 25 MB, capture failed) used to
+  // vanish without a word — the messages are now shown per package.
+  const [attachmentNotices, setAttachmentNotices] = useState<Record<string, string[]>>({});
+  // Inline confirmation after creating a supplier while no items were selected.
+  const [pickerNotice, setPickerNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Send state ──────────────────────────────────────────────
@@ -201,6 +284,7 @@ export function PriceRequestV2({
   const [sendResult, setSendResult] = useState<{
     sent: number;
     failed: number;
+    skipped: number;
     errors: number;
     errorDetails: Array<{ supplier: string; group: string; message: string }>;
   } | null>(null);
@@ -210,6 +294,7 @@ export function PriceRequestV2({
   useEffect(() => {
     if (items.length === 0) return;
     setAiFilterLoading(true);
+    setAiFilterNotice(null);
     fetch(`/api/submissions/${submissionId}/filter-items`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -223,15 +308,30 @@ export function PriceRequestV2({
         })),
       }),
     })
-      .then((r) => r.json())
-      .then((data) => {
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({} as any));
+        // The pre-filter is optional, but "not run" must not look like "nothing
+        // to exclude" — surface credits exhaustion and failures as a hint.
+        if (
+          r.status === 402 ||
+          data?.error === "insufficient_credits" ||
+          data?.insufficient_credits ||
+          data?.usage_limit_reached
+        ) {
+          setAiFilterNotice("credits");
+          return;
+        }
+        if (!r.ok) {
+          setAiFilterNotice("network");
+          return;
+        }
         if (data.excluded && data.excluded.length > 0) {
           const map = new Map<string, string>();
           for (const e of data.excluded) map.set(e.id, e.reason);
           setExcludedItems(map);
         }
       })
-      .catch(() => {})
+      .catch(() => setAiFilterNotice("network"))
       .finally(() => setAiFilterLoading(false));
   }, [submissionId, items.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -250,7 +350,7 @@ export function PriceRequestV2({
   const excludeItem = useCallback((itemId: string) => {
     setExcludedItems((prev) => {
       const next = new Map(prev);
-      next.set(itemId, "Exclu manuellement");
+      next.set(itemId, t("wizard.excludedManually"));
       return next;
     });
     // Also deselect it
@@ -259,7 +359,7 @@ export function PriceRequestV2({
       next.delete(itemId);
       return next;
     });
-  }, []);
+  }, [t]);
 
   // ── Derived data ────────────────────────────────────────────
   const materialGroups = useMemo(() => {
@@ -302,14 +402,14 @@ export function PriceRequestV2({
     const map = new Map<string, { date: string; supplier: string }>();
     for (const req of existingRequests) {
       if (!req.sent_at) continue;
-      const supplierName = req.suppliers?.company_name || "Fournisseur";
+      const supplierName = req.suppliers?.company_name || t("wizard.supplier");
       for (const it of req.items_requested || []) {
         const key = it.item_number || it.id || it;
         map.set(String(key), { date: req.sent_at, supplier: supplierName });
       }
     }
     return map;
-  }, [existingRequests]);
+  }, [existingRequests, t]);
 
   const filteredItems = useMemo(() => {
     let result = activeItems;
@@ -404,16 +504,20 @@ export function PriceRequestV2({
   const openSupplierPicker = useCallback(() => {
     setPickerSearch("");
     setPickerSelected(new Set());
+    setPickerNotice(null);
     setPickerOpen(true);
   }, []);
 
   const confirmAssignment = useCallback(() => {
     if (pickerSelected.size === 0 || selectedIds.size === 0) return;
 
-    // Create ONE package with all selected suppliers + all selected items
+    // Create ONE package with all selected suppliers + all selected items.
+    // Suppliers created inline in this session are not in the `suppliers` prop
+    // yet (the parent refetches only after sending), so both lists are searched.
     const pkgSuppliers: PackageSupplier[] = [];
     for (const suppId of pickerSelected) {
-      const supplier = suppliers.find((s) => s.id === suppId);
+      const supplier =
+        suppliers.find((s) => s.id === suppId) || createdSuppliers.find((s) => s.id === suppId);
       if (!supplier) continue;
       pkgSuppliers.push({ id: suppId, name: supplier.company_name, email: supplier.email });
     }
@@ -426,13 +530,15 @@ export function PriceRequestV2({
           suppliers: pkgSuppliers,
           itemIds: Array.from(selectedIds),
           customBodies: {},
+          language: "fr",
         },
       ]);
     }
 
     setSelectedIds(new Set());
     setPickerOpen(false);
-  }, [pickerSelected, selectedIds, suppliers]);
+    setInlineFormOpen(false);
+  }, [pickerSelected, selectedIds, suppliers, createdSuppliers]);
 
   // removeItemFromPackage kept for future package-card inline editing
   // const removeItemFromPackage = useCallback((pkgId: string, itemId: string) => { ... }, []);
@@ -447,17 +553,69 @@ export function PriceRequestV2({
     });
   }, []);
 
-  const removeSupplierFromItem = useCallback((supplierId: string, itemId: string) => {
-    setPackages((prev) =>
-      prev
-        .map((p) => {
-          // Only affect packages that contain both this supplier AND this item
-          if (!p.suppliers.some((s) => s.id === supplierId) || !p.itemIds.includes(itemId)) return p;
-          return { ...p, itemIds: p.itemIds.filter((id) => id !== itemId) };
-        })
-        .filter((p) => p.itemIds.length > 0)
-    );
-  }, []);
+  /**
+   * The ✕ on a supplier chip means "this SUPPLIER no longer quotes this item".
+   * The old code removed the item from the whole package, i.e. for EVERY
+   * supplier in it. Now the package is split: the other suppliers keep the
+   * original package (id, attachments, custom bodies) with every item, and the
+   * targeted supplier moves to a new package without the removed item.
+   */
+  const removeSupplierFromItem = useCallback(
+    (supplierId: string, itemId: string) => {
+      const next: AssignmentPackage[] = [];
+      const attachmentCopies: Array<{ from: string; to: string }> = [];
+
+      for (const p of packages) {
+        // Only packages that contain both this supplier AND this item change.
+        if (!p.suppliers.some((s) => s.id === supplierId) || !p.itemIds.includes(itemId)) {
+          next.push(p);
+          continue;
+        }
+
+        if (p.suppliers.length === 1) {
+          // Single-supplier package: dropping the item for the supplier IS
+          // dropping it from the package.
+          const remaining = p.itemIds.filter((id) => id !== itemId);
+          if (remaining.length > 0) next.push({ ...p, itemIds: remaining });
+          continue;
+        }
+
+        // Multi-supplier package → split. The original id (and therefore its
+        // attachments) stays with the untouched suppliers.
+        next.push({ ...p, suppliers: p.suppliers.filter((s) => s.id !== supplierId) });
+
+        const remaining = p.itemIds.filter((id) => id !== itemId);
+        if (remaining.length > 0) {
+          const supplier = p.suppliers.find((s) => s.id === supplierId);
+          if (supplier) {
+            const newId = nextPkgId();
+            next.push({
+              id: newId,
+              suppliers: [supplier],
+              itemIds: remaining,
+              customBodies: { ...p.customBodies },
+              language: p.language,
+            });
+            attachmentCopies.push({ from: p.id, to: newId });
+          }
+        }
+      }
+
+      setPackages(next);
+      if (attachmentCopies.length > 0) {
+        // The attachments were meant for every supplier of the package — the
+        // split-off supplier keeps a copy.
+        setPackageAttachments((prevAtt) => {
+          const copy = { ...prevAtt };
+          for (const { from, to } of attachmentCopies) {
+            if (copy[from]?.length) copy[to] = [...copy[from]];
+          }
+          return copy;
+        });
+      }
+    },
+    [packages]
+  );
 
   const removeSupplierFromPackage = useCallback((pkgId: string, supplierId: string) => {
     setPackages((prev) =>
@@ -472,23 +630,37 @@ export function PriceRequestV2({
 
   // ── Attachments (per-package) ──
 
-  const addFilesToPackage = useCallback((pkgId: string, files: FileList | null) => {
-    if (!files) return;
-    setPackageAttachments((prev) => {
-      const existing = prev[pkgId] || [];
+  const addFilesToPackage = useCallback(
+    (pkgId: string, files: FileList | null) => {
+      if (!files) return;
+      const existing = packageAttachments[pkgId] || [];
       const currentSize = existing.reduce((s, f) => s + f.size, 0);
       let remaining = MAX_TOTAL_SIZE - currentSize;
       const added: AttachmentFile[] = [];
+      const notices: string[] = [];
       for (const file of Array.from(files)) {
-        if (file.size > MAX_FILE_SIZE) continue; // 10MB per file
-        if (file.size > remaining) continue; // Would exceed 25MB total
+        if (file.size > MAX_FILE_SIZE) {
+          notices.push(t("wizard.fileTooLarge", { name: file.name }));
+          continue;
+        }
+        if (file.size > remaining) {
+          notices.push(t("wizard.totalSizeExceeded", { name: file.name }));
+          continue;
+        }
         added.push({ file, name: file.name, size: file.size });
         remaining -= file.size;
       }
-      if (added.length === 0) return prev;
-      return { ...prev, [pkgId]: [...existing, ...added] };
-    });
-  }, []);
+      if (added.length > 0) {
+        setPackageAttachments((prev) => ({
+          ...prev,
+          [pkgId]: [...(prev[pkgId] || []), ...added],
+        }));
+      }
+      // Rejections are shown, never silent.
+      setAttachmentNotices((prev) => ({ ...prev, [pkgId]: notices }));
+    },
+    [packageAttachments, t]
+  );
 
   const removePackageAttachment = useCallback((pkgId: string, index: number) => {
     setPackageAttachments((prev) => ({
@@ -497,36 +669,56 @@ export function PriceRequestV2({
     }));
   }, []);
 
-  const captureScreenForPackage = useCallback(async (pkgId: string) => {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      await video.play();
+  const captureScreenForPackage = useCallback(
+    async (pkgId: string) => {
+      const notify = (message: string) =>
+        setAttachmentNotices((prev) => ({ ...prev, [pkgId]: [message] }));
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        await video.play();
 
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(video, 0, 0);
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(video, 0, 0);
 
-      stream.getTracks().forEach((t) => t.stop());
+        stream.getTracks().forEach((t) => t.stop());
 
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const file = new File([blob], `capture-${Date.now()}.png`, { type: "image/png" });
-        if (file.size > MAX_FILE_SIZE) return; // 10MB per file
-        setPackageAttachments((prev) => {
-          const existing = prev[pkgId] || [];
-          const currentSize = existing.reduce((s, f) => s + f.size, 0);
-          if (currentSize + file.size > MAX_TOTAL_SIZE) return prev; // 25MB total
-          return { ...prev, [pkgId]: [...existing, { file, name: file.name, size: file.size }] };
-        });
-      }, "image/png");
-    } catch {
-      // User cancelled or API not supported
-    }
-  }, []);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            notify(t("wizard.captureFailed"));
+            return;
+          }
+          const file = new File([blob], `capture-${Date.now()}.png`, { type: "image/png" });
+          if (file.size > MAX_FILE_SIZE) {
+            notify(t("wizard.captureTooLarge"));
+            return;
+          }
+          let rejected = false;
+          setPackageAttachments((prev) => {
+            const existing = prev[pkgId] || [];
+            const currentSize = existing.reduce((s, f) => s + f.size, 0);
+            if (currentSize + file.size > MAX_TOTAL_SIZE) {
+              rejected = true; // 25MB total
+              return prev;
+            }
+            return { ...prev, [pkgId]: [...existing, { file, name: file.name, size: file.size }] };
+          });
+          if (rejected) notify(t("wizard.totalSizeExceeded", { name: file.name }));
+          else setAttachmentNotices((prev) => ({ ...prev, [pkgId]: [] }));
+        }, "image/png");
+      } catch (err: any) {
+        // A user cancelling the OS picker is not an error; anything else is.
+        if (err?.name !== "NotAllowedError" && err?.name !== "AbortError") {
+          notify(t("wizard.captureFailed"));
+        }
+      }
+    },
+    [t]
+  );
 
   // ── Preview ─────────────────────────────────────────────────
 
@@ -539,6 +731,8 @@ export function PriceRequestV2({
       setPreviewLoading(true);
       setPreviewData([]);
       setPreviewTab(0);
+      setPreviewError(null);
+      setPreviewPartialFailures(0);
       setPreviewOpen(true);
 
       // Group items by material_group
@@ -553,34 +747,59 @@ export function PriceRequestV2({
 
       // Fetch preview for each group (use first supplier for preview)
       const firstSupplier = pkg.suppliers[0];
-      if (!firstSupplier) { setPreviewLoading(false); return; }
+      if (!firstSupplier) {
+        setPreviewLoading(false);
+        setPreviewError(t("wizard.previewError"));
+        return;
+      }
 
       const previews: PreviewData[] = [];
+      let failures = 0;
+      let unauthorized = false;
       for (const [group, itemIdList] of byGroup) {
         try {
           const params = new URLSearchParams({
             group,
             supplier_id: firstSupplier.id,
             item_ids: itemIdList.join(","),
+            language: pkg.language,
           });
           if (deadline) params.set("deadline", deadline);
+          // Contract: a supplier that only exists in this wizard session carries
+          // a "temp-" id — the API resolves it from manual_name/manual_email
+          // instead of the suppliers table.
+          if (firstSupplier.id.startsWith("temp-")) {
+            params.set("manual_name", firstSupplier.name);
+            if (firstSupplier.email) params.set("manual_email", firstSupplier.email);
+          }
 
           const res = await fetch(`/api/submissions/${submissionId}/preview-email?${params}`);
-          if (res.ok) {
-            const data = await res.json();
-            previews.push({
-              group,
-              subject: data.subject,
-              body_text: pkg.customBodies[group] || data.body_text,
-              to: data.to,
-              supplier_name: data.supplier_name,
-              tracking_code: data.tracking_code,
-              items_count: data.items_count,
-            });
+          if (res.status === 401) {
+            unauthorized = true;
+            break;
           }
+          if (!res.ok) {
+            failures++;
+            continue;
+          }
+          const data = await res.json();
+          previews.push({
+            group,
+            subject: data.subject,
+            body_text: pkg.customBodies[group] || data.body_text,
+            to: data.to,
+            supplier_name: data.supplier_name,
+            tracking_code: data.tracking_code,
+            items_count: data.items_count,
+          });
         } catch {
-          // skip failed preview
+          failures++;
         }
+      }
+
+      if (unauthorized) {
+        router.replace("/login");
+        return;
       }
 
       // Initialize edited bodies from package if exists
@@ -592,9 +811,14 @@ export function PriceRequestV2({
       }
       setEditedBodies(bodies);
       setPreviewData(previews);
+      if (previews.length === 0) {
+        setPreviewError(t("wizard.previewError"));
+      } else if (failures > 0) {
+        setPreviewPartialFailures(failures);
+      }
       setPreviewLoading(false);
     },
-    [packages, itemsById, submissionId, deadline]
+    [packages, itemsById, submissionId, deadline, router, t]
   );
 
   const savePreviewBody = useCallback(
@@ -618,6 +842,7 @@ export function PriceRequestV2({
 
     let totalSent = 0;
     let totalFailed = 0;
+    let totalSkipped = 0;
     let totalErrors = 0;
     const errorDetails: Array<{ supplier: string; group: string; message: string }> = [];
 
@@ -636,8 +861,11 @@ export function PriceRequestV2({
 
         const allSupplierIds = pkg.suppliers.map((s) => s.id);
         const groups: { material_group: string; supplier_ids: string[]; item_ids: string[] }[] = [];
-        const customBodies: Record<string, string> = {};
-        const customSubjects: Record<string, string> = {};
+        // Nested shape: supplierId → material_group → text. The old flat
+        // Record<supplierId, string> let the LAST lot of a multi-lot package
+        // overwrite the custom body/subject of every other lot.
+        const customBodies: Record<string, Record<string, string>> = {};
+        const customSubjects: Record<string, Record<string, string>> = {};
 
         for (const [group, itemIdList] of byGroup) {
           groups.push({
@@ -648,13 +876,13 @@ export function PriceRequestV2({
           // Same custom body/subject for all suppliers in the package
           if (pkg.customBodies[group]) {
             for (const s of pkg.suppliers) {
-              customBodies[s.id] = pkg.customBodies[group];
+              (customBodies[s.id] ||= {})[group] = pkg.customBodies[group];
             }
           }
           const subjectKey = `${pkg.id}-${group}`;
           if (editedSubjects[subjectKey]) {
             for (const s of pkg.suppliers) {
-              customSubjects[s.id] = editedSubjects[subjectKey];
+              (customSubjects[s.id] ||= {})[group] = editedSubjects[subjectKey];
             }
           }
         }
@@ -665,11 +893,17 @@ export function PriceRequestV2({
         if (pkgAtts.length > 0) {
           const convertedAtts: Array<{ filename: string; contentType: string; content: string }> = [];
           for (const att of pkgAtts) {
-            const buffer = await att.file.arrayBuffer();
-            const base64 = btoa(
-              new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-            );
-            convertedAtts.push({ filename: att.name, contentType: att.file.type, content: base64 });
+            try {
+              const base64 = await fileToBase64(att.file);
+              convertedAtts.push({ filename: att.name, contentType: att.file.type, content: base64 });
+            } catch {
+              // A file that cannot be read is dropped — but visibly.
+              errorDetails.push({
+                supplier: "—",
+                group: "—",
+                message: t("wizard.attachmentConvertFailed", { name: att.name }),
+              });
+            }
           }
           for (const g of groups) {
             groupAttBase64[g.material_group] = convertedAtts;
@@ -678,6 +912,7 @@ export function PriceRequestV2({
 
         const body: any = {
           groups,
+          language: pkg.language,
           deadline: deadline || undefined,
           custom_bodies: Object.keys(customBodies).length > 0 ? customBodies : undefined,
           custom_subjects: Object.keys(customSubjects).length > 0 ? customSubjects : undefined,
@@ -700,13 +935,18 @@ export function PriceRequestV2({
             // status value ("error") the API has never returned, so every delivery
             // failure was silently reported as a success.
             totalSent += results.filter((r) => r.status === "sent").length;
-            const failedResults = results.filter((r) => r.status !== "sent");
+            // "skipped" (already_sent) = the request already left for this
+            // supplier — informational, neither a success nor a failure.
+            totalSkipped += results.filter((r) => r.status === "skipped").length;
+            const failedResults = results.filter(
+              (r) => r.status !== "sent" && r.status !== "skipped"
+            );
             totalFailed += failedResults.length;
             for (const r of failedResults) {
               errorDetails.push({
-                supplier: r.supplier_name || r.supplier_id || "Fournisseur",
+                supplier: r.supplier_name || r.supplier_id || t("wizard.supplier"),
                 group: r.material_group || "—",
-                message: r.error || "Envoi échoué",
+                message: r.error || t("wizard.sendFailed"),
               });
             }
             if (json.microsoft_error && failedResults.length === 0) {
@@ -717,19 +957,20 @@ export function PriceRequestV2({
             errorDetails.push({
               supplier: "—",
               group: "—",
-              message: json?.error || `Erreur serveur (HTTP ${res.status})`,
+              message: json?.error || t("wizard.serverError", { status: res.status }),
             });
           }
         } catch (err: any) {
           totalErrors++;
-          errorDetails.push({ supplier: "—", group: "—", message: err?.message || "Erreur réseau" });
+          errorDetails.push({ supplier: "—", group: "—", message: err?.message || t("wizard.networkError") });
         }
       }
 
-      if (totalSent > 0 || totalFailed > 0) {
+      if (totalSent > 0 || totalFailed > 0 || totalSkipped > 0) {
         setSendResult({
           sent: totalSent,
           failed: totalFailed,
+          skipped: totalSkipped,
           errors: totalFailed + totalErrors,
           errorDetails,
         });
@@ -737,15 +978,80 @@ export function PriceRequestV2({
       } else {
         setSendError(
           errorDetails[0]?.message ||
-            "Aucun email envoyé — vérifiez les adresses email des fournisseurs"
+            t("wizard.noEmailSent")
         );
       }
     } catch (err: any) {
-      setSendError(err.message || "Erreur réseau");
+      setSendError(err.message || t("wizard.networkError"));
     } finally {
       setSending(false);
     }
-  }, [packages, itemsById, packageAttachments, editedSubjects, deadline, submissionId, onComplete]);
+  }, [packages, itemsById, packageAttachments, editedSubjects, deadline, submissionId, onComplete, t]);
+
+  // ── Inline supplier creation ────────────────────────────────
+
+  const handleCreateSupplier = useCallback(async () => {
+    const name = inlineName.trim();
+    const email = inlineEmail.trim();
+    if (!name) {
+      setInlineError(t("wizard.companyRequired"));
+      return;
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setInlineError(t("wizard.emailRequired"));
+      return;
+    }
+
+    setInlineSaving(true);
+    setInlineError(null);
+    try {
+      const res = await fetch("/api/suppliers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: name,
+          email,
+          contact_name: inlineContact.trim() || null,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.supplier?.id) {
+        setInlineError(json?.error || t("wizard.createFailed"));
+        return;
+      }
+
+      const created: SupplierInfo = {
+        id: json.supplier.id,
+        company_name: json.supplier.company_name,
+        contact_name: json.supplier.contact_name ?? null,
+        email: json.supplier.email ?? email,
+        specialties: json.supplier.specialties ?? [],
+        cfc_codes: json.supplier.cfc_codes ?? [],
+        overall_score: json.supplier.overall_score ?? null,
+        response_rate: json.supplier.response_rate ?? null,
+        status: json.supplier.status ?? "active",
+      };
+
+      setCreatedSuppliers((prev) => [created, ...prev]);
+      setInlineFormOpen(false);
+      setInlineName("");
+      setInlineEmail("");
+      setInlineContact("");
+
+      if (selectedIds.size === 0) {
+        // No items selected: the picker cannot conclude anything — close it
+        // and tell the user what to do next instead of a dead Confirm button.
+        setPickerOpen(false);
+        setPickerNotice(t("wizard.supplierCreatedNoItems", { name: created.company_name }));
+      } else {
+        setPickerSelected((prev) => new Set(prev).add(created.id));
+      }
+    } catch (err: any) {
+      setInlineError(err?.message || t("wizard.networkError"));
+    } finally {
+      setInlineSaving(false);
+    }
+  }, [inlineName, inlineEmail, inlineContact, selectedIds, t]);
 
   // ── Supplier picker data ────────────────────────────────────
 
@@ -761,25 +1067,30 @@ export function PriceRequestV2({
       }
     }
 
-    // Get AI recommendations based on dominant group
+    // Keyword/CFC suggestions for the dominant group. Deliberately NOT labelled
+    // "recommandés par l'IA" in the UI: this is a local scorer over CFC codes
+    // and specialty keywords, and calling it AI oversells it.
     const dominantGroup = Array.from(selectedGroups)[0] || "";
     const dominantCfc = cfcCodes.get(dominantGroup) || null;
-    const recommended = matchSuppliersByRelevance(dominantGroup, dominantCfc, suppliers);
+    const pool = [...suppliers, ...createdSuppliers];
+    const recommended = matchSuppliersByRelevance(dominantGroup, dominantCfc, pool);
     const recommendedIds = new Set(recommended.map((s) => s.id));
 
-    // Filter suppliers by search
-    const q = pickerSearch.toLowerCase();
-    const allSuppliers = suppliers.filter(
+    // Filter suppliers by search — accent-insensitive, like the matcher.
+    const q = normalizeForMatch(pickerSearch);
+    const allSuppliers = pool.filter(
       (s) =>
         s.status !== "blacklisted" &&
         s.status !== "inactive" &&
-        (!q || s.company_name.toLowerCase().includes(q) || (s.email && s.email.toLowerCase().includes(q)))
+        (!q ||
+          normalizeForMatch(s.company_name).includes(q) ||
+          (s.email && normalizeForMatch(s.email).includes(q)))
     );
 
     const others = allSuppliers.filter((s) => !recommendedIds.has(s.id));
 
     return { recommended, others, dominantGroup };
-  }, [selectedIds, itemsById, suppliers, pickerSearch]);
+  }, [selectedIds, itemsById, suppliers, createdSuppliers, pickerSearch]);
 
   /* ═══════════════════════════════════════════════════════════
      RENDER
@@ -787,30 +1098,46 @@ export function PriceRequestV2({
 
   // ── Success state ───────────────────────────────────────────
   if (sendResult) {
-    const allFailed = sendResult.sent === 0;
+    const onlySkipped =
+      sendResult.sent === 0 && sendResult.failed === 0 && sendResult.skipped > 0;
+    const allFailed = sendResult.sent === 0 && !onlySkipped;
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <div
           className={`flex h-16 w-16 items-center justify-center rounded-full mb-4 ${
-            allFailed ? "bg-red-500/10" : "bg-green-500/10"
+            allFailed ? "bg-red-500/10" : onlySkipped ? "bg-amber-500/10" : "bg-green-500/10"
           }`}
         >
           {allFailed ? (
             <AlertCircle className="h-8 w-8 text-red-400" />
+          ) : onlySkipped ? (
+            <AlertCircle className="h-8 w-8 text-amber-400" />
           ) : (
             <CheckCircle2 className="h-8 w-8 text-green-400" />
           )}
         </div>
         <h3 className="text-lg font-semibold text-[#FAFAFA] mb-2">
-          {allFailed ? "Aucune demande envoyée" : "Demandes envoyées"}
+          {onlySkipped
+            ? t("wizard.allSkipped")
+            : allFailed
+              ? t("wizard.noneSent")
+              : t("wizard.allSent")}
         </h3>
         <p className="text-sm text-[#A1A1AA] mb-1">
-          {sendResult.sent > 0 && <>{sendResult.sent} email{sendResult.sent > 1 ? "s" : ""} envoyé{sendResult.sent > 1 ? "s" : ""}</>}
-          {sendResult.failed > 0 && (
+          {sendResult.sent > 0 && <>{t("wizard.emailsSent", { count: sendResult.sent })}</>}
+          {sendResult.skipped > 0 && (
             <>
               {sendResult.sent > 0 && " · "}
+              <span className="text-amber-400">
+                {t("wizard.skippedCount", { count: sendResult.skipped })}
+              </span>
+            </>
+          )}
+          {sendResult.failed > 0 && (
+            <>
+              {(sendResult.sent > 0 || sendResult.skipped > 0) && " · "}
               <span className="text-red-400">
-                {sendResult.failed} échec{sendResult.failed > 1 ? "s" : ""}
+                {t("wizard.failureCount", { count: sendResult.failed })}
               </span>
             </>
           )}
@@ -826,7 +1153,7 @@ export function PriceRequestV2({
                 <div className="min-w-0">
                   <span className="text-xs font-medium text-red-400">
                     {d.supplier}
-                    {d.group !== "—" && <span className="text-[#71717A]"> · {d.group}</span>}
+                    {d.group !== "—" && <span className="text-[#A1A1AA]"> · {d.group}</span>}
                   </span>
                   <p className="text-xs text-[#A1A1AA] mt-0.5 break-words">{d.message}</p>
                 </div>
@@ -835,11 +1162,45 @@ export function PriceRequestV2({
           </div>
         )}
         <button
-          onClick={() => { setSendResult(null); setPackages([]); }}
-          className="mt-6 px-5 py-2 rounded-lg bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] transition-colors"
+          onClick={() => {
+            // Purge everything package-scoped: the attachments belonged to the
+            // packages that were just sent.
+            setSendResult(null);
+            setPackages([]);
+            setPackageAttachments({});
+            setAttachmentNotices({});
+          }}
+          className="mt-6 px-5 py-2 rounded-lg bg-[#F97316] text-[#0F0F11] text-sm font-medium hover:bg-[#EA580C] transition-colors"
         >
-          Fermer
+          {t("wizard.close")}
         </button>
+      </div>
+    );
+  }
+
+  // ── Empty state ─────────────────────────────────────────────
+  // Without items there is nothing to request, and the two-column layout
+  // rendered as an empty grid with no explanation and no way forward.
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F97316]/10 mb-4">
+          <PackageIcon className="h-6 w-6 text-[#F97316]" />
+        </div>
+        <h3 className="text-base font-semibold text-[#FAFAFA] mb-1">{t("wizard.emptyTitle")}</h3>
+        <p className="text-sm text-[#A1A1AA] max-w-md">
+          {t("wizard.emptyBody")}
+        </p>
+        {onComplete && (
+          <button
+            type="button"
+            onClick={onComplete}
+            className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-[#0F0F11] text-sm font-medium hover:bg-[#EA580C] transition-colors"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+            {t("wizard.emptyCta")}
+          </button>
+        )}
       </div>
     );
   }
@@ -854,19 +1215,29 @@ export function PriceRequestV2({
             <Zap className="h-4 w-4 text-[#F97316]" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-[#FAFAFA]">Demandes de prix</h2>
-            <p className="text-xs text-[#71717A]">
-              {activeItems.length} postes · {materialGroups.length} groupes
+            <h2 className="text-base font-semibold text-[#FAFAFA]">{t("priceRequest")}</h2>
+            <p className="text-xs text-[#A1A1AA]">
+              {t("wizard.headerSummary", { items: activeItems.length, groups: materialGroups.length })}
               {excludedItemsList.length > 0 && (
-                <span className="text-[#52525B]"> · {excludedItemsList.length} exclus par IA</span>
+                <span className="text-[#A1A1AA]"> · {t("wizard.excludedByAI", { count: excludedItemsList.length })}</span>
               )}
-              {aiFilterLoading && <span className="text-[#F97316] ml-1">· Analyse IA...</span>}
+              {aiFilterLoading && <span className="text-[#F97316] ml-1">· {t("wizard.aiAnalyzing")}</span>}
+              {!aiFilterLoading && aiFilterNotice && (
+                <span className="text-amber-500/80 ml-1">
+                  ·{" "}
+                  {t(
+                    aiFilterNotice === "credits"
+                      ? "wizard.aiFilterUnavailableCredits"
+                      : "wizard.aiFilterUnavailableNetwork"
+                  )}
+                </span>
+              )}
             </p>
           </div>
         </div>
         {deadline && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#27272A] text-xs text-[#A1A1AA]">
-            📅 {new Date(deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })}
+            📅 {new Date(deadline).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}
           </span>
         )}
       </div>
@@ -878,17 +1249,17 @@ export function PriceRequestV2({
           {/* Toolbar */}
           <div className="flex items-center gap-2 mb-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#52525B]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA]" />
               <input
                 type="text"
-                placeholder="Rechercher par n°, description ou CFC..."
+                placeholder={t("wizard.searchPlaceholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-[#18181B] border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50"
+                className="w-full pl-9 pr-3 py-2 bg-[#18181B] border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#F97316]/50"
               />
             </div>
             {(["all", "unassigned", "assigned"] as FilterMode[]).map((f) => {
-              const label = f === "all" ? "Tous" : f === "unassigned" ? "Non assignés" : "Assignés";
+              const label = f === "all" ? t("wizard.filterAll") : f === "unassigned" ? t("wizard.filterUnassigned") : t("wizard.filterAssigned");
               const count = f === "all" ? counts.total : f === "unassigned" ? counts.unassigned : counts.assigned;
               const active = filter === f;
               return (
@@ -898,7 +1269,7 @@ export function PriceRequestV2({
                   className={`shrink-0 px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
                     active
                       ? "bg-[#F97316]/10 border-[#F97316]/30 text-[#F97316]"
-                      : "bg-[#18181B] border-[#27272A] text-[#71717A] hover:text-[#A1A1AA] hover:border-[#3F3F46]"
+                      : "bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-[#A1A1AA] hover:border-[#3F3F46]"
                   }`}
                 >
                   {label} ({count})
@@ -910,7 +1281,7 @@ export function PriceRequestV2({
           {/* Items table */}
           <div className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[40px_60px_1fr_80px_60px_minmax(140px,200px)_32px] items-center px-3 py-2 bg-[#111113] border-b border-[#27272A] text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
+            <div className="grid grid-cols-[40px_60px_1fr_80px_60px_minmax(140px,200px)_32px] items-center px-3 py-2 bg-[#111113] border-b border-[#27272A] text-[10px] font-medium text-[#A1A1AA] uppercase tracking-wider">
               <div className="flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -923,10 +1294,10 @@ export function PriceRequestV2({
                 />
               </div>
               <div>N°</div>
-              <div>Description</div>
-              <div className="text-right">Quantité</div>
-              <div className="text-center">Unité</div>
-              <div>Assigné à</div>
+              <div>{t("description")}</div>
+              <div className="text-right">{t("quantity")}</div>
+              <div className="text-center">{t("unit")}</div>
+              <div>{t("wizard.assignedTo")}</div>
               <div></div>
             </div>
 
@@ -959,14 +1330,14 @@ export function PriceRequestV2({
                       </div>
                       <div className="flex items-center gap-2">
                         {collapsed ? (
-                          <ChevronRight className="h-3.5 w-3.5 text-[#52525B]" />
+                          <ChevronRight className="h-3.5 w-3.5 text-[#A1A1AA]" />
                         ) : (
-                          <ChevronDown className="h-3.5 w-3.5 text-[#52525B]" />
+                          <ChevronDown className="h-3.5 w-3.5 text-[#A1A1AA]" />
                         )}
                         <span className="text-xs font-semibold text-[#FAFAFA]">{group}</span>
                       </div>
-                      <span className="text-[10px] text-[#52525B] bg-[#27272A] px-2 py-0.5 rounded-full">
-                        {groupItems.length} postes
+                      <span className="text-[10px] text-[#A1A1AA] bg-[#27272A] px-2 py-0.5 rounded-full">
+                        {t("wizard.itemCount", { count: groupItems.length })}
                       </span>
                     </div>
 
@@ -998,11 +1369,11 @@ export function PriceRequestV2({
                               <div className="text-xs text-[#FAFAFA]">{item.description}</div>
                               <div className="flex items-center gap-2 mt-0.5">
                                 {item.cfc_code && (
-                                  <span className="text-[10px] text-[#52525B]">{item.cfc_code}</span>
+                                  <span className="text-[10px] text-[#A1A1AA]">{item.cfc_code}</span>
                                 )}
                                 {existingReq && (
                                   <span className="text-[10px] text-blue-400/70">
-                                    Demandé le {new Date(existingReq.date).toLocaleDateString("fr-CH")}
+                                    {t("wizard.requestedOn", { date: new Date(existingReq.date).toLocaleDateString(locale) })}
                                   </span>
                                 )}
                               </div>
@@ -1010,7 +1381,7 @@ export function PriceRequestV2({
                             <div className="text-xs text-[#A1A1AA] text-right font-mono">
                               {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
                             </div>
-                            <div className="text-xs text-[#71717A] text-center">{item.unit || "—"}</div>
+                            <div className="text-xs text-[#A1A1AA] text-center">{item.unit || "—"}</div>
                             <div className="flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
                               {assignedTo.map((a) => (
                                 <span
@@ -1030,8 +1401,8 @@ export function PriceRequestV2({
                             <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => excludeItem(item.id)}
-                                className="p-1 rounded hover:bg-[#27272A] text-[#52525B] hover:text-amber-500 transition-colors"
-                                title="Exclure ce poste"
+                                className="p-1 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-amber-500 transition-colors"
+                                title={t("wizard.excludeItem")}
                               >
                                 <XCircle className="h-3.5 w-3.5" />
                               </button>
@@ -1044,8 +1415,8 @@ export function PriceRequestV2({
               })}
 
               {filteredItems.length === 0 && (
-                <div className="py-12 text-center text-sm text-[#52525B]">
-                  Aucun poste trouvé
+                <div className="py-12 text-center text-sm text-[#A1A1AA]">
+                  {t("wizard.noItemsFound")}
                 </div>
               )}
             </div>
@@ -1059,13 +1430,13 @@ export function PriceRequestV2({
                 className="flex items-center gap-2 w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] hover:border-[#3F3F46] transition-colors text-left"
               >
                 {showExcluded ? (
-                  <ChevronDown className="h-3.5 w-3.5 text-[#52525B]" />
+                  <ChevronDown className="h-3.5 w-3.5 text-[#A1A1AA]" />
                 ) : (
-                  <ChevronRight className="h-3.5 w-3.5 text-[#52525B]" />
+                  <ChevronRight className="h-3.5 w-3.5 text-[#A1A1AA]" />
                 )}
                 <Sparkles className="h-3.5 w-3.5 text-amber-500" />
                 <span className="text-xs font-medium text-[#A1A1AA]">
-                  Postes exclus par l&apos;IA
+                  {t("wizard.excludedTitle")}
                 </span>
                 <span className="text-[10px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full font-medium">
                   {excludedItemsList.length}
@@ -1075,7 +1446,7 @@ export function PriceRequestV2({
               {showExcluded && (
                 <div className="mt-2 bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
                   <div className="px-3 py-2 bg-amber-500/5 border-b border-[#27272A] text-[10px] text-amber-500/80">
-                    Ces postes ont été identifiés comme ne nécessitant pas de demande de prix (services, location, main d&apos;œuvre). Cliquez sur ↩ pour les réintégrer.
+                    {t("wizard.excludedHint")}
                   </div>
                   <div className="max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
                     {excludedItemsList.map((item) => (
@@ -1084,19 +1455,19 @@ export function PriceRequestV2({
                         className="flex items-center gap-3 px-3 py-2 border-b border-[#27272A]/50 hover:bg-[#1C1C1F] transition-colors"
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs text-[#71717A]">{item.description}</div>
+                          <div className="text-xs text-[#A1A1AA]">{item.description}</div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            {item.item_number && <span className="text-[10px] text-[#52525B] font-mono">{item.item_number}</span>}
+                            {item.item_number && <span className="text-[10px] text-[#A1A1AA] font-mono">{item.item_number}</span>}
                             <span className="text-[10px] text-amber-500/60 italic">{excludedItems.get(item.id)}</span>
                           </div>
                         </div>
                         <button
                           onClick={() => restoreItem(item.id)}
                           className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
-                          title="Réintégrer ce poste"
+                          title={t("wizard.restoreItem")}
                         >
                           <Undo2 className="h-3 w-3" />
-                          Restaurer
+                          {t("wizard.restore")}
                         </button>
                       </div>
                     ))}
@@ -1110,12 +1481,25 @@ export function PriceRequestV2({
         {/* ── Right: Packages panel ─────────────────────────── */}
         <div className="w-[340px] shrink-0">
           <div className="sticky top-4 space-y-4">
+            {/* Post-creation guidance (supplier created while no items selected) */}
+            {pickerNotice && (
+              <div className="flex items-start gap-2 rounded-lg border border-[#F97316]/30 bg-[#F97316]/5 px-3 py-2.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#F97316] shrink-0 mt-0.5" />
+                <p className="text-xs text-[#FAFAFA] flex-1">{pickerNotice}</p>
+                <button
+                  onClick={() => setPickerNotice(null)}
+                  className="shrink-0 text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
             {/* Packages */}
             <div className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-[#27272A] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <PackageIcon className="h-4 w-4 text-[#F97316]" />
-                  <span className="text-sm font-medium text-[#FAFAFA]">Paquets</span>
+                  <span className="text-sm font-medium text-[#FAFAFA]">{t("wizard.packages")}</span>
                 </div>
                 {packages.length > 0 && (
                   <span className="text-[10px] bg-[#F97316]/10 text-[#F97316] px-2 py-0.5 rounded-full font-medium">
@@ -1126,10 +1510,19 @@ export function PriceRequestV2({
 
               <div className="max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
                 {packages.length === 0 ? (
-                  <div className="py-10 text-center">
+                  <div className="py-10 px-4 text-center">
                     <PackageIcon className="h-8 w-8 text-[#27272A] mx-auto mb-2" />
-                    <p className="text-xs text-[#52525B]">Sélectionnez des postes et assignez-les</p>
-                    <p className="text-xs text-[#52525B]">à un ou plusieurs fournisseurs</p>
+                    <p className="text-xs text-[#A1A1AA]">{t("wizard.packagesEmpty")}</p>
+                    {suppliers.length === 0 && createdSuppliers.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => { setPickerOpen(true); setInlineFormOpen(true); }}
+                        className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#F97316]/40 text-xs font-medium text-[#F97316] hover:bg-[#F97316]/10 transition-colors"
+                      >
+                        <Plus className="h-3 w-3" />
+                        {t("wizard.addFirstSupplier")}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="divide-y divide-[#27272A]">
@@ -1138,6 +1531,7 @@ export function PriceRequestV2({
                         .map((id) => itemsById.get(id))
                         .filter(Boolean) as WizardItem[];
                       const pkgAtts = packageAttachments[pkg.id] || [];
+                      const pkgNotices = attachmentNotices[pkg.id] || [];
                       const totalSize = pkgAtts.reduce((s, f) => s + f.size, 0);
                       const sizePercent = (totalSize / MAX_TOTAL_SIZE) * 100;
                       const isOverLimit = totalSize > MAX_TOTAL_SIZE;
@@ -1146,21 +1540,43 @@ export function PriceRequestV2({
                         <div key={pkg.id} className="p-3">
                           {/* Package header + actions */}
                           <div className="flex items-center justify-between mb-2">
-                            <div className="text-[10px] text-[#52525B]">
-                              {pkg.suppliers.length} fournisseur{pkg.suppliers.length > 1 ? "s" : ""} · {pkgItems.length} poste{pkgItems.length > 1 ? "s" : ""}
+                            <div className="text-[10px] text-[#A1A1AA]">
+                              {t("wizard.packageSummary", { suppliers: pkg.suppliers.length, items: pkgItems.length })}
                             </div>
                             <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                              {/* Supplier language — drives the email AND the portal page */}
+                              <select
+                                value={pkg.language}
+                                onChange={(e) =>
+                                  setPackages((prev) =>
+                                    prev.map((p) =>
+                                      p.id === pkg.id
+                                        ? { ...p, language: e.target.value as SupplierLanguage }
+                                        : p
+                                    )
+                                  )
+                                }
+                                aria-label={t("wizard.language")}
+                                title={t("wizard.language")}
+                                className="mr-1 rounded bg-[#27272A] px-1 py-0.5 text-[10px] font-medium text-[#A1A1AA] outline-none hover:text-[#FAFAFA] focus:border-[#F97316]/50"
+                              >
+                                {SUPPLIER_LANGUAGES.map((l) => (
+                                  <option key={l.value} value={l.value}>
+                                    {l.label}
+                                  </option>
+                                ))}
+                              </select>
                               <button
                                 onClick={() => openPreview(pkg.id)}
-                                className="p-1 rounded hover:bg-[#27272A] text-[#71717A] hover:text-[#FAFAFA] transition-colors"
-                                title="Prévisualiser"
+                                className="p-1 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                                title={t("wizard.preview")}
                               >
                                 <Eye className="h-3 w-3" />
                               </button>
                               <button
                                 onClick={() => deletePackage(pkg.id)}
-                                className="p-1 rounded hover:bg-red-500/10 text-[#71717A] hover:text-red-400 transition-colors"
-                                title="Supprimer le paquet"
+                                className="p-1 rounded hover:bg-red-500/10 text-[#A1A1AA] hover:text-red-400 transition-colors"
+                                title={t("wizard.deletePackage")}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </button>
@@ -1175,12 +1591,12 @@ export function PriceRequestV2({
                                 className="inline-flex items-center gap-1 max-w-[180px] px-2 py-1 rounded-md bg-[#F97316]/10 text-[10px] text-[#F97316] font-medium"
                               >
                                 <span className="truncate">{s.name}</span>
-                                {!s.email && <span className="text-red-400" title="Pas d'email">⚠</span>}
+                                {!s.email && <span className="text-red-400" title={t("wizard.noEmail")}>⚠</span>}
                                 {pkg.suppliers.length > 1 && (
                                   <button
                                     onClick={() => removeSupplierFromPackage(pkg.id, s.id)}
                                     className="shrink-0 hover:text-red-400 transition-colors"
-                                    title="Retirer ce fournisseur"
+                                    title={t("wizard.removeSupplier")}
                                   >
                                     <X className="h-2.5 w-2.5" />
                                   </button>
@@ -1193,19 +1609,19 @@ export function PriceRequestV2({
                           <div className="space-y-1 mb-2">
                             {pkgItems.map((item) => (
                               <div key={item.id} className="flex items-start gap-2 px-2 py-1.5 rounded bg-[#0F0F11]">
-                                <span className="text-[10px] text-[#52525B] font-mono shrink-0 mt-0.5 w-8 text-right">
+                                <span className="text-[10px] text-[#A1A1AA] font-mono shrink-0 mt-0.5 w-8 text-right">
                                   {item.item_number || "—"}
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <div className="text-[11px] text-[#A1A1AA] leading-tight line-clamp-2">{item.description}</div>
                                   <div className="flex gap-2 mt-0.5">
                                     {item.quantity != null && (
-                                      <span className="text-[9px] text-[#52525B]">
+                                      <span className="text-[9px] text-[#A1A1AA]">
                                         {Number(item.quantity).toLocaleString("fr-CH")} {item.unit || ""}
                                       </span>
                                     )}
                                     {item.cfc_code && (
-                                      <span className="text-[9px] text-[#52525B]">CFC {item.cfc_code}</span>
+                                      <span className="text-[9px] text-[#A1A1AA]">CFC {item.cfc_code}</span>
                                     )}
                                   </div>
                                 </div>
@@ -1222,7 +1638,7 @@ export function PriceRequestV2({
                                     <span key={i} className="inline-flex items-center gap-1 max-w-[160px] px-1.5 py-0.5 rounded bg-blue-500/10 text-[10px] text-blue-400">
                                       <Paperclip className="h-2.5 w-2.5 shrink-0" />
                                       <span className="truncate">{att.name}</span>
-                                      <span className="text-[#52525B] shrink-0">({formatFileSize(att.size)})</span>
+                                      <span className="text-[#A1A1AA] shrink-0">({formatFileSize(att.size)})</span>
                                       <button
                                         onClick={(e) => { e.stopPropagation(); removePackageAttachment(pkg.id, i); }}
                                         className="shrink-0 hover:text-red-400 transition-colors"
@@ -1240,7 +1656,7 @@ export function PriceRequestV2({
                                       style={{ width: `${Math.min(sizePercent, 100)}%` }}
                                     />
                                   </div>
-                                  <span className={`text-[9px] shrink-0 ${isOverLimit ? "text-red-400" : sizePercent > 80 ? "text-amber-400" : "text-[#52525B]"}`}>
+                                  <span className={`text-[9px] shrink-0 ${isOverLimit ? "text-red-400" : sizePercent > 80 ? "text-amber-400" : "text-[#A1A1AA]"}`}>
                                     {formatFileSize(totalSize)} / 25 Mo
                                   </span>
                                   {isOverLimit && <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />}
@@ -1250,19 +1666,30 @@ export function PriceRequestV2({
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={(e) => { e.stopPropagation(); setAttachTargetPkg(pkg.id); fileInputRef.current?.click(); }}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
-                                title="Ajouter fichier"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#A1A1AA] hover:text-[#A1A1AA] transition-colors"
+                                title={t("wizard.addFile")}
                               >
-                                <Plus className="h-2.5 w-2.5" /> Fichier
+                                <Plus className="h-2.5 w-2.5" /> {t("wizard.file")}
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); captureScreenForPackage(pkg.id); }}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
-                                title="Capture d'écran"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#A1A1AA] hover:text-[#A1A1AA] transition-colors"
+                                title={t("wizard.screenshot")}
                               >
-                                <Camera className="h-2.5 w-2.5" /> Capture
+                                <Camera className="h-2.5 w-2.5" /> {t("wizard.capture")}
                               </button>
                             </div>
+                            {/* Rejected files — shown, never silently dropped */}
+                            {pkgNotices.length > 0 && (
+                              <div className="mt-1.5 space-y-0.5">
+                                {pkgNotices.map((notice, i) => (
+                                  <p key={i} className="flex items-start gap-1 text-[10px] text-red-400">
+                                    <AlertTriangle className="h-2.5 w-2.5 shrink-0 mt-0.5" />
+                                    {notice}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -1293,15 +1720,18 @@ export function PriceRequestV2({
               });
               return (
                 <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-3">
-                  <p className="text-xs text-[#71717A] mb-3">
-                    {totalEmails} email{totalEmails > 1 ? "s" : ""} à {totalSuppliers} fournisseur{totalSuppliers > 1 ? "s" : ""}
-                    {" "}· {packages.length} paquet{packages.length > 1 ? "s" : ""}
-                    {" "}· {new Set(packages.flatMap((p) => p.itemIds)).size} postes
+                  <p className="text-xs text-[#A1A1AA] mb-3">
+                    {t("wizard.sendSummary", {
+                      emails: totalEmails,
+                      suppliers: totalSuppliers,
+                      packages: packages.length,
+                      items: new Set(packages.flatMap((p) => p.itemIds)).size,
+                    })}
                   </p>
                   {hasOversizedPkg && (
                     <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                      Les pièces jointes dépassent la limite de 25 Mo sur un ou plusieurs paquets
+                      {t("wizard.attachmentsTooLarge")}
                     </div>
                   )}
                   {sendError && (
@@ -1310,17 +1740,19 @@ export function PriceRequestV2({
                       {sendError}
                     </div>
                   )}
+                  {/* Sending is irreversible and leaves the user's own mailbox:
+                      a recap step stands between the click and the suppliers. */}
                   <button
-                    onClick={handleSend}
+                    onClick={() => setConfirmSendOpen(true)}
                     disabled={sending || hasOversizedPkg}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#F97316] text-[#0F0F11] text-sm font-medium hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {sending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Send className="h-4 w-4" />
                     )}
-                    {sending ? "Envoi en cours..." : `Envoyer tout (${totalEmails})`}
+                    {sending ? t("wizard.sending") : t("wizard.sendAll", { count: totalEmails })}
                   </button>
                 </div>
               );
@@ -1333,38 +1765,106 @@ export function PriceRequestV2({
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-xl bg-[#18181B] border border-[#27272A] shadow-2xl shadow-black/50">
           <span className="text-sm font-medium text-[#FAFAFA]">
-            {selectedIds.size} poste{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""}
+            {t("wizard.selectedCount", { count: selectedIds.size })}
           </span>
           <div className="w-px h-5 bg-[#27272A]" />
           <button
             onClick={openSupplierPicker}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-[#0F0F11] text-sm font-medium hover:bg-[#EA580C] transition-colors"
           >
             <Zap className="h-3.5 w-3.5" />
-            Assigner à un fournisseur
+            {t("wizard.assignToSupplier")}
           </button>
           <button
             onClick={deselectAll}
-            className="px-3 py-2 rounded-lg text-sm text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
+            className="px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
           >
-            Désélectionner
+            {t("wizard.deselect")}
           </button>
         </div>
       )}
 
       {/* ── Supplier picker modal ────────────────────────────── */}
+      {/* ── Send confirmation recap ──────────────────────────── */}
+      {confirmSendOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => !sending && setConfirmSendOpen(false)}
+        >
+          <div
+            className="w-[480px] max-h-[80vh] bg-[#18181B] border border-[#27272A] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-[#27272A] shrink-0">
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("wizard.confirmSendTitle")}</h3>
+              <p className="text-xs text-[#A1A1AA] mt-0.5">
+                {t("wizard.confirmSendBody", { emails: totalEmails, suppliers: totalSuppliers })}
+              </p>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-[#27272A]">
+              {packages.map((pkg, idx) => {
+                const pkgItems = pkg.itemIds.map((i) => itemsById.get(i)).filter(Boolean) as WizardItem[];
+                const pkgAtts = packageAttachments[pkg.id] || [];
+                const missingEmail = pkg.suppliers.filter((s) => !s.email);
+                return (
+                  <div key={pkg.id} className="px-5 py-3">
+                    <div className="text-[10px] uppercase tracking-wider text-[#A1A1AA] mb-1">
+                      {t("wizard.packageNumber", { n: idx + 1 })}
+                    </div>
+                    <div className="text-sm text-[#FAFAFA]">
+                      {pkg.suppliers.map((s) => s.name).join(", ")}
+                    </div>
+                    <div className="text-xs text-[#A1A1AA] mt-0.5">
+                      {t("wizard.itemCount", { count: pkgItems.length })}
+                      {" · "}
+                      {t("wizard.packageLanguage", { lang: pkg.language.toUpperCase() })}
+                      {pkgAtts.length > 0 && ` · ${t("wizard.attachmentCount", { count: pkgAtts.length })}`}
+                    </div>
+                    {missingEmail.length > 0 && (
+                      <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-red-400">
+                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                        {t("wizard.missingEmailWarning", { suppliers: missingEmail.map((s) => s.name).join(", ") })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[#27272A] bg-[#111113] shrink-0">
+              <button
+                onClick={() => setConfirmSendOpen(false)}
+                disabled={sending}
+                className="px-4 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors disabled:opacity-50"
+              >
+                {t("wizard.back")}
+              </button>
+              <button
+                onClick={() => { setConfirmSendOpen(false); handleSend(); }}
+                disabled={sending}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-[#0F0F11] text-sm font-medium hover:bg-[#EA580C] disabled:opacity-50 transition-colors"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {t("wizard.sendNow")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPickerOpen(false)}>
           <div className="w-[520px] max-h-[80vh] bg-[#18181B] border border-[#27272A] rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#27272A] shrink-0">
               <div>
-                <h3 className="text-sm font-semibold text-[#FAFAFA]">Choisir un fournisseur</h3>
-                <p className="text-xs text-[#52525B] mt-0.5">
-                  {selectedIds.size} poste{selectedIds.size > 1 ? "s" : ""} à assigner
+                <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("wizard.pickSupplier")}</h3>
+                <p className="text-xs text-[#A1A1AA] mt-0.5">
+                  {t("wizard.itemsToAssign", { count: selectedIds.size })}
                 </p>
               </div>
-              <button onClick={() => setPickerOpen(false)} className="p-1.5 rounded-lg hover:bg-[#27272A] text-[#71717A]">
+              <button onClick={() => setPickerOpen(false)} className="p-1.5 rounded-lg hover:bg-[#27272A] text-[#A1A1AA]">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1372,13 +1872,13 @@ export function PriceRequestV2({
             {/* Search */}
             <div className="px-5 py-3 border-b border-[#27272A] shrink-0">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#52525B]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA]" />
                 <input
                   type="text"
-                  placeholder="Rechercher un fournisseur..."
+                  placeholder={t("wizard.searchSupplier")}
                   value={pickerSearch}
                   onChange={(e) => setPickerSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-[#0F0F11] border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50"
+                  className="w-full pl-9 pr-3 py-2 bg-[#0F0F11] border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#F97316]/50"
                   autoFocus
                 />
               </div>
@@ -1391,7 +1891,12 @@ export function PriceRequestV2({
                 <div>
                   <div className="px-5 py-2 flex items-center gap-2">
                     <Zap className="h-3 w-3 text-[#F97316]" />
-                    <span className="text-[10px] font-medium text-[#F97316] uppercase tracking-wider">Recommandés par l'IA</span>
+                    <span className="text-[10px] font-medium text-[#F97316] uppercase tracking-wider">
+                      {t("wizard.suggestions")}
+                    </span>
+                    <span className="text-[10px] text-[#A1A1AA] normal-case">
+                      {t("wizard.suggestionsBasis")}
+                    </span>
                   </div>
                   {pickerData.recommended.map((s) => (
                     <SupplierPickerRow
@@ -1416,8 +1921,8 @@ export function PriceRequestV2({
               {pickerData.others.length > 0 && (
                 <div>
                   <div className="px-5 py-2 mt-1">
-                    <span className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
-                      Autres fournisseurs ({pickerData.others.length})
+                    <span className="text-[10px] font-medium text-[#A1A1AA] uppercase tracking-wider">
+                      {t("wizard.otherSuppliers", { count: pickerData.others.length })}
                     </span>
                   </div>
                   {pickerData.others.map((s) => (
@@ -1439,29 +1944,108 @@ export function PriceRequestV2({
               )}
 
               {pickerData.recommended.length === 0 && pickerData.others.length === 0 && (
-                <div className="py-10 text-center text-sm text-[#52525B]">Aucun fournisseur trouvé</div>
+                <div className="py-8 text-center">
+                  <p className="text-sm text-[#A1A1AA]">{t("wizard.noSupplierFound")}</p>
+                  <p className="text-xs text-[#A1A1AA] mt-1">
+                    {t("wizard.noSupplierFoundHint")}
+                  </p>
+                </div>
               )}
+
+              {/* Inline creation — no detour through /suppliers */}
+              <div className="border-t border-[#27272A] mt-2">
+                {!inlineFormOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInlineFormOpen(true);
+                      setInlineName(pickerSearch.trim());
+                      setInlineError(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-5 py-3 text-xs font-medium text-[#F97316] hover:bg-[#F97316]/5 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {t("wizard.addSupplier")}
+                  </button>
+                ) : (
+                  <div className="px-5 py-3 space-y-2">
+                    <input
+                      type="text"
+                      value={inlineName}
+                      onChange={(e) => setInlineName(e.target.value)}
+                      placeholder={t("wizard.companyPlaceholder")}
+                      className="w-full px-3 py-2 bg-[#0F0F11] border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#F97316]/50"
+                    />
+                    <input
+                      type="email"
+                      value={inlineEmail}
+                      onChange={(e) => setInlineEmail(e.target.value)}
+                      placeholder={t("wizard.emailPlaceholder")}
+                      className="w-full px-3 py-2 bg-[#0F0F11] border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#F97316]/50"
+                    />
+                    <input
+                      type="text"
+                      value={inlineContact}
+                      onChange={(e) => setInlineContact(e.target.value)}
+                      placeholder={t("wizard.contactPlaceholder")}
+                      className="w-full px-3 py-2 bg-[#0F0F11] border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#F97316]/50"
+                    />
+                    {inlineError && (
+                      <p className="text-[11px] text-red-400">{inlineError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setInlineFormOpen(false); setInlineError(null); }}
+                        className="px-3 py-1.5 rounded-lg text-xs text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
+                      >
+                        {t("wizard.cancel")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCreateSupplier}
+                        disabled={inlineSaving}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F97316] text-[#0F0F11] text-xs font-medium hover:bg-[#EA580C] disabled:opacity-50 transition-colors"
+                      >
+                        {inlineSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                        {t("wizard.createAndSelect")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Footer */}
             <div className="flex items-center justify-between px-5 py-3 border-t border-[#27272A] bg-[#111113] shrink-0">
-              <span className="text-xs text-[#52525B]">
-                {pickerSelected.size > 0 ? `${pickerSelected.size} sélectionné${pickerSelected.size > 1 ? "s" : ""}` : "Aucun sélectionné"}
-              </span>
+              {/* Confirming with zero items would silently do nothing — say why
+                  the button is disabled instead. */}
+              {selectedIds.size === 0 ? (
+                <span className="flex items-center gap-1.5 text-xs text-amber-400">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  {t("wizard.selectItemsFirst")}
+                </span>
+              ) : (
+                <span className="text-xs text-[#A1A1AA]">
+                  {pickerSelected.size > 0
+                    ? t("wizard.selectedSuppliers", { count: pickerSelected.size })
+                    : t("wizard.noneSelected")}
+                </span>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={() => setPickerOpen(false)}
                   className="px-4 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
                 >
-                  Annuler
+                  {t("wizard.cancel")}
                 </button>
                 <button
                   onClick={confirmAssignment}
-                  disabled={pickerSelected.size === 0}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  disabled={pickerSelected.size === 0 || selectedIds.size === 0}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-[#0F0F11] text-sm font-medium hover:bg-[#EA580C] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  Confirmer
+                  {t("wizard.confirm")}
                 </button>
               </div>
             </div>
@@ -1475,8 +2059,8 @@ export function PriceRequestV2({
           <div className="w-[640px] max-h-[85vh] bg-[#18181B] border border-[#27272A] rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#27272A] shrink-0">
-              <h3 className="text-sm font-semibold text-[#FAFAFA]">Prévisualisation email</h3>
-              <button onClick={() => setPreviewOpen(false)} className="p-1.5 rounded-lg hover:bg-[#27272A] text-[#71717A]">
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("wizard.previewTitle")}</h3>
+              <button onClick={() => setPreviewOpen(false)} className="p-1.5 rounded-lg hover:bg-[#27272A] text-[#A1A1AA]">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1484,10 +2068,38 @@ export function PriceRequestV2({
             {previewLoading ? (
               <div className="py-16 flex flex-col items-center gap-2">
                 <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" />
-                <span className="text-xs text-[#52525B]">Chargement de l'aperçu...</span>
+                <span className="text-xs text-[#A1A1AA]">{t("wizard.previewLoading")}</span>
+              </div>
+            ) : previewError ? (
+              /* Every preview failed: an explicit error + retry, not an empty modal */
+              <div className="py-16 px-6 flex flex-col items-center gap-3 text-center">
+                <AlertCircle className="h-8 w-8 text-red-400" />
+                <p className="text-sm text-[#FAFAFA]">{previewError}</p>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => setPreviewOpen(false)}
+                    className="px-4 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
+                  >
+                    {t("wizard.close")}
+                  </button>
+                  <button
+                    onClick={() => previewPkgId && openPreview(previewPkgId)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-[#0F0F11] text-sm font-medium hover:bg-[#EA580C] transition-colors"
+                  >
+                    {t("wizard.retry")}
+                  </button>
+                </div>
               </div>
             ) : (
               <>
+                {/* Some groups could not be previewed — flag it instead of
+                    silently showing fewer tabs than lots. */}
+                {previewPartialFailures > 0 && (
+                  <div className="flex items-center gap-2 px-5 py-2 bg-amber-500/5 border-b border-amber-500/15 text-[11px] text-amber-400 shrink-0">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    {t("wizard.previewPartialError", { count: previewPartialFailures })}
+                  </div>
+                )}
                 {/* Tabs if multiple groups */}
                 {previewData.length > 1 && (
                   <div className="flex border-b border-[#27272A] shrink-0">
@@ -1498,7 +2110,7 @@ export function PriceRequestV2({
                         className={`flex-1 px-4 py-2 text-xs font-medium transition-colors border-b-2 ${
                           previewTab === i
                             ? "border-[#F97316] text-[#F97316]"
-                            : "border-transparent text-[#71717A] hover:text-[#A1A1AA]"
+                            : "border-transparent text-[#A1A1AA] hover:text-[#A1A1AA]"
                         }`}
                       >
                         {p.group} ({p.items_count})
@@ -1513,33 +2125,33 @@ export function PriceRequestV2({
                   <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
                     {/* Recipients */}
                     <div>
-                      <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
-                        Destinataires ({previewPkg?.suppliers.length || 1})
+                      <label className="text-[10px] font-medium text-[#A1A1AA] uppercase tracking-wider">
+                        {t("wizard.recipients", { count: previewPkg?.suppliers.length || 1 })}
                       </label>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {(previewPkg?.suppliers || []).map((s) => (
                           <span key={s.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#27272A] text-xs text-[#FAFAFA]">
                             <span className="truncate">{s.name}</span>
                             {s.email ? (
-                              <span className="text-[10px] text-[#52525B]">{s.email}</span>
+                              <span className="text-[10px] text-[#A1A1AA]">{s.email}</span>
                             ) : (
-                              <span className="text-[10px] text-red-400">Pas d&apos;email</span>
+                              <span className="text-[10px] text-red-400">{t("wizard.noEmail")}</span>
                             )}
                           </span>
                         ))}
                       </div>
                       {(previewPkg?.suppliers.length || 0) > 1 && (
-                        <p className="text-[10px] text-[#52525B] mt-1">
-                          Le même email sera envoyé à chaque fournisseur individuellement.
+                        <p className="text-[10px] text-[#A1A1AA] mt-1">
+                          {t("wizard.sameEmailNote")}
                         </p>
                       )}
                     </div>
                     {/* Subject (editable) */}
                     <div>
-                      <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
-                        Objet
+                      <label className="text-[10px] font-medium text-[#A1A1AA] uppercase tracking-wider">
+                        {t("wizard.subject")}
                         {editedSubjects[`${previewPkgId}-${previewData[previewTab].group}`] && (
-                          <span className="ml-2 text-[#F97316] normal-case">· modifié</span>
+                          <span className="ml-2 text-[#F97316] normal-case">· {t("wizard.edited")}</span>
                         )}
                       </label>
                       <input
@@ -1557,16 +2169,16 @@ export function PriceRequestV2({
                     </div>
                     {/* Tracking */}
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                      <span className="text-[10px] text-blue-400">Code suivi :</span>
+                      <span className="text-[10px] text-blue-400">{t("wizard.trackingCode")}</span>
                       <span className="text-xs text-blue-300 font-mono">{previewData[previewTab].tracking_code}</span>
                     </div>
                     {/* Body */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
-                          Corps du message
+                        <label className="text-[10px] font-medium text-[#A1A1AA] uppercase tracking-wider">
+                          {t("wizard.body")}
                           {editedBodies[`${previewPkgId}-${previewData[previewTab].group}`] && (
-                            <span className="ml-2 text-[#F97316] normal-case">· modifié</span>
+                            <span className="ml-2 text-[#F97316] normal-case">· {t("wizard.edited")}</span>
                           )}
                         </label>
                         {editedBodies[`${previewPkgId}-${previewData[previewTab].group}`] && (
@@ -1582,7 +2194,7 @@ export function PriceRequestV2({
                             }}
                             className="text-[10px] text-[#F97316] hover:underline"
                           >
-                            Réinitialiser
+                            {t("wizard.reset")}
                           </button>
                         )}
                       </div>
@@ -1603,20 +2215,24 @@ export function PriceRequestV2({
                     {/* Attachments for this package */}
                     {previewPkgId && (packageAttachments[previewPkgId] || []).length > 0 && (
                       <div>
-                        <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
-                          Pièces jointes ({(packageAttachments[previewPkgId] || []).length})
+                        <label className="text-[10px] font-medium text-[#A1A1AA] uppercase tracking-wider">
+                          {t("wizard.attachments", { count: (packageAttachments[previewPkgId] || []).length })}
                         </label>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {(packageAttachments[previewPkgId] || []).map((att, i) => (
                             <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] text-[10px] text-[#A1A1AA]">
                               <Paperclip className="h-2.5 w-2.5" />
                               {att.name}
-                              <span className="text-[#52525B]">({formatFileSize(att.size)})</span>
+                              <span className="text-[#A1A1AA]">({formatFileSize(att.size)})</span>
                             </span>
                           ))}
                         </div>
-                        <div className="text-[9px] text-[#52525B] mt-1">
-                          Total : {formatFileSize((packageAttachments[previewPkgId] || []).reduce((s, f) => s + f.size, 0))} / 25 Mo
+                        <div className="text-[9px] text-[#A1A1AA] mt-1">
+                          {t("wizard.totalSize", {
+                            size: formatFileSize(
+                              (packageAttachments[previewPkgId] || []).reduce((s, f) => s + f.size, 0)
+                            ),
+                          })}
                         </div>
                       </div>
                     )}
@@ -1628,10 +2244,10 @@ export function PriceRequestV2({
                 <div className="flex items-center justify-end px-5 py-3 border-t border-[#27272A] bg-[#111113] shrink-0">
                   <button
                     onClick={() => setPreviewOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-[#0F0F11] text-sm font-medium hover:bg-[#EA580C] transition-colors"
                   >
                     <Check className="h-3.5 w-3.5" />
-                    Confirmer
+                    {t("wizard.confirm")}
                   </button>
                 </div>
               </>
@@ -1658,6 +2274,7 @@ function SupplierPickerRow({
   checked: boolean;
   onToggle: () => void;
 }) {
+  const t = useTranslations("submissions");
   return (
     <div
       onClick={onToggle}
@@ -1675,18 +2292,18 @@ function SupplierPickerRow({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-[#52525B] mt-0.5">
+        <div className="flex items-center gap-2 text-[11px] text-[#A1A1AA] mt-0.5">
           {supplier.email && <span className="truncate">{supplier.email}</span>}
           {supplier.overall_score != null && supplier.overall_score > 0 && (
             <>
               <span>·</span>
-              <span>Score {supplier.overall_score}</span>
+              <span>{t("wizard.scoreLabel", { score: supplier.overall_score })}</span>
             </>
           )}
           {supplier.response_rate != null && supplier.response_rate > 0 && (
             <>
               <span>·</span>
-              <span>Réponse {supplier.response_rate}%</span>
+              <span>{t("wizard.responseRateLabel", { rate: supplier.response_rate })}</span>
             </>
           )}
         </div>

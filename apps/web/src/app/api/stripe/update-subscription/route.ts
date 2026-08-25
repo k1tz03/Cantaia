@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
+import { CREDIT_PLANS, isCreditPlanId } from "@cantaia/config/credit-costs";
 import Stripe from "stripe";
 
 function getStripe() {
@@ -9,12 +10,16 @@ function getStripe() {
   return new Stripe(key, { apiVersion: "2026-02-25.clover" });
 }
 
-function getPriceIds() {
-  return {
-    starter: process.env.STRIPE_PRICE_STARTER || "",
-    pro: process.env.STRIPE_PRICE_PRO || "",
-    enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "",
-  };
+/**
+ * Same resolution order as /api/credits/checkout and /api/stripe/create-checkout:
+ * the credit-era Price ID first, the pre-credits one as a fallback. Without
+ * this, changing plan from the UI silently moved the customer onto the OLD
+ * per-seat prices while checkout used the new flat ones.
+ */
+function priceIdForPlan(plan: string): string {
+  if (!isCreditPlanId(plan)) return "";
+  const config = CREDIT_PLANS[plan];
+  return process.env[config.stripe_env] || process.env[config.legacy_stripe_env] || "";
 }
 
 export async function POST(request: NextRequest) {
@@ -39,8 +44,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { plan } = body;
 
-    const PRICE_IDS = getPriceIds();
-    if (!plan || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
+    const priceId = priceIdForPlan(plan);
+    if (!priceId) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
@@ -49,9 +54,11 @@ export async function POST(request: NextRequest) {
     const mainItem = subscription.items.data[0];
 
     await stripe.subscriptions.update(org.stripe_subscription_id, {
-      items: [{ id: mainItem.id, price: PRICE_IDS[plan as keyof typeof PRICE_IDS] }],
+      items: [{ id: mainItem.id, price: priceId, quantity: 1 }],
       proration_behavior: "create_prorations",
-      metadata: { organization_id: check.profile.organization_id, plan },
+      // `credit_plan` mirrors /api/credits/checkout so the webhook resolves the
+      // monthly credit allocation the same way on renewal invoices.
+      metadata: { organization_id: check.profile.organization_id, plan, credit_plan: plan },
     });
 
     return NextResponse.json({ success: true });

@@ -97,7 +97,7 @@ export default function UploadSignedPVPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-[#71717A]">{t("projectNotFound")}</p>
+        <p className="text-[#A1A1AA]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -220,7 +220,7 @@ export default function UploadSignedPVPage() {
       <div className="flex items-start gap-4">
         <Link
           href={`/projects/${project.id}/closure`}
-          className="mt-1 rounded-md p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+          className="mt-1 rounded-md p-2 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
@@ -228,12 +228,12 @@ export default function UploadSignedPVPage() {
           <h1 className="text-xl font-semibold text-[#FAFAFA]">
             {t("uploadSignedPV")}
           </h1>
-          <p className="mt-1 text-sm text-[#71717A]">{project.name}</p>
+          <p className="mt-1 text-sm text-[#A1A1AA]">{project.name}</p>
         </div>
       </div>
 
       <div className="mt-8 max-w-2xl">
-        <p className="text-sm text-[#71717A]">
+        <p className="text-sm text-[#A1A1AA]">
           {t("step5Description")}
         </p>
 
@@ -274,7 +274,7 @@ export default function UploadSignedPVPage() {
                   <FileText className="h-12 w-12 text-green-500" />
                   <div>
                     <p className="text-sm font-medium text-[#FAFAFA]">{file.name}</p>
-                    <p className="text-xs text-[#71717A]">
+                    <p className="text-xs text-[#A1A1AA]">
                       {(file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                   </div>
@@ -293,14 +293,14 @@ export default function UploadSignedPVPage() {
                 </div>
               ) : (
                 <>
-                  <Upload className="mx-auto h-10 w-10 text-[#71717A]" />
-                  <p className="mt-3 text-sm font-medium text-[#71717A]">
+                  <Upload className="mx-auto h-10 w-10 text-[#A1A1AA]" />
+                  <p className="mt-3 text-sm font-medium text-[#A1A1AA]">
                     {t("dropFileHere")}
                   </p>
-                  <p className="mt-1 text-xs text-[#71717A]">
+                  <p className="mt-1 text-xs text-[#A1A1AA]">
                     {t("orBrowseFiles")}
                   </p>
-                  <p className="mt-2 text-[10px] text-[#71717A]">
+                  <p className="mt-2 text-[10px] text-[#A1A1AA]">
                     {t("acceptedFormats")}
                   </p>
                 </>
@@ -341,7 +341,7 @@ export default function UploadSignedPVPage() {
                   };
                   input.click();
                 }}
-                className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-4 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
+                className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-4 py-2 text-sm text-[#A1A1AA] hover:bg-[#27272A]"
               >
                 <Camera className="h-4 w-4" />
                 {t("takePhoto")}

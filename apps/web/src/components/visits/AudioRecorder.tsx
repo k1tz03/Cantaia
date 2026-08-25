@@ -35,6 +35,8 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
   const waveDataRef = useRef<number[]>([]);
   const startTimeRef = useRef(0);
   const pausedTimeRef = useRef(0);
+  /** Timestamp the current pause began, to accumulate paused time on resume. */
+  const pauseStartRef = useRef(0);
   const blobRef = useRef<Blob | null>(null);
 
   // Format time as HH:MM:SS
@@ -78,12 +80,12 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
     const { width, height } = canvas;
     ctx.clearRect(0, 0, width, height);
 
-    // Background
-    ctx.fillStyle = "#F8FAFC";
+    // Background — dark, matching the app surface (was a white rectangle)
+    ctx.fillStyle = "#0F0F11";
     ctx.fillRect(0, 0, width, height);
 
     // Center line
-    ctx.strokeStyle = "#E2E8F0";
+    ctx.strokeStyle = "#27272A";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, height / 2);
@@ -97,7 +99,7 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
     const step = barWidth + gap;
     const startX = width - data.length * step;
 
-    ctx.fillStyle = "#3B82F6";
+    ctx.fillStyle = "#F97316";
     for (let i = 0; i < data.length; i++) {
       const val = ((data[i] - 128) / 128) * (height / 2);
       const barHeight = Math.max(2, Math.abs(val) * 2);
@@ -157,6 +159,7 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
       recorder.start(1000); // chunk every second
       startTimeRef.current = Date.now();
       pausedTimeRef.current = 0;
+      pauseStartRef.current = 0;
       setState("recording");
 
       // Start timer
@@ -189,6 +192,9 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
     if (recorder && recorder.state === "recording") {
       recorder.pause();
       setState("paused");
+      // Remember when the pause started so its duration is excluded from the
+      // elapsed timer (and from the value sent as the recording's duration).
+      pauseStartRef.current = Date.now();
       if (timerRef.current) clearInterval(timerRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     }
@@ -200,6 +206,12 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
     if (recorder && recorder.state === "paused") {
       recorder.resume();
       setState("recording");
+      // Accumulate the just-ended pause so `now - startTime - pausedTime` is the
+      // real captured length, not wall-clock time.
+      if (pauseStartRef.current > 0) {
+        pausedTimeRef.current += Date.now() - pauseStartRef.current;
+        pauseStartRef.current = 0;
+      }
 
       timerRef.current = setInterval(() => {
         const now = Date.now();
@@ -257,10 +269,10 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
   // Permission denied
   if (permissionDenied) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-500/10 p-6 text-center">
+      <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-6 text-center">
         <MicOff className="mx-auto mb-3 h-8 w-8 text-red-400" />
-        <p className="text-sm font-medium text-red-800">{t("micPermissionDenied")}</p>
-        <p className="mt-1 text-xs text-red-600">{t("micPermissionDeniedDesc")}</p>
+        <p className="text-sm font-medium text-red-400">{t("micPermissionDenied")}</p>
+        <p className="mt-1 text-xs text-red-400/80">{t("micPermissionDeniedDesc")}</p>
         <button
           onClick={() => {
             setPermissionDenied(false);
@@ -278,14 +290,14 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
   if (state === "idle") {
     return (
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-8 text-center">
-        <button
+        <button aria-label="Démarrer l'enregistrement"
           onClick={startRecording}
-          className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
+          className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#F97316] text-[#0F0F11] shadow-lg transition-all hover:bg-[#EA580C] hover:shadow-xl active:scale-95"
         >
           <Mic className="h-8 w-8" />
         </button>
         <p className="mt-4 text-sm font-medium text-[#FAFAFA]">{t("startRecording")}</p>
-        <p className="mt-1 text-xs text-[#71717A]">{t("startRecordingDesc")}</p>
+        <p className="mt-1 text-xs text-[#A1A1AA]">{t("startRecordingDesc")}</p>
       </div>
     );
   }
@@ -309,13 +321,13 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={resetRecording}
-            className="rounded-lg border border-[#27272A] px-4 py-2.5 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
+            className="rounded-lg border border-[#27272A] px-4 py-2.5 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A]"
           >
             {t("reRecord")}
           </button>
           <button
             onClick={confirmRecording}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+            className="flex items-center gap-2 rounded-lg bg-[#F97316] px-5 py-2.5 text-sm font-semibold text-[#0F0F11] hover:bg-[#EA580C]"
           >
             {t("confirmRecording")}
           </button>
@@ -351,7 +363,7 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
 
       {/* Volume meter */}
       <div className="mx-auto mb-4 flex max-w-xs items-center gap-2">
-        <Volume2 className="h-4 w-4 text-[#71717A]" />
+        <Volume2 className="h-4 w-4 text-[#A1A1AA]" />
         <div className="flex-1">
           <div className="h-2 w-full overflow-hidden rounded-full bg-[#27272A]">
             <div
@@ -362,7 +374,7 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
             />
           </div>
         </div>
-        <span className="text-xs text-[#71717A]">
+        <span className="text-xs text-[#A1A1AA]">
           {volumeLevel > 0.3 ? "OK" : t("speakLouder")}
         </span>
       </div>
@@ -370,14 +382,14 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
       {/* Controls */}
       <div className="flex items-center justify-center gap-4">
         {isRecording ? (
-          <button
+          <button aria-label="Mettre en pause"
             onClick={pauseRecording}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600 transition-colors hover:bg-amber-200"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F59E0B]/10 text-[#F59E0B] transition-colors hover:bg-[#F59E0B]/20"
           >
             <Pause className="h-5 w-5" />
           </button>
         ) : (
-          <button
+          <button aria-label="Lire"
             onClick={resumeRecording}
             className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F97316]/10 text-[#F97316] transition-colors hover:bg-[#F97316]/20"
           >
@@ -385,7 +397,7 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
           </button>
         )}
 
-        <button
+        <button aria-label="Arrêter"
           onClick={stopRecording}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition-all hover:bg-red-700 active:scale-95"
         >

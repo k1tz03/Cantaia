@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { classifyAIError } from "@cantaia/core/ai";
+import { classifyAIError, AI_MODELS } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 60;
 
@@ -15,6 +17,8 @@ const ACCEPTED_EXTENSIONS = [".eml", ".msg", ".pdf", ".txt", ".html", ".htm"];
  * Accepts FormData with multiple files (recommended: 3 per batch).
  */
 export async function POST(request: Request) {
+  const locale = (request.headers.get("accept-language") || "fr").slice(0, 2).toLowerCase();
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,6 +57,38 @@ export async function POST(request: Request) {
     }
   }
 
+  // ─── Metering ───────────────────────────────────────────
+  // Each uploaded file triggers its own Claude extraction; charge the batch once.
+  const { data: meterOrg } = await (adminClient as any)
+    .from("organizations")
+    .select("subscription_plan")
+    .eq("id", userOrg.organization_id)
+    .maybeSingle();
+
+  const usageCheck = await checkUsageLimit(
+    adminClient,
+    userOrg.organization_id,
+    meterOrg?.subscription_plan || "trial",
+    "price_extract"
+  );
+  if (!usageCheck.allowed) {
+    if (usageCheck.insufficient_credits) {
+      return insufficientCreditsResponse(
+        usageCheck.required_credits ?? 1,
+        usageCheck.remaining_credits ?? 0
+      );
+    }
+    return NextResponse.json(
+      {
+        error: "usage_limit_reached",
+        current: usageCheck.current,
+        limit: usageCheck.limit,
+        required_plan: usageCheck.requiredPlan,
+      },
+      { status: 429 }
+    );
+  }
+
   try {
     const { extractPricesFromFile } = await import("@cantaia/core/pricing");
 
@@ -76,7 +112,7 @@ export async function POST(request: Request) {
               organizationId: userOrg.organization_id!,
               actionType: "price_extract",
               apiProvider: "anthropic",
-              model: "claude-sonnet-4-5-20250929",
+              model: AI_MODELS.SONNET,
               inputTokens: usage.input_tokens,
               outputTokens: usage.output_tokens,
               metadata: { file_name: file.name },
@@ -153,7 +189,7 @@ export async function POST(request: Request) {
     });
   } catch (err: any) {
     console.error("[extract-from-files] Error:", err?.message || err);
-    const aiErr = classifyAIError(err);
+    const aiErr = classifyAIError(err, locale);
     return NextResponse.json({ error: aiErr.message }, { status: aiErr.status });
   }
 }

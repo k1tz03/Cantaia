@@ -165,13 +165,13 @@ export function AnalysisTab({
       {benchmarkLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-brand" />
-          <span className="ml-2 text-sm text-[#71717A]">Chargement des données…</span>
+          <span className="ml-2 text-sm text-[#A1A1AA]">Chargement des données…</span>
         </div>
       ) : benchmarkData.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#27272A] bg-[#0F0F11] py-12">
-          <Database className="h-10 w-10 text-[#71717A]" />
-          <h3 className="mt-3 text-sm font-medium text-[#71717A]">Aucune donnée de prix</h3>
-          <p className="mt-1 max-w-sm text-center text-xs text-[#71717A]">
+          <Database className="h-10 w-10 text-[#A1A1AA]" />
+          <h3 className="mt-3 text-sm font-medium text-[#A1A1AA]">Aucune donnée de prix</h3>
+          <p className="mt-1 max-w-sm text-center text-xs text-[#A1A1AA]">
             Importez des fichiers fournisseurs pour alimenter la base de benchmark.
           </p>
           <button
@@ -190,19 +190,19 @@ export function AnalysisTab({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3 text-center">
                 <p className="text-lg font-bold text-[#FAFAFA]">{totalPostes}</p>
-                <p className="text-[10px] text-[#71717A]">Postes distincts</p>
+                <p className="text-[10px] text-[#A1A1AA]">Postes distincts</p>
               </div>
               <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3 text-center">
                 <p className="text-lg font-bold text-[#FAFAFA]">{benchmarkSummary.total_data_points}</p>
-                <p className="text-[10px] text-[#71717A]">Points de données</p>
+                <p className="text-[10px] text-[#A1A1AA]">Points de données</p>
               </div>
               <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3 text-center">
                 <p className="text-lg font-bold text-[#FAFAFA]">{benchmarkSummary.total_suppliers}</p>
-                <p className="text-[10px] text-[#71717A]">Fournisseurs</p>
+                <p className="text-[10px] text-[#A1A1AA]">Fournisseurs</p>
               </div>
               <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3 text-center">
                 <p className="text-lg font-bold text-[#FAFAFA]">{benchmarkSummary.total_cfc_categories || cfcGroups.length}</p>
-                <p className="text-[10px] text-[#71717A]">Catégories CFC</p>
+                <p className="text-[10px] text-[#A1A1AA]">Catégories CFC</p>
               </div>
             </div>
           )}
@@ -210,13 +210,13 @@ export function AnalysisTab({
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-[200px] max-w-[320px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#71717A]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Rechercher un poste ou code CFC…"
-                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] pl-9 pr-3 py-1.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A]"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] pl-9 pr-3 py-1.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA]"
               />
             </div>
             <select
@@ -245,7 +245,7 @@ export function AnalysisTab({
             <button
               type="button"
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs text-[#71717A] hover:bg-[#27272A]"
+              className="inline-flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs text-[#A1A1AA] hover:bg-[#27272A]"
             >
               <Download className="h-3.5 w-3.5" />
               Export CSV
@@ -267,7 +267,7 @@ export function AnalysisTab({
                     className="flex w-full items-center gap-3 bg-[#27272A] border-l-4 border-blue-500 px-4 py-3 text-left hover:bg-[#27272A] transition-colors"
                   >
                     <ChevronRight className={cn(
-                      "h-4 w-4 text-[#71717A] transition-transform shrink-0",
+                      "h-4 w-4 text-[#A1A1AA] transition-transform shrink-0",
                       isOpen && "rotate-90"
                     )} />
                     {group.cfc && (
@@ -276,7 +276,7 @@ export function AnalysisTab({
                       </span>
                     )}
                     <span className="text-sm font-medium text-[#FAFAFA]">{group.label}</span>
-                    <span className="ml-auto text-xs text-[#71717A] shrink-0">
+                    <span className="ml-auto text-xs text-[#A1A1AA] shrink-0">
                       {group.items.length} poste{group.items.length > 1 ? "s" : ""}
                     </span>
                   </button>
@@ -286,7 +286,7 @@ export function AnalysisTab({
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-t border-[#27272A] bg-[#27272A]/50 text-[10px] uppercase text-[#71717A]">
+                          <tr className="border-t border-[#27272A] bg-[#27272A]/50 text-[10px] uppercase text-[#A1A1AA]">
                             <th className="px-4 py-2 text-left font-semibold">Poste</th>
                             <th className="px-3 py-2 text-center font-semibold">CFC</th>
                             <th className="px-3 py-2 text-center font-semibold">Unité</th>
@@ -308,7 +308,7 @@ export function AnalysisTab({
                               >
                                 <td className="px-4 py-2.5 text-[#FAFAFA] max-w-xs truncate">
                                   <ChevronRight className={cn(
-                                    "inline h-3.5 w-3.5 mr-1 text-[#71717A] transition-transform",
+                                    "inline h-3.5 w-3.5 mr-1 text-[#A1A1AA] transition-transform",
                                     expandedItem === item.normalized_key && "rotate-90"
                                   )} />
                                   {item.display_description}
@@ -318,7 +318,7 @@ export function AnalysisTab({
                                     <span className="rounded bg-[#27272A] px-1.5 py-0.5 font-mono text-[10px]">{item.cfc_subcode}</span>
                                   ) : "—"}
                                 </td>
-                                <td className="px-3 py-2.5 text-center text-xs text-[#71717A]">{item.unit_normalized || "—"}</td>
+                                <td className="px-3 py-2.5 text-center text-xs text-[#A1A1AA]">{item.unit_normalized || "—"}</td>
                                 <td className="px-3 py-2.5 text-right font-mono text-green-700 dark:text-green-400">{formatCHF(item.min_unit_price)}</td>
                                 <td className="px-3 py-2.5 text-right font-mono font-medium text-[#FAFAFA]">{formatCHF(item.median_unit_price)}</td>
                                 <td className="px-3 py-2.5 text-right font-mono text-red-600">{formatCHF(item.max_unit_price)}</td>
@@ -326,7 +326,7 @@ export function AnalysisTab({
                                   <span className={cn(
                                     "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
                                     item.data_points < 3
-                                      ? "bg-[#27272A] text-[#71717A]"
+                                      ? "bg-[#27272A] text-[#A1A1AA]"
                                       : item.price_spread_percent > 50
                                       ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
                                       : item.price_spread_percent > 20
@@ -336,44 +336,46 @@ export function AnalysisTab({
                                     {item.price_spread_percent}%
                                   </span>
                                 </td>
-                                <td className="px-3 py-2.5 text-center text-xs text-[#71717A]">{item.data_points}</td>
+                                <td className="px-3 py-2.5 text-center text-xs text-[#A1A1AA]">{item.data_points}</td>
                               </tr>
                               {/* Expanded supplier detail */}
                               {expandedItem === item.normalized_key && item.suppliers && (
                                 <tr>
                                   <td colSpan={8} className="bg-[#27272A] pl-8 pr-4 py-3">
-                                    <table className="w-full text-xs">
-                                      <thead>
-                                        <tr className="text-[10px] uppercase text-[#71717A]">
-                                          <th className="pb-1 text-left font-semibold">Fournisseur</th>
-                                          <th className="pb-1 text-right font-semibold">PU (CHF)</th>
-                                          <th className="pb-1 text-left font-semibold">Projet</th>
-                                          <th className="pb-1 text-left font-semibold">Date</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-border">
-                                        {[...item.suppliers]
-                                          .sort((a: any, b: any) => a.unit_price - b.unit_price)
-                                          .map((s: any, idx: number) => {
-                                            const isBest = idx === 0 && item.suppliers.length >= 2;
-                                            return (
-                                              <tr key={idx}>
-                                                <td className="py-1.5 text-[#FAFAFA]">
-                                                  {s.supplier_name}
-                                                  {isBest && (
-                                                    <span className="ml-2 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
-                                                      ★ Meilleur
-                                                    </span>
-                                                  )}
-                                                </td>
-                                                <td className="py-1.5 text-right font-mono font-medium text-[#FAFAFA]">{formatCHF(s.unit_price)}</td>
-                                                <td className="py-1.5 text-[#71717A]">{s.project_name || "—"}</td>
-                                                <td className="py-1.5 text-[#71717A]">{s.received_at ? formatDate(s.received_at) : "—"}</td>
-                                              </tr>
-                                            );
-                                          })}
-                                      </tbody>
-                                    </table>
+                                    <div className="w-full overflow-x-auto">
+                                      <table className="w-full text-xs">
+                                        <thead>
+                                          <tr className="text-[10px] uppercase text-[#A1A1AA]">
+                                            <th className="pb-1 text-left font-semibold">Fournisseur</th>
+                                            <th className="pb-1 text-right font-semibold">PU (CHF)</th>
+                                            <th className="pb-1 text-left font-semibold">Projet</th>
+                                            <th className="pb-1 text-left font-semibold">Date</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border">
+                                          {[...item.suppliers]
+                                            .sort((a: any, b: any) => a.unit_price - b.unit_price)
+                                            .map((s: any, idx: number) => {
+                                              const isBest = idx === 0 && item.suppliers.length >= 2;
+                                              return (
+                                                <tr key={idx}>
+                                                  <td className="py-1.5 text-[#FAFAFA]">
+                                                    {s.supplier_name}
+                                                    {isBest && (
+                                                      <span className="ml-2 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
+                                                        ★ Meilleur
+                                                      </span>
+                                                    )}
+                                                  </td>
+                                                  <td className="py-1.5 text-right font-mono font-medium text-[#FAFAFA]">{formatCHF(s.unit_price)}</td>
+                                                  <td className="py-1.5 text-[#A1A1AA]">{s.project_name || "—"}</td>
+                                                  <td className="py-1.5 text-[#A1A1AA]">{s.received_at ? formatDate(s.received_at) : "—"}</td>
+                                                </tr>
+                                              );
+                                            })}
+                                        </tbody>
+                                      </table>
+                                    </div>
                                   </td>
                                 </tr>
                               )}

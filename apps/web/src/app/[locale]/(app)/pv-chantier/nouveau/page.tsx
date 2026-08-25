@@ -19,19 +19,25 @@ import {
   Users,
   FileAudio,
   ChevronDown,
+  PenLine,
 } from "lucide-react";
 import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
 import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
+import { withFallback } from "@/components/pv-chantier/pv-i18n";
+import { toLocalDateString } from "@/components/calendar/datetime-utils";
 
 interface Participant {
   name: string;
   company: string;
   role: string;
   present: boolean;
+  /** Circulation address — carried into the PV header and the send modal. */
+  email: string;
 }
 
 export default function NouveauPVPage() {
   const t = useTranslations("pv");
+  const tf = withFallback(t);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -41,15 +47,15 @@ export default function NouveauPVPage() {
     searchParams.get("project_id") || ""
   );
   const [title, setTitle] = useState("");
-  const [meetingDate, setMeetingDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  // Local (Europe/Zurich) date, not the UTC date: between midnight and ~02h the
+  // UTC day is yesterday, which would misdate the séance.
+  const [meetingDate, setMeetingDate] = useState(toLocalDateString(new Date()));
   const [location, setLocation] = useState("");
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
 
   // Participants
   const [participants, setParticipants] = useState<Participant[]>([
-    { name: "", company: "", role: "", present: true },
+    { name: "", company: "", role: "", present: true, email: "" },
   ]);
 
   // Audio
@@ -62,6 +68,9 @@ export default function NouveauPVPage() {
   const [processing, setProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  // Set once the meeting row is created. A retry after a failed transcription
+  // reuses it instead of creating a second (orphan) meeting with number N+1.
+  const [createdMeetingId, setCreatedMeetingId] = useState<string | null>(null);
 
   const recorder = useAudioRecorder();
 
@@ -96,10 +105,10 @@ export default function NouveauPVPage() {
               Math.max(max, m.meeting_number || 0),
             0
           );
-          setTitle(`Séance de chantier #${maxNumber + 1}`);
+          setTitle(`${tf("meeting_default_title")} #${maxNumber + 1}`);
         })
         .catch(() => {
-          setTitle("Séance de chantier #1");
+          setTitle(`${tf("meeting_default_title")} #1`);
         });
     }
   }, [selectedProject, projects]);
@@ -119,6 +128,10 @@ export default function NouveauPVPage() {
               company: p.company || "",
               role: p.role || "",
               present: true,
+              // The circulation address is the expensive part to re-type —
+              // carrying it over is the whole point of "reprendre les
+              // participants de la séance précédente".
+              email: p.email || "",
             }))
           );
         }
@@ -131,7 +144,7 @@ export default function NouveauPVPage() {
   const addParticipant = () => {
     setParticipants([
       ...participants,
-      { name: "", company: "", role: "", present: true },
+      { name: "", company: "", role: "", present: true, email: "" },
     ]);
   };
 
@@ -183,7 +196,7 @@ export default function NouveauPVPage() {
       !validTypes.includes(file.type) &&
       !file.name.match(/\.(mp3|wav|m4a|ogg|webm)$/i)
     ) {
-      setError("Format audio non supporté");
+      setError(tf("audio_format_unsupported"));
       return;
     }
 
@@ -209,12 +222,52 @@ export default function NouveauPVPage() {
     return null;
   };
 
-  const canSubmit =
-    selectedProject &&
-    title &&
-    participants.filter((p) => p.name.trim()).length >= 1 &&
-    getAudioBlob() !== null &&
-    !processing;
+  /** Everything a meeting needs, audio excepted. */
+  const hasMetadata =
+    !!selectedProject &&
+    !!title &&
+    participants.filter((p) => p.name.trim()).length >= 1;
+
+  const canSubmit = hasMetadata && getAudioBlob() !== null && !processing;
+  const canCreateManual = hasMetadata && !processing;
+
+  /**
+   * "PV manuel" — creates the meeting and opens the editor on the org's outline,
+   * without a recording. Site meetings are not always recorded (no phone, a
+   * client who refuses, a five-minute point on site); before this, the only way
+   * in was an audio file, so those séances never got a PV at all.
+   */
+  const handleCreateManual = async () => {
+    if (!canCreateManual) return;
+    setProcessing(true);
+    setError(null);
+    setProcessingStep(tf("manual_pv_creating"));
+
+    try {
+      const res = await fetch("/api/pv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: selectedProject,
+          title,
+          meeting_date: meetingDate,
+          location,
+          participants: participants.filter((p) => p.name.trim()),
+          manual: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || tf("manual_pv_error"));
+      }
+      router.push(`/pv-chantier/${data.meeting.id}`);
+    } catch (err: unknown) {
+      console.error("Manual PV creation failed:", err);
+      setError(err instanceof Error ? err.message : tf("error_generic"));
+      setProcessing(false);
+      setProcessingStep("");
+    }
+  };
 
   // Submit handler
   const handleSubmit = async () => {
@@ -225,22 +278,28 @@ export default function NouveauPVPage() {
     setError(null);
 
     try {
-      // 1. Create meeting in DB
-      setProcessingStep(t("creating_meeting"));
-      const createRes = await fetch("/api/pv", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: selectedProject,
-          title,
-          meeting_date: meetingDate,
-          location,
-          participants: participants.filter((p) => p.name.trim()),
-        }),
-      });
-      const createData = await createRes.json();
-      if (!createData.success) throw new Error(createData.error);
-      const meetingId = createData.meeting.id;
+      // 1. Create meeting in DB — but only once. On a retry after a Whisper
+      // failure the meeting already exists; recreating it would leave an orphan
+      // draft and burn a séance number.
+      let meetingId = createdMeetingId;
+      if (!meetingId) {
+        setProcessingStep(t("creating_meeting"));
+        const createRes = await fetch("/api/pv", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: selectedProject,
+            title,
+            meeting_date: meetingDate,
+            location,
+            participants: participants.filter((p) => p.name.trim()),
+          }),
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok || !createData.success) throw new Error(createData.error || tf("error_generic"));
+        meetingId = createData.meeting.id;
+        setCreatedMeetingId(meetingId);
+      }
 
       // 2. Compress large audio files client-side (Whisper API limit: 25 MB)
       let finalBlob = audioBlob;
@@ -249,12 +308,12 @@ export default function NouveauPVPage() {
         : "webm";
 
       if (audioBlob.size > 24 * 1024 * 1024) {
-        setProcessingStep("Compression de l'audio...");
+        setProcessingStep(tf("compressing_audio"));
         const { compressAudioToMp3 } = await import(
           "@/lib/audio/compress-audio"
         );
         finalBlob = await compressAudioToMp3(audioBlob, (pct) => {
-          setProcessingStep(`Compression de l'audio... ${pct}%`);
+          setProcessingStep(`${tf("compressing_audio")} ${pct}%`);
         });
         finalExt = "mp3";
         console.log(
@@ -277,9 +336,10 @@ export default function NouveauPVPage() {
           ? "audio/mpeg"
           : (finalBlob.type || "audio/webm").replace("video/", "audio/");
 
+      // upsert: a retry re-uploads to the same `${user.id}/${meetingId}` path.
       const { error: uploadError } = await supabase.storage
         .from("meeting-audio")
-        .upload(storagePath, finalBlob, { contentType });
+        .upload(storagePath, finalBlob, { contentType, upsert: true });
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
@@ -337,7 +397,7 @@ export default function NouveauPVPage() {
       router.push(`/pv-chantier/${meetingId}`);
     } catch (err: unknown) {
       console.error("Processing error:", err);
-      setError(err instanceof Error ? err.message : "Une erreur est survenue");
+      setError(err instanceof Error ? err.message : tf("error_generic"));
       setProcessing(false);
     }
   };
@@ -352,7 +412,7 @@ export default function NouveauPVPage() {
       <div className="mb-6 flex items-center gap-3">
         <button
           onClick={() => router.push("/pv-chantier")}
-          className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+          className="rounded-md p-1.5 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -371,7 +431,7 @@ export default function NouveauPVPage() {
             <p className="text-lg font-medium text-[#FAFAFA]">
               {processingStep}
             </p>
-            <p className="text-sm text-[#71717A]">
+            <p className="text-sm text-[#A1A1AA]">
               {t("processing_wait")}
             </p>
           </div>
@@ -408,11 +468,11 @@ export default function NouveauPVPage() {
                       {selectedProjectData.name}
                     </div>
                   ) : (
-                    <span className="text-[#71717A]">
+                    <span className="text-[#A1A1AA]">
                       {t("select_project")}
                     </span>
                   )}
-                  <ChevronDown className="h-4 w-4 text-[#71717A]" />
+                  <ChevronDown className="h-4 w-4 text-[#A1A1AA]" />
                 </button>
                 {showProjectDropdown && (
                   <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] py-1 shadow-lg">
@@ -503,7 +563,7 @@ export default function NouveauPVPage() {
             {participants.map((p, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 rounded-md border border-[#27272A] bg-[#27272A] p-2"
+                className="flex flex-wrap items-center gap-2 rounded-md border border-[#27272A] bg-[#27272A] p-2"
               >
                 <input
                   type="text"
@@ -512,7 +572,7 @@ export default function NouveauPVPage() {
                   onChange={(e) =>
                     updateParticipant(i, "name", e.target.value)
                   }
-                  className="flex-1 rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
+                  className="min-w-[120px] flex-1 rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
                 />
                 <input
                   type="text"
@@ -532,6 +592,17 @@ export default function NouveauPVPage() {
                   }
                   className="w-28 rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
                 />
+                {/* Circulation address — without it the participant cannot
+                    receive the PV once it is finalized. */}
+                <input
+                  type="email"
+                  placeholder={tf("participant_email_placeholder")}
+                  value={p.email}
+                  onChange={(e) =>
+                    updateParticipant(i, "email", e.target.value)
+                  }
+                  className="min-w-[150px] flex-1 rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
+                />
                 <select
                   value={p.present ? "present" : "excused"}
                   onChange={(e) =>
@@ -550,7 +621,7 @@ export default function NouveauPVPage() {
                   <button
                     type="button"
                     onClick={() => removeParticipant(i)}
-                    className="rounded p-1 text-[#71717A] hover:bg-red-500/10 hover:text-red-500"
+                    className="rounded p-1 text-[#A1A1AA] hover:bg-red-500/10 hover:text-red-500"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -650,7 +721,7 @@ export default function NouveauPVPage() {
                         <p className="text-sm font-medium text-[#FAFAFA]">
                           {t("recording_complete")}
                         </p>
-                        <p className="text-xs text-[#71717A]">
+                        <p className="text-xs text-[#A1A1AA]">
                           {recorder.formatDuration(recorder.duration)}
                         </p>
                       </div>
@@ -661,7 +732,7 @@ export default function NouveauPVPage() {
                         recorder.resetRecording();
                         setAudioMode(null);
                       }}
-                      className="inline-flex items-center gap-1.5 text-sm text-[#71717A] hover:text-[#FAFAFA]"
+                      className="inline-flex items-center gap-1.5 text-sm text-[#A1A1AA] hover:text-[#FAFAFA]"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       {t("reset")}
@@ -691,7 +762,7 @@ export default function NouveauPVPage() {
             audioMode !== "upload" && (
               <div className="my-4 flex items-center gap-3">
                 <div className="flex-1 border-t border-[#27272A]" />
-                <span className="text-xs text-[#71717A]">
+                <span className="text-xs text-[#A1A1AA]">
                   {t("or_upload")}
                 </span>
                 <div className="flex-1 border-t border-[#27272A]" />
@@ -708,11 +779,11 @@ export default function NouveauPVPage() {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-[#27272A] bg-[#27272A]/50 py-8 text-[#71717A] transition-colors hover:border-[#F97316]/30 hover:bg-[#F97316]/5"
+                    className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-[#27272A] bg-[#27272A]/50 py-8 text-[#A1A1AA] transition-colors hover:border-[#F97316]/30 hover:bg-[#F97316]/5"
                   >
-                    <Upload className="h-8 w-8 text-[#71717A]" />
+                    <Upload className="h-8 w-8 text-[#A1A1AA]" />
                     <p className="text-sm">{t("upload_audio")}</p>
-                    <p className="text-xs text-[#71717A]">
+                    <p className="text-xs text-[#A1A1AA]">
                       {t("upload_formats")}
                     </p>
                   </div>
@@ -725,7 +796,7 @@ export default function NouveauPVPage() {
                           <p className="text-sm font-medium text-[#FAFAFA]">
                             {uploadedFile.name}
                           </p>
-                          <p className="text-xs text-[#71717A]">
+                          <p className="text-xs text-[#A1A1AA]">
                             {(uploadedFile.size / 1024 / 1024).toFixed(1)} MB
                           </p>
                         </div>
@@ -738,7 +809,7 @@ export default function NouveauPVPage() {
                           setUploadedUrl(null);
                           setAudioMode(null);
                         }}
-                        className="inline-flex items-center gap-1.5 text-sm text-[#71717A] hover:text-[#FAFAFA]"
+                        className="inline-flex items-center gap-1.5 text-sm text-[#A1A1AA] hover:text-[#FAFAFA]"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -770,13 +841,25 @@ export default function NouveauPVPage() {
           </div>
         )}
 
-        {/* Submit */}
-        <div className="flex justify-end">
+        {/* Submit — audio flow, plus the manual escape hatch */}
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex flex-col items-start gap-1 sm:mr-auto">
+            <button
+              type="button"
+              disabled={!canCreateManual}
+              onClick={handleCreateManual}
+              className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-4 py-2.5 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <PenLine className="h-4 w-4" />
+              {tf("manual_pv")}
+            </button>
+            <span className="text-xs text-[#A1A1AA]">{tf("manual_pv_hint")}</span>
+          </div>
           <button
             type="button"
             disabled={!canSubmit}
             onClick={handleSubmit}
-            className="inline-flex items-center gap-2 rounded-md bg-brand px-6 py-2.5 text-sm font-medium text-white hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-brand px-6 py-2.5 text-sm font-medium text-white hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Mic className="h-4 w-4" />
             {t("transcribe_and_generate")}

@@ -249,7 +249,7 @@ export default function CreateOrganizationPage() {
                     ? "bg-[#F97316]/10 font-medium text-[#F97316] ring-1 ring-[#F97316]/30"
                     : isDone
                       ? "bg-[#10B981]/10 text-[#10B981] cursor-pointer hover:bg-[#10B981]/20"
-                      : "bg-[#27272A]/50 text-[#71717A]"
+                      : "bg-[#27272A]/50 text-[#A1A1AA]"
                 }`}
               >
                 {isDone ? (
@@ -385,12 +385,12 @@ export default function CreateOrganizationPage() {
                       className="w-40 rounded-l-md border-0 bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:outline-none"
                       placeholder="hrs"
                     />
-                    <span className="border-l border-[#27272A] bg-[#1C1C1F] px-3 py-2 text-sm text-[#71717A]">
+                    <span className="border-l border-[#27272A] bg-[#1C1C1F] px-3 py-2 text-sm text-[#A1A1AA]">
                       .cantaia.io
                     </span>
                   </div>
                   {subdomainStatus === "checking" && (
-                    <Loader2 className="h-4 w-4 animate-spin text-[#71717A]" />
+                    <Loader2 className="h-4 w-4 animate-spin text-[#A1A1AA]" />
                   )}
                   {subdomainStatus === "available" && (
                     <span className="flex items-center gap-1 text-sm text-[#10B981]">
@@ -590,14 +590,14 @@ export default function CreateOrganizationPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[#71717A]">
+              <span className="text-xs text-[#A1A1AA]">
                 {t("step")} {step + 1} {t("stepOf")} {STEPS.length}
               </span>
               {step < STEPS.length - 1 ? (
                 <button
                   onClick={() => setStep(step + 1)}
                   disabled={!canGoNext()}
-                  className="flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {t("next")}
                   <ArrowRight className="h-4 w-4" />
@@ -606,7 +606,7 @@ export default function CreateOrganizationPage() {
                 <button
                   onClick={handleCreate}
                   disabled={!canGoNext() || creating}
-                  className="flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {creating ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

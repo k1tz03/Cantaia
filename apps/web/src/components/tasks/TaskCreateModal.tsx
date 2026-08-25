@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { X, Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Dialog } from "@cantaia/ui";
+import { AssigneePicker, useOrgMembers } from "./AssigneePicker";
 import type { TaskPriority, TaskSource, TaskStatus, Project } from "@cantaia/database";
 
 interface TaskCreateModalProps {
@@ -18,6 +20,7 @@ interface TaskCreateModalProps {
     source_id?: string;
     source_reference?: string;
     due_date?: string;
+    assigned_to?: string | null;
     assigned_to_name?: string;
     assigned_to_company?: string;
   };
@@ -26,6 +29,8 @@ interface TaskCreateModalProps {
     title: string;
     project_id: string;
     description: string | null;
+    /** Optional: surfaces that never loaded the FK simply leave it out. */
+    assigned_to?: string | null;
     assigned_to_name: string | null;
     assigned_to_company: string | null;
     priority: TaskPriority;
@@ -52,8 +57,11 @@ export function TaskCreateModal({
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState("");
   const [description, setDescription] = useState("");
+  // Real FK to users — the free-text name below stays for external people.
+  const [assignedUserId, setAssignedUserId] = useState<string | null>(null);
   const [assignedName, setAssignedName] = useState("");
   const [assignedCompany, setAssignedCompany] = useState("");
+  const { members } = useOrgMembers(open);
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [dueDate, setDueDate] = useState("");
@@ -69,6 +77,7 @@ export function TaskCreateModal({
       setTitle(editTask?.title ?? prefill?.title ?? "");
       setProjectId(editTask?.project_id ?? prefill?.project_id ?? "");
       setDescription(editTask?.description ?? prefill?.description ?? "");
+      setAssignedUserId(editTask?.assigned_to ?? prefill?.assigned_to ?? null);
       setAssignedName(editTask?.assigned_to_name ?? prefill?.assigned_to_name ?? "");
       setAssignedCompany(editTask?.assigned_to_company ?? prefill?.assigned_to_company ?? "");
       setPriority(editTask?.priority ?? "medium");
@@ -81,8 +90,6 @@ export function TaskCreateModal({
       setSubmitted(false);
     }
   }, [open, editTask, prefill]);
-
-  if (!open) return null;
 
   const missingTitle = !title.trim();
   const missingProject = !projectId;
@@ -101,6 +108,7 @@ export function TaskCreateModal({
         title,
         project_id: projectId,
         description,
+        assigned_to: assignedUserId,
         assigned_to_name: assignedName || null,
         assigned_to_company: assignedCompany || null,
         priority,
@@ -153,29 +161,39 @@ export function TaskCreateModal({
   }
 
   const fieldErrorClass = "border-red-400 ring-1 ring-red-400";
-  const inputClass = "w-full rounded-md border border-[#27272A] bg-[#27272A] px-3 py-2 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]";
+  const inputClass = "w-full rounded-md border border-[#27272A] bg-[#27272A] px-3 py-2 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]";
   const selectClass = "w-full rounded-md border border-[#27272A] bg-[#27272A] px-3 py-2 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg rounded-xl bg-[#18181B] shadow-xl max-h-[90vh] flex flex-col border border-[#27272A]">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-[#FAFAFA]">
-            {isEdit ? t("editTask") : t("newTask")}
-          </h2>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => { if (!next) onClose(); }}
+      title={isEdit ? t("editTask") : t("newTask")}
+      size="md"
+      dismissible={!saving}
+      footer={
+        <>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-[#71717A] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
+            className="rounded-md px-4 py-2 text-sm font-medium text-[#A1A1AA] hover:bg-[#1C1C1F]"
           >
-            <X className="h-4 w-4" />
+            {t("cancel") || "Annuler"}
           </button>
-        </div>
-
-        {/* Scrollable form body */}
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-5">
+          <button
+            type="submit"
+            form="task-create-form"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isEdit ? t("editTask") : t("createTask")}
+          </button>
+        </>
+      }
+    >
+        <form id="task-create-form" onSubmit={handleSubmit} className="flex flex-col">
+          <div>
             <div className="space-y-4">
               {/* Error banner */}
               {error && (
@@ -240,6 +258,26 @@ export function TaskCreateModal({
                   className={inputClass}
                   placeholder="Détails optionnels..."
                 />
+              </div>
+
+              {/* Member picker — writes tasks.assigned_to (FK) and triggers the
+                  task_assigned notification server-side. */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">
+                  {t("assignee")}
+                </label>
+                <AssigneePicker
+                  members={members}
+                  value={assignedUserId}
+                  onChange={(userId, displayName) => {
+                    setAssignedUserId(userId);
+                    // Keep the free-text label in sync so every existing list
+                    // view still shows a name.
+                    if (displayName) setAssignedName(displayName);
+                  }}
+                  className={selectClass}
+                />
+                <p className="mt-1 text-[11px] text-[#A1A1AA]">{t("assigneeHint")}</p>
               </div>
 
               {/* Assigned + Company */}
@@ -360,7 +398,7 @@ export function TaskCreateModal({
               {/* Source info (read-only) */}
               {(prefill?.source || editTask?.source_reference) && (
                 <div className="rounded-md bg-[#27272A] px-3 py-2">
-                  <p className="text-[10px] font-medium uppercase text-[#71717A]">{t("sourceLabel")}</p>
+                  <p className="text-[10px] font-medium uppercase text-[#A1A1AA]">{t("sourceLabel")}</p>
                   <p className="text-xs text-[#D4D4D8]">
                     {prefill?.source_reference || editTask?.source_reference || "\u2014"}
                   </p>
@@ -368,36 +406,7 @@ export function TaskCreateModal({
               )}
             </div>
           </div>
-
-          {/* Fixed footer — always visible */}
-          <div className="border-t border-[#27272A] px-5 py-3.5">
-            {/* Error shown near submit button so user always sees it */}
-            {error && (
-              <div className="mb-3 flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400 ring-1 ring-inset ring-red-500/20">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            )}
-            <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#1C1C1F]"
-            >
-              {t("cancel") || "Annuler"}
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isEdit ? t("editTask") : t("createTask")}
-            </button>
-            </div>
-          </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

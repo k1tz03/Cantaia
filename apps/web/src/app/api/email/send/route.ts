@@ -5,11 +5,35 @@ import { getEmailProvider, type EmailConnectionConfig } from "@cantaia/core/emai
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 
 /**
+ * D-FIX6 — close the AI-draft loop.
+ *
+ * `email_drafts` rows were created by the nightly Email Drafter and could reach
+ * `accepted`, but nothing ever marked one `sent`: the agent kept re-proposing
+ * replies the user had already sent. When the caller passes the `draft_id` it
+ * started from, the draft is retired here — user-scoped, never throwing, since
+ * a bookkeeping failure must not turn a delivered email into an error.
+ */
+async function markDraftSent(admin: ReturnType<typeof createAdminClient>, draftId: string, userId: string) {
+  try {
+    const { error } = await (admin as any)
+      .from("email_drafts")
+      .update({ status: "sent", sent_at: new Date().toISOString() })
+      .eq("id", draftId)
+      .eq("user_id", userId); // anti-IDOR: only the draft's owner can retire it
+    if (error) {
+      console.warn(`[email/send] could not mark draft ${draftId} sent: ${error.message}`);
+    }
+  } catch (err) {
+    console.warn(`[email/send] draft bookkeeping failed for ${draftId}:`, err);
+  }
+}
+
+/**
  * POST /api/email/send
  * Send, reply to, or forward an email via the user's connected provider.
  *
  * Accepts EITHER:
- *  - JSON body: { to, cc?, bcc?, subject, body, reply_to_id?, forward_id? }
+ *  - JSON body: { to, cc?, bcc?, subject, body, reply_to_id?, forward_id?, draft_id? }
  *  - FormData: same fields as JSON strings + "attachments" file entries
  */
 export async function POST(request: NextRequest) {
@@ -28,6 +52,7 @@ export async function POST(request: NextRequest) {
   let emailBody = "";
   let reply_to_id: string | undefined;
   let forward_id: string | undefined;
+  let draft_id: string | undefined;
   const attachmentBuffers: Array<{ filename: string; content: Buffer; contentType: string }> = [];
 
   const contentType = request.headers.get("content-type") || "";
@@ -48,6 +73,7 @@ export async function POST(request: NextRequest) {
 
     reply_to_id = (formData.get("reply_to_id") as string) || undefined;
     forward_id = (formData.get("forward_id") as string) || undefined;
+    draft_id = (formData.get("draft_id") as string) || undefined;
 
     // Extract file attachments
     const files = formData.getAll("attachments");
@@ -72,6 +98,7 @@ export async function POST(request: NextRequest) {
       emailBody = body.body || "";
       reply_to_id = body.reply_to_id;
       forward_id = body.forward_id;
+      draft_id = body.draft_id;
     } catch {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
@@ -133,7 +160,12 @@ export async function POST(request: NextRequest) {
       await provider.sendEmail(connection as EmailConnectionConfig, draft);
     }
 
-    return NextResponse.json({ success: true });
+    // D-FIX6 — the email is out; retire the AI draft it came from.
+    if (draft_id) {
+      await markDraftSent(admin, draft_id, user.id);
+    }
+
+    return NextResponse.json({ success: true, draft_id: draft_id || null });
   } catch (err) {
     console.error("[email/send] Error:", err);
     return NextResponse.json(

@@ -1,5 +1,6 @@
 export { CreditBadge } from "./CreditBadge";
 export { CreditBalanceCard } from "./CreditBalanceCard";
+export { CreditCheckoutResume } from "./CreditCheckoutResume";
 export { CreditHistory } from "./CreditHistory";
 export { CreditPacks } from "./CreditPacks";
 export { CreditPlans } from "./CreditPlans";
@@ -11,7 +12,13 @@ export {
   PAYWALL_EVENT,
   type PaywallDetail,
 } from "./PaywallDialog";
-export { startCreditCheckout, type CreditCheckoutResult } from "./credit-checkout";
+export {
+  startCreditCheckout,
+  currentReturnPath,
+  sanitizeReturnPath,
+  RETURN_PARAM,
+  type CreditCheckoutResult,
+} from "./credit-checkout";
 export {
   CREDIT_PACK_LIST,
   CREDIT_PLAN_LIST,

@@ -51,22 +51,36 @@ export async function POST(request: NextRequest) {
   }
 
   const requiredError = validateRequired(body, ["email_id"]);
-  if (requiredError || !body?.project?.name) {
+  if (requiredError) {
+    return NextResponse.json({ error: requiredError }, { status: 400 });
+  }
+
+  // D-FIX5 — contract alignment. The mail modal has always posted the FLAT
+  // shape ({ project_name, client_name, city }) while this route only read the
+  // nested one ({ project: { name, … } }), so "Créer ce projet" 400'd every
+  // time. Both shapes are accepted now; the flat one is the documented default.
+  const rawBody = body as Record<string, any>;
+  const nested = (rawBody.project || {}) as {
+    name?: string;
+    code?: string;
+    client_name?: string;
+    city?: string;
+  };
+
+  const email_id: string = rawBody.email_id;
+  const projectInput = {
+    name: (nested.name ?? rawBody.project_name ?? "").toString().trim(),
+    code: (nested.code ?? rawBody.project_code ?? undefined) || undefined,
+    client_name: (nested.client_name ?? rawBody.client_name ?? undefined) || undefined,
+    city: (nested.city ?? rawBody.city ?? undefined) || undefined,
+  };
+
+  if (!projectInput.name) {
     return NextResponse.json(
-      { error: "email_id and project.name are required" },
+      { error: "email_id and a project name (project_name or project.name) are required" },
       { status: 400 }
     );
   }
-
-  const { email_id, project: projectInput } = body as {
-    email_id: string;
-    project: {
-      name: string;
-      code?: string;
-      client_name?: string;
-      city?: string;
-    };
-  };
 
   // 4. Verify the email belongs to this user and fetch suggested data
   const { data: email, error: fetchErr } = await admin

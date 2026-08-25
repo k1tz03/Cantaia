@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
+import { withFallback } from "@/components/pv-chantier/pv-i18n";
 import {
   Plus,
   FileText,
@@ -24,7 +25,7 @@ const STATUS_CONFIG: Record<
   MeetingStatus,
   { labelKey: string; icon: React.ComponentType<any>; color: string; bg: string; animate?: boolean }
 > = {
-  scheduled: { labelKey: "status_draft", icon: FileText, color: "text-[#71717A]", bg: "bg-[#27272A]" },
+  scheduled: { labelKey: "status_draft", icon: FileText, color: "text-[#A1A1AA]", bg: "bg-[#27272A]" },
   recording: { labelKey: "status_recording", icon: Mic, color: "text-red-400", bg: "bg-red-500/10" },
   transcribing: { labelKey: "status_transcribing", icon: Loader2, color: "text-[#F97316]", bg: "bg-[#F97316]/10" },
   generating_pv: { labelKey: "status_generating", icon: Sparkles, color: "text-violet-400", bg: "bg-violet-500/10" },
@@ -48,10 +49,14 @@ function countActions(pvContent: any): number {
 
 export default function PVChantierPage() {
   const t = useTranslations("pv");
+  const tf = withFallback(t);
+  const router = useRouter();
 
   const [meetings, setMeetings] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -62,35 +67,57 @@ export default function PVChantierPage() {
       try {
         // Fetch projects
         const projRes = await fetch("/api/projects/list");
-        const projData = await projRes.json();
+        if (projRes.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        const projData = await projRes.json().catch(() => ({}));
         if (projData.projects) setProjects(projData.projects);
 
         // Fetch meetings
         const meetRes = await fetch("/api/pv");
-        const meetData = await meetRes.json();
-        if (meetData.meetings) setMeetings(meetData.meetings);
+        if (meetRes.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        const meetData = await meetRes.json().catch(() => ({}));
+        // A failed fetch must not render the empty state ("Aucun PV") — that
+        // reads as "you have no PVs" when the truth is "loading failed".
+        if (!meetRes.ok) {
+          setLoadError(tf("list_load_error"));
+          return;
+        }
+        setMeetings(meetData.meetings || []);
       } catch (err) {
         console.error("Failed to load PV data:", err);
+        setLoadError(tf("list_load_error"));
       } finally {
         setLoading(false);
       }
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDelete = async (meetingId: string) => {
     setDeleting(true);
+    setActionError(null);
     try {
       const res = await fetch(`/api/pv/${meetingId}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         setMeetings((prev) => prev.filter((m) => m.id !== meetingId));
+        setDeleteTarget(null);
+      } else {
+        // DELETE is restricted to the creator → a non-creator gets a 403 whose
+        // message must be shown, not swallowed.
+        setActionError(data.error || `${tf("save_error")} (${res.status})`);
       }
     } catch (err) {
       console.error("Delete failed:", err);
+      setActionError(tf("delete_error_network"));
     } finally {
       setDeleting(false);
-      setDeleteTarget(null);
     }
   };
 
@@ -106,7 +133,7 @@ export default function PVChantierPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#A1A1AA]" />
       </div>
     );
   }
@@ -117,7 +144,7 @@ export default function PVChantierPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-[#FAFAFA]">{t("title")}</h1>
-          <p className="mt-1 text-sm text-[#71717A]">
+          <p className="mt-1 text-sm text-[#A1A1AA]">
             {filteredMeetings.length}{" "}
             {filteredMeetings.length <= 1 ? "PV" : "PV"}
           </p>
@@ -128,7 +155,7 @@ export default function PVChantierPage() {
             <button
               type="button"
               onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-              className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
+              className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#A1A1AA] hover:bg-[#27272A]"
             >
               <Filter className="h-3.5 w-3.5" />
               {projectFilter === "all"
@@ -147,7 +174,7 @@ export default function PVChantierPage() {
                   className={`flex w-full px-3 py-1.5 text-sm transition-colors hover:bg-[#27272A] ${
                     projectFilter === "all"
                       ? "font-medium text-[#F97316]"
-                      : "text-[#71717A]"
+                      : "text-[#A1A1AA]"
                   }`}
                 >
                   {t("all_projects")}
@@ -163,7 +190,7 @@ export default function PVChantierPage() {
                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-[#27272A] ${
                       projectFilter === p.id
                         ? "font-medium text-[#F97316]"
-                        : "text-[#71717A]"
+                        : "text-[#A1A1AA]"
                     }`}
                   >
                     <span
@@ -187,16 +214,23 @@ export default function PVChantierPage() {
         </div>
       </div>
 
+      {/* Load error — distinct from the empty state */}
+      {loadError && (
+        <div className="mt-6 rounded-md border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+          {loadError}
+        </div>
+      )}
+
       {/* Content */}
-      {filteredMeetings.length === 0 ? (
+      {loadError ? null : filteredMeetings.length === 0 ? (
         <div className="mt-12 flex flex-col items-center justify-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#27272A]">
-            <FileText className="h-7 w-7 text-[#71717A]" />
+            <FileText className="h-7 w-7 text-[#A1A1AA]" />
           </div>
           <p className="mt-4 text-sm font-medium text-[#FAFAFA]">
             {t("no_pv_yet")}
           </p>
-          <p className="mt-1 text-sm text-[#71717A]">
+          <p className="mt-1 text-sm text-[#A1A1AA]">
             {t("no_pv_description")}
           </p>
           <Link
@@ -212,25 +246,25 @@ export default function PVChantierPage() {
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-[#27272A] bg-[#27272A]">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#A1A1AA]">
                   #
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#A1A1AA]">
                   {t("col_title")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#A1A1AA]">
                   {t("col_project")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#A1A1AA]">
                   {t("col_date")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#A1A1AA]">
                   {t("col_participants")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#A1A1AA]">
                   {t("col_actions")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#A1A1AA]">
                   {t("col_status")}
                 </th>
                 <th className="w-10 px-4 py-3" />
@@ -272,7 +306,7 @@ export default function PVChantierPage() {
                               backgroundColor: project.color,
                             }}
                           />
-                          <span className="max-w-[120px] truncate text-sm text-[#71717A]">
+                          <span className="max-w-[120px] truncate text-sm text-[#A1A1AA]">
                             {project.name}
                           </span>
                         </div>
@@ -285,14 +319,14 @@ export default function PVChantierPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        <Users className="h-3.5 w-3.5 text-[#71717A]" />
-                        <span className="text-sm text-[#71717A]">
+                        <Users className="h-3.5 w-3.5 text-[#A1A1AA]" />
+                        <span className="text-sm text-[#A1A1AA]">
                           {meeting.participants?.length || 0}
                         </span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm text-[#71717A]">
+                      <span className="text-sm text-[#A1A1AA]">
                         {actionsCount}
                       </span>
                     </td>
@@ -305,6 +339,23 @@ export default function PVChantierPage() {
                         />
                         {t(statusCfg.labelKey)}
                       </span>
+                      {/* Circulation trace — a "sent" badge with no date says
+                          nothing about whether the opposition period is running */}
+                      {meeting.status === "sent" && meeting.sent_at && (
+                        <div
+                          className="mt-1 text-[11px] text-[#A1A1AA]"
+                          title={
+                            Array.isArray(meeting.sent_to) && meeting.sent_to.length > 0
+                              ? meeting.sent_to.join(", ")
+                              : undefined
+                          }
+                        >
+                          {formatDate(meeting.sent_at)}
+                          {Array.isArray(meeting.sent_to) && meeting.sent_to.length > 0 && (
+                            <> · {meeting.sent_to.length} dest.</>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -313,7 +364,7 @@ export default function PVChantierPage() {
                           e.stopPropagation();
                           setDeleteTarget(meeting.id);
                         }}
-                        className="rounded p-1 text-[#71717A] hover:bg-red-500/10 hover:text-red-500"
+                        className="rounded p-1 text-[#A1A1AA] hover:bg-red-500/10 hover:text-red-500"
                         title={t("delete_pv")}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -337,12 +388,20 @@ export default function PVChantierPage() {
                 {t("delete_pv")}
               </h3>
             </div>
-            <p className="mb-4 text-sm text-[#71717A]">
+            <p className="mb-4 text-sm text-[#A1A1AA]">
               {t("delete_pv_confirm")}
             </p>
+            {actionError && (
+              <p className="mb-4 rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                {actionError}
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setActionError(null);
+                }}
                 className="rounded-md border border-[#27272A] px-4 py-2 text-sm text-[#FAFAFA] hover:bg-[#27272A]"
               >
                 {t("cancel")}

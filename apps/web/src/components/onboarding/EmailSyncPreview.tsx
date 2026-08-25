@@ -42,7 +42,7 @@ export function EmailSyncPreview({ syncing, emailCount }: EmailSyncPreviewProps)
               <p className="truncate text-xs font-medium text-[#FAFAFA]">
                 {senders[i]}
               </p>
-              <p className="truncate text-xs text-[#71717A]">
+              <p className="truncate text-xs text-[#A1A1AA]">
                 {t(`previewSubjects.${key}`)}
               </p>
             </div>

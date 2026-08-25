@@ -58,10 +58,14 @@ export async function GET(
       .eq("planning_id", share.planning_id)
       .order("sort_order", { ascending: true });
 
-    // Fetch tasks (exclude supplier_id for privacy)
+    // Fetch tasks. The public link must NOT leak the org's calibrated know-how:
+    // productivity_ratio / productivity_source / adjustment_factors /
+    // base_duration_days / team_size / quantity / unit are the company's learnt
+    // cadences (planning_duration_corrections) and stay server-side. A recipient
+    // only needs names, dates, progress and milestones to read the schedule.
     const { data: tasks } = await (admin as any)
       .from("planning_tasks")
-      .select("id, phase_id, name, cfc_code, start_date, end_date, duration_days, quantity, unit, productivity_ratio, productivity_source, adjustment_factors, base_duration_days, team_size, progress, is_milestone, milestone_type, sort_order")
+      .select("id, phase_id, name, cfc_code, start_date, end_date, duration_days, progress, is_milestone, milestone_type, sort_order")
       .eq("planning_id", share.planning_id)
       .order("sort_order", { ascending: true });
 

@@ -101,7 +101,10 @@ export async function POST(request: NextRequest) {
   // Respect the invited role (whitelisted) — no silent upgrade to
   // project_manager, which would grant Direction/Admin access.
   const role = isAssignableRole(invite.role) ? invite.role : "member";
-  await (admin.from("users") as any)
+  // supabase-js never throws — check {error} explicitly. If the org attachment
+  // fails (constraint, trigger), we must NOT report success: the user would
+  // believe they joined the org when they did not.
+  const { error: attachError } = await (admin.from("users") as any)
     .update({
       organization_id: invite.organization_id,
       role,
@@ -110,13 +113,26 @@ export async function POST(request: NextRequest) {
     })
     .eq("id", user_id);
 
-  // Mark invite as accepted
-  await (admin.from("organization_invites") as any)
+  if (attachError) {
+    console.error("[invites] Failed to attach user to org:", attachError);
+    return NextResponse.json(
+      { error: "Failed to join organization" },
+      { status: 500 }
+    );
+  }
+
+  // Mark invite as accepted (best-effort: the attachment above already
+  // succeeded, so a failure here only leaves a stale pending invite — log it).
+  const { error: acceptError } = await (admin.from("organization_invites") as any)
     .update({
       status: "accepted",
       accepted_at: new Date().toISOString(),
     })
     .eq("id", invite.id);
+
+  if (acceptError) {
+    console.error("[invites] Failed to mark invite accepted:", acceptError);
+  }
 
   return NextResponse.json({ success: true, organization_id: invite.organization_id });
 }

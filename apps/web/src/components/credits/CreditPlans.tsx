@@ -26,7 +26,9 @@ export function CreditPlans({ currentPlan }: CreditPlansProps) {
   const t = useTranslations("credits");
   const locale = useLocale();
   const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState<"forbidden" | "error" | null>(null);
+  const [error, setError] = useState<
+    "forbidden" | "error" | "already_subscribed" | null
+  >(null);
 
   async function handleSubscribe(plan: CreditPlanView) {
     setPending(plan.id);
@@ -71,19 +73,23 @@ export function CreditPlans({ currentPlan }: CreditPlansProps) {
         <h3 className="font-display text-[15px] font-bold text-[#FAFAFA]">
           {t("plansTitle")}
         </h3>
-        <p className="mt-0.5 text-[11px] text-[#71717A]">{t("plansSubtitle")}</p>
+        <p className="mt-0.5 text-[11px] text-[#A1A1AA]">{t("plansSubtitle")}</p>
       </div>
 
       {error && (
         <div
           className={`mb-3 flex items-center gap-2 rounded-lg border px-4 py-3 text-[12px] ${
-            error === "forbidden"
+            error === "forbidden" || error === "already_subscribed"
               ? "border-[#F59E0B]/30 bg-[#F59E0B]/10 text-[#F59E0B]"
               : "border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]"
           }`}
         >
           <ShieldAlert className="h-4 w-4 shrink-0" />
-          {error === "forbidden" ? t("adminOnly") : t("checkoutError")}
+          {error === "forbidden"
+            ? t("adminOnly")
+            : error === "already_subscribed"
+              ? t("alreadySubscribed")
+              : t("checkoutError")}
         </div>
       )}
 
@@ -110,7 +116,7 @@ export function CreditPlans({ currentPlan }: CreditPlansProps) {
                   {t("currentPlan")}
                 </div>
               ) : recommended ? (
-                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#F97316] to-[#EA580C] px-3 py-0.5 text-[10px] font-semibold text-white shadow-lg shadow-[#F97316]/25">
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#F97316] to-[#EA580C] px-3 py-0.5 text-[10px] font-semibold text-[#0F0F11] shadow-lg shadow-[#F97316]/25">
                   {t("recommended")}
                 </div>
               ) : null}
@@ -123,7 +129,7 @@ export function CreditPlans({ currentPlan }: CreditPlansProps) {
                   <span className="font-display text-[30px] font-extrabold text-[#FAFAFA]">
                     {plan.priceCHF}
                   </span>
-                  <span className="ml-1 text-[12px] text-[#71717A]">
+                  <span className="ml-1 text-[12px] text-[#A1A1AA]">
                     CHF {t("perMonth")}
                   </span>
                 </div>
@@ -134,7 +140,7 @@ export function CreditPlans({ currentPlan }: CreditPlansProps) {
                     credits: formatNumber(plan.credits, locale),
                   })}
                 </div>
-                <div className="mt-0.5 text-[10px] text-[#52525B]">
+                <div className="mt-0.5 text-[10px] text-[#A1A1AA]">
                   {t("perCredit", {
                     price: formatNumber(plan.pricePerCredit, locale, {
                       minimumFractionDigits: 3,
@@ -171,7 +177,7 @@ export function CreditPlans({ currentPlan }: CreditPlansProps) {
                   current
                     ? "cursor-default border border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]"
                     : recommended
-                      ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-[#F97316]/25 hover:shadow-xl"
+                      ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] text-[#0F0F11] shadow-lg shadow-[#F97316]/25 hover:shadow-xl"
                       : "bg-[#FAFAFA] text-[#0F0F11] hover:bg-[#A1A1AA]"
                 }`}
               >
@@ -188,7 +194,7 @@ export function CreditPlans({ currentPlan }: CreditPlansProps) {
         })}
       </div>
 
-      <p className="mt-3 text-center text-[11px] text-[#71717A]">
+      <p className="mt-3 text-center text-[11px] text-[#A1A1AA]">
         {t("plansFootnote")}
       </p>
     </section>

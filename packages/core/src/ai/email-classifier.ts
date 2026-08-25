@@ -224,13 +224,19 @@ function norm(text: string): string {
  * "TR: CENTRAL MALLEY – Planche de détail" → "central malley"
  * "TR: MLY – Note de séance" → "mly"
  * "RE: RTS : Menetrey-BasSmets – Rapport" → "rts"
+ * "CENTRAL MALLEY - Planche de détail" → "central malley" (tiret ASCII)
+ *
+ * AUDIT 08/2026 — le tiret ASCII " - " ne coupait pas (seuls – et — étaient
+ * gérés) : le "premier segment" devenait le sujet entier et la pénalité/bonus
+ * de segment ne s'appliquait jamais aux sujets tapés au clavier. Le tiret
+ * n'est coupé QU'entouré d'espaces, pour ne pas casser "Menetrey-BasSmets".
  */
-function extractFirstSegment(subject: string): string {
+export function extractFirstSegment(subject: string): string {
   const clean = (subject || "")
     .replace(/^(TR|RE|FW|FWD|WG|AW)\s*:\s*/gi, "")
     .replace(/^(TR|RE|FW|FWD|WG|AW)\s*:\s*/gi, "")
     .trim();
-  const segments = clean.split(/\s*[–—]\s*|\s+:\s+/);
+  const segments = clean.split(/\s*[–—]\s*|\s+:\s+|\s+-\s+/);
   return norm(segments[0] || "");
 }
 
@@ -290,15 +296,21 @@ export function classifyEmailByKeywords(
       reasons.push(`Nom complet "${project.name}" dans corps`);
     }
     // ── RULE 3: Individual name words in subject (min 4 chars to avoid noise) ──
+    // AUDIT 08/2026 — plafonné à 2 mots comptés : un nom de projet de 6 mots
+    // ne doit pas rapporter +24 à lui seul.
     else {
+      let nameWordMatches = 0;
       for (const word of nameWords.filter((w) => w.length >= 4)) {
+        if (nameWordMatches >= 2) break;
         if (subjectNorm.includes(word)) {
           score += 4;
           hasNameOrRefMatch = true;
+          nameWordMatches++;
           reasons.push(`Mot "${word}" dans sujet`);
         } else if (bodyNorm.includes(word)) {
           score += 2;
           hasNameOrRefMatch = true;
+          nameWordMatches++;
           reasons.push(`Mot "${word}" dans corps`);
         }
       }
@@ -322,34 +334,53 @@ export function classifyEmailByKeywords(
     }
 
     // ── RULE 6: Email keywords in subject ──
-    for (const kw of keywords) {
-      if (kw.length >= 3 && subjectNorm.includes(kw)) {
-        score += 4;
-        reasons.push(`Mot-cle "${kw}" sujet`);
-      } else if (kw.length >= 3 && bodyNorm.includes(kw)) {
-        score += 2;
-        reasons.push(`Mot-cle "${kw}" corps`);
+    // AUDIT 08/2026 — contribution plafonnée à +8 (2 mots-clés sujet) : une
+    // liste de 10 mots-clés génériques ne doit pas suffire à classifier seule.
+    {
+      let keywordScore = 0;
+      for (const kw of keywords) {
+        if (keywordScore >= 8) break;
+        if (kw.length >= 3 && subjectNorm.includes(kw)) {
+          keywordScore += 4;
+          reasons.push(`Mot-cle "${kw}" sujet`);
+        } else if (kw.length >= 3 && bodyNorm.includes(kw)) {
+          keywordScore += 2;
+          reasons.push(`Mot-cle "${kw}" corps`);
+        }
       }
+      score += Math.min(keywordScore, 8);
     }
 
     // ── RULE 7: Known sender ──
+    // AUDIT 08/2026 — un seul bonus : plusieurs entrées email_senders peuvent
+    // matcher le MÊME expéditeur (ex. "durand" et "durand@sa.ch"), ça ne rend
+    // pas le signal plus fort.
     if (project.email_senders && project.email_senders.length > 0) {
       for (const knownSender of project.email_senders) {
         if (senderLower.includes(knownSender.toLowerCase())) {
           score += 7;
           reasons.push(`Expediteur "${knownSender}"`);
+          break;
         }
       }
     }
 
     // ── RULE 7b: Known sender in recipients (TO/CC) ──
+    // AUDIT 08/2026 — plafonné à 2 correspondances (+10 max) : un CC de 12
+    // personnes toutes connues rapportait +60 et écrasait la pénalité de
+    // premier segment.
     if (project.email_senders && project.email_senders.length > 0 && email.recipients?.length) {
+      let recipientSenderMatches = 0;
+      outer7b:
       for (const knownSender of project.email_senders) {
         const knownLower = knownSender.toLowerCase();
         for (const recipient of email.recipients) {
           if (recipient.toLowerCase().includes(knownLower)) {
             score += 5;
             reasons.push(`Destinataire "${recipient}" = expediteur connu "${knownSender}"`);
+            recipientSenderMatches++;
+            if (recipientSenderMatches >= 2) break outer7b;
+            break; // un match par expéditeur connu suffit
           }
         }
       }
@@ -366,7 +397,11 @@ export function classifyEmailByKeywords(
 
     // ── RULE 9: Recipient email contains project name ──
     // e.g., cedres@edifea.ch → "cedres" matches project "Les cèdres"
+    // AUDIT 08/2026 — bonus UNIQUE (+8) : l'ancien +8 PAR destinataire
+    // rapportait +96 sur un CC de 12 personnes et rendait le seuil de 8
+    // trivialement atteignable pour n'importe quel projet.
     if (email.recipients?.length && nameWords.length > 0) {
+      outer9:
       for (const recipient of email.recipients) {
         const recipientNorm = norm(recipient);
         for (const word of nameWords.filter((w) => w.length >= 4)) {
@@ -374,7 +409,7 @@ export function classifyEmailByKeywords(
             score += 8;
             hasNameOrRefMatch = true;
             reasons.push(`Destinataire "${recipient}" contient "${word}" (nom projet)`);
-            break; // one match per recipient is enough
+            break outer9; // un seul bonus, quel que soit le nombre de destinataires
           }
         }
       }

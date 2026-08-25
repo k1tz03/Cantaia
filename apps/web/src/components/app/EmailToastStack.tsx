@@ -108,7 +108,7 @@ function EmailToastItem({
             {toast.subject}
           </p>
           {toast.preview && (
-            <p className="text-[11px] text-[#71717A] mt-1 line-clamp-2 leading-relaxed">
+            <p className="text-[11px] text-[#A1A1AA] mt-1 line-clamp-2 leading-relaxed">
               {toast.preview}
             </p>
           )}
@@ -118,7 +118,7 @@ function EmailToastItem({
             <div className="flex gap-2 mt-2.5">
               <button
                 onClick={(e) => { e.stopPropagation(); onOpen(); }}
-                className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md bg-[#F97316] text-white hover:bg-[#EA580C] transition-colors"
+                className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md bg-[#F97316] text-[#0F0F11] hover:bg-[#EA580C] transition-colors"
               >
                 <Mail className="w-3 h-3" />
                 Ouvrir
@@ -139,14 +139,14 @@ function EmailToastItem({
             onClick={(e) => { e.stopPropagation(); onDismiss(); }}
             className="flex-shrink-0 w-5 h-5 rounded-full bg-[#27272A] hover:bg-[#3F3F46] flex items-center justify-center transition-colors"
           >
-            <X className="w-3 h-3 text-[#71717A]" />
+            <X className="w-3 h-3 text-[#A1A1AA]" />
           </button>
         )}
       </div>
 
       {/* Badge empilé si plusieurs */}
       {index === 0 && total > 1 && (
-        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#F97316] text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-orange-500/30">
+        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#F97316] text-[#0F0F11] text-[10px] font-bold flex items-center justify-center shadow-lg shadow-orange-500/30">
           {total}
         </div>
       )}

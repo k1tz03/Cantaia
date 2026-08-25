@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 import { insufficientCreditsResponse } from "@/lib/credits";
+import { trackApiUsage } from "@cantaia/core/tracking";
 
 export const maxDuration = 120;
 
@@ -275,6 +276,19 @@ export async function POST(
           { role: "user", content: `Estime les prix unitaires pour ces ${unmatchedItems.length} postes:\n\n${itemsList}` },
         ],
       });
+
+      // Debited as `estimate_budget` but never traced until now.
+      trackApiUsage({
+        supabase: admin,
+        userId: user.id,
+        organizationId: orgId,
+        actionType: "estimate_budget" as any,
+        apiProvider: "anthropic",
+        model: "claude-haiku-4-5-20251001",
+        inputTokens: response.usage?.input_tokens || 0,
+        outputTokens: response.usage?.output_tokens || 0,
+        metadata: { submission_id: id, unmatched_items: unmatchedItems.length },
+      }).catch(() => {});
 
       const textBlock = response.content.find((c: any) => c.type === "text");
       if (textBlock && textBlock.type === "text") {

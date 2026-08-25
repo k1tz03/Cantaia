@@ -1,41 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { verifyPortalToken } from "@/lib/portal/auth";
+import { requirePortalSession } from "@/lib/portal/session";
 
 const BUCKET = "site-report-photos";
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
-// The bucket is private (migration 086). Signed URLs are stored verbatim in
-// site_report_entries.photo_url and rendered as <img src> by the assistant and
-// public report views, so they must outlive the operational life of a delivery
-// note. The `path` is returned alongside so a future job can re-sign them.
-const SIGNED_URL_TTL_SECONDS = 10 * 365 * 24 * 60 * 60; // ~10 years
+// The bucket is private (migration 086). We store the storage `path` on the
+// entry (site_report_entries.photo_url) and re-sign it on the fly at read time
+// (app, public view, régie), so revoking or expiring a share link really cuts
+// off access. A short-lived signed URL is returned here only for the immediate
+// optimistic preview in the field form.
+const PREVIEW_TTL_SECONDS = 60 * 60; // 1 h — enough for the capture round-trip
 
-async function checkPortalAuth(projectId: string) {
-  const admin = createAdminClient();
-  const { data: project } = await (admin as any)
-    .from("projects")
-    .select("portal_pin_salt, portal_enabled")
-    .eq("id", projectId)
-    .single();
-
-  if (!project || !project.portal_enabled) return { valid: false as const, admin };
-  const auth = await verifyPortalToken(projectId, project.portal_pin_salt || "");
-  return { ...auth, admin };
-}
-
-/**
- * POST /api/portal/[projectId]/reports/[reportId]/upload
- * Upload a delivery-note photo from the field portal (multipart FormData, field "file").
- * Returns a signed URL (stored as photo_url on the entry) plus the storage path.
- */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string; reportId: string }> },
 ) {
   try {
     const { projectId, reportId } = await params;
-    const { valid, admin } = await checkPortalAuth(projectId);
+    const { valid, admin } = await requirePortalSession(projectId);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // The report must belong to this project and still be editable
@@ -51,25 +33,28 @@ export async function POST(
     }
 
     if (report.status === "locked") {
-      return NextResponse.json({ error: "Report is locked" }, { status: 403 });
+      return NextResponse.json({ error: "Report is locked", code: "LOCKED" }, { status: 403 });
     }
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
 
     if (!file || typeof file === "string") {
-      return NextResponse.json({ error: "file is required" }, { status: 400 });
+      return NextResponse.json({ error: "file is required", code: "FILE_REQUIRED" }, { status: 400 });
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: "Format non supporté. Formats acceptés : JPEG, PNG, WebP." },
+        { error: "Unsupported format. Accepted: JPEG, PNG, WebP.", code: "UNSUPPORTED_FORMAT" },
         { status: 400 },
       );
     }
 
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: "Fichier trop volumineux (max 10 Mo)." }, { status: 400 });
+      return NextResponse.json(
+        { error: "File too large (max 10 MB).", code: "TOO_LARGE" },
+        { status: 400 },
+      );
     }
 
     // Sanitize filename (no path traversal, no exotic characters)
@@ -85,27 +70,37 @@ export async function POST(
 
     if (uploadError) {
       console.error("[Portal Upload] Storage error:", uploadError);
-      return NextResponse.json({ error: "Échec de l'envoi de la photo." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Photo upload failed.", code: "UPLOAD_FAILED" },
+        { status: 500 },
+      );
     }
 
+    // The persisted value is the PATH (re-signed at read time). The preview URL
+    // is short-lived and only used by the capturing device right now.
     const { data: signed, error: signError } = await admin.storage
       .from(BUCKET)
-      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+      .createSignedUrl(storagePath, PREVIEW_TTL_SECONDS);
 
     if (signError || !signed?.signedUrl) {
       console.error("[Portal Upload] Signed URL error:", signError);
-      return NextResponse.json({ error: "Photo envoyée mais lien indisponible." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Photo uploaded but its link is unavailable.", code: "SIGNED_URL_UNAVAILABLE" },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({
       success: true,
-      file_url: signed.signedUrl,
+      // The entry must store the path; the URL is a transient preview only.
+      file_url: storagePath,
+      preview_url: signed.signedUrl,
       path: storagePath,
       file_name: safeName,
       file_size: file.size,
     });
   } catch (error) {
     console.error("[Portal Upload] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error", code: "INTERNAL" }, { status: 500 });
   }
 }

@@ -141,7 +141,7 @@ export function CelebrationStep({
       <motion.button
         type="button"
         onClick={onLaunch}
-        className="mt-10 rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-10 py-4 text-lg font-semibold text-white shadow-lg shadow-[#F97316]/20 transition-shadow hover:shadow-xl hover:shadow-[#F97316]/30"
+        className="mt-10 rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-10 py-4 text-lg font-semibold text-[#0F0F11] shadow-lg shadow-[#F97316]/20 transition-shadow hover:shadow-xl hover:shadow-[#F97316]/30"
         initial={{ opacity: 0, y: 20 }}
         animate={{
           opacity: 1,

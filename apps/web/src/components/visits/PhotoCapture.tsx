@@ -6,7 +6,6 @@ import { Camera, Upload, X, Loader2, Image as ImageIcon } from "lucide-react";
 
 interface PhotoCaptureProps {
   visitId: string;
-  orgId: string;
   photoType: "site" | "handwritten_notes";
   onPhotosUploaded: () => void;
   maxPhotos?: number;
@@ -53,7 +52,7 @@ function compressImage(file: File, maxDim = 2048): Promise<Blob> {
   });
 }
 
-export function PhotoCapture({ visitId, orgId: _orgId, photoType, onPhotosUploaded, maxPhotos = 20 }: PhotoCaptureProps) { // eslint-disable-line @typescript-eslint/no-unused-vars
+export function PhotoCapture({ visitId, photoType, onPhotosUploaded, maxPhotos = 20 }: PhotoCaptureProps) {
   const t = useTranslations("visits.photos");
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -198,7 +197,7 @@ export function PhotoCapture({ visitId, orgId: _orgId, photoType, onPhotosUpload
               )}
               {p.error && (
                 <div className="absolute inset-0 flex items-center justify-center bg-red-500/20">
-                  <span className="text-xs font-medium text-red-700">{p.error}</span>
+                  <span className="text-xs font-medium text-red-400">{p.error}</span>
                 </div>
               )}
               {!p.uploading && !p.uploaded && (
@@ -221,7 +220,7 @@ export function PhotoCapture({ visitId, orgId: _orgId, photoType, onPhotosUpload
           type="button"
           onClick={uploadAll}
           disabled={uploading}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50"
         >
           {uploading ? (
             <>

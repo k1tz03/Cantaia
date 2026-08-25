@@ -59,7 +59,14 @@ export async function GET(request: NextRequest) {
 
     if (!balance.exists) {
       return NextResponse.json(
-        { error: "credits_unavailable", plan: org?.subscription_plan ?? null },
+        {
+          error: "credits_unavailable",
+          plan: org?.subscription_plan ?? null,
+          // `true` → the meter is BROKEN (table/RPC unreachable) and every AI
+          // action is currently running un-debited. `false` → the meter works,
+          // this org just has no balance row yet (legacy quota model).
+          degraded: balance.degraded,
+        },
         { status: 404 }
       );
     }
@@ -84,6 +91,9 @@ export async function GET(request: NextRequest) {
       plan,
       monthly_allocation: monthlyAllocationFor(plan),
       recent_transactions: transactions ?? [],
+      // Always present so clients can key on it without an existence check.
+      // A healthy balance read is by definition not degraded.
+      degraded: balance.degraded,
     });
   } catch (error) {
     console.error("[api/credits]", error);

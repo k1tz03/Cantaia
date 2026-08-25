@@ -10,6 +10,7 @@ import type {
   CreateCalendarEventDTO,
   CalendarSyncSource,
 } from "./types";
+import { rruleToGraphRecurrence } from "./recurrence";
 
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
 
@@ -45,8 +46,24 @@ interface GraphCalendarEvent {
   lastModifiedDateTime: string;
 }
 
+/**
+ * A row returned by /me/calendarView/delta for an event that no longer
+ * belongs to the window (deleted, moved out, or cancelled). Only `id` and
+ * `@removed` are present.
+ */
+interface GraphRemovedEvent {
+  id: string;
+  "@removed": { reason?: string };
+}
+
+type GraphDeltaRow = GraphCalendarEvent | GraphRemovedEvent;
+
+function isRemovedRow(row: GraphDeltaRow): row is GraphRemovedEvent {
+  return "@removed" in row && !!(row as GraphRemovedEvent)["@removed"];
+}
+
 interface GraphCalendarResponse {
-  value: GraphCalendarEvent[];
+  value: GraphDeltaRow[];
   "@odata.deltaLink"?: string;
   "@odata.nextLink"?: string;
 }
@@ -81,6 +98,13 @@ async function graphCalendarFetch<T>(
         Number(retryAfter) || 60
       );
     }
+    // Graph invalidates delta tokens (410 Gone / syncStateNotFound). The
+    // caller must drop the stored deltaLink and replay the full window.
+    if (response.status === 410 || /resyncRequired|syncStateNotFound/i.test(errorText)) {
+      throw new GraphCalendarResyncRequiredError(
+        "Delta token expired — full resync required"
+      );
+    }
     throw new Error(`Graph Calendar API error ${response.status}: ${errorText}`);
   }
 
@@ -92,6 +116,13 @@ export class GraphCalendarTokenExpiredError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "GraphCalendarTokenExpiredError";
+  }
+}
+
+export class GraphCalendarResyncRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GraphCalendarResyncRequiredError";
   }
 }
 
@@ -232,57 +263,146 @@ export function toGraphDateTime(
 /**
  * CAL.H1 — Private/confidential Outlook events must never be imported into
  * the org-visible calendar_events table.
+ *
+ * Graph's `sensitivity` enum is normal | personal | private | confidential.
+ * `personal` was missing: an event a user marked "Personal" in Outlook was
+ * imported and shown to the whole organization.
  */
 export function isPrivateGraphCalendarEvent(event: {
   sensitivity?: string;
 }): boolean {
-  return event.sensitivity === "private" || event.sensitivity === "confidential";
+  return (
+    event.sensitivity === "personal" ||
+    event.sensitivity === "private" ||
+    event.sensitivity === "confidential"
+  );
 }
 
 // ── Sync: Import from Graph ────────────────────────────────
 
+const CALENDAR_SELECT =
+  "id,subject,body,start,end,location,isAllDay,isCancelled,showAs,importance,sensitivity,attendees,organizer,recurrence,changeKey,createdDateTime,lastModifiedDateTime";
+
+export interface GraphCalendarFetchResult {
+  events: GraphCalendarEvent[];
+  /** Outlook ids that left the window (deleted / moved out / cancelled). */
+  removedIds: string[];
+  /** Token for the next incremental run, when Graph provided one. */
+  deltaLink: string | null;
+}
+
 /**
- * Fetch calendar events from Microsoft Graph.
- * Uses delta sync if deltaLink is provided (incremental),
- * otherwise fetches full date range (initial sync).
+ * Fetch calendar changes from Microsoft Graph using the **delta** endpoint.
+ *
+ * Previous behaviour was broken in two ways:
+ *   • the initial call hit `/me/calendarView`, which never returns an
+ *     `@odata.deltaLink` — so every run was a full re-import of 18 months;
+ *   • deletions were invisible, so an event cancelled in Outlook stayed on
+ *     the Cantaia calendar forever.
+ *
+ * `/me/calendarView/delta` requires startDateTime/endDateTime on the FIRST
+ * call only; the returned deltaLink already carries the window, so it must
+ * be used verbatim. Paging uses `@odata.nextLink` until the final page
+ * carries `@odata.deltaLink`.
  */
 export async function fetchGraphCalendarEvents(
   accessToken: string,
   options: {
     deltaLink?: string;
-    startDate?: string;  // ISO date
-    endDate?: string;    // ISO date
+    startDate?: string;  // ISO instant
+    endDate?: string;    // ISO instant
+    /** Safety valve so a huge mailbox cannot run past the function budget. */
+    maxPages?: number;
   }
-): Promise<{
-  events: GraphCalendarEvent[];
-  deltaLink: string | null;
-}> {
+): Promise<GraphCalendarFetchResult> {
   const allEvents: GraphCalendarEvent[] = [];
-  let nextLink: string | null = null;
+  const removedIds: string[] = [];
   let deltaLink: string | null = null;
+  const maxPages = options.maxPages ?? 25;
 
-  // Use delta link for incremental sync, or calendarView for initial
   let url: string;
   if (options.deltaLink) {
+    // The delta link is opaque and already encodes the window + state.
     url = options.deltaLink;
   } else {
-    const start = options.startDate || new Date(Date.now() - 180 * 86400000).toISOString();
-    const end = options.endDate || new Date(Date.now() + 365 * 86400000).toISOString();
-    url = `/me/calendarView?startDateTime=${start}&endDateTime=${end}&$select=id,subject,body,start,end,location,isAllDay,isCancelled,showAs,importance,sensitivity,attendees,organizer,recurrence,changeKey,createdDateTime,lastModifiedDateTime&$top=100`;
+    const start =
+      options.startDate || new Date(Date.now() - 180 * 86400000).toISOString();
+    const end =
+      options.endDate || new Date(Date.now() + 365 * 86400000).toISOString();
+    url =
+      `/me/calendarView/delta?startDateTime=${encodeURIComponent(start)}` +
+      `&endDateTime=${encodeURIComponent(end)}&$select=${CALENDAR_SELECT}`;
   }
 
-  do {
-    const data: GraphCalendarResponse = await graphCalendarFetch<GraphCalendarResponse>(
-      accessToken,
-      nextLink || url
+  let pages = 0;
+  let nextUrl: string | null = url;
+
+  while (nextUrl && pages < maxPages) {
+    const data: GraphCalendarResponse =
+      await graphCalendarFetch<GraphCalendarResponse>(accessToken, nextUrl, {
+        // The delta endpoint rejects $top; page size is negotiated by header.
+        headers: { Prefer: "odata.maxpagesize=100" },
+      });
+
+    for (const row of data.value || []) {
+      if (isRemovedRow(row)) {
+        // Graph uses `@removed` for two different things: the event was
+        // DELETED, or it merely moved out of the requested window
+        // ("changed"). Only a deletion may remove the local copy — treating
+        // a reschedule past the window as a deletion would silently drop a
+        // real appointment. Graph omits `reason` on plain deletions.
+        const reason = row["@removed"]?.reason;
+        if (!reason || reason === "deleted") {
+          if (row.id) removedIds.push(row.id);
+        }
+      } else {
+        allEvents.push(row);
+      }
+    }
+
+    deltaLink = data["@odata.deltaLink"] || deltaLink;
+    nextUrl = data["@odata.nextLink"] || null;
+    pages++;
+  }
+
+  if (nextUrl) {
+    // Stopped on the page cap: keep the OLD delta link (do not persist a
+    // partial one) so the next run resumes instead of skipping changes.
+    console.warn(
+      `[calendar-sync] Delta paging hit the ${maxPages}-page cap — deltaLink not advanced.`
     );
+    deltaLink = null;
+  }
 
-    allEvents.push(...data.value);
-    nextLink = data["@odata.nextLink"] || null;
-    deltaLink = data["@odata.deltaLink"] || null;
-  } while (nextLink);
+  return { events: allEvents, removedIds, deltaLink };
+}
 
-  return { events: allEvents, deltaLink };
+/**
+ * Full-window read WITHOUT delta state. Used for external (other member)
+ * calendars and as a recovery path when a delta token is rejected.
+ */
+export async function fetchGraphCalendarWindow(
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<GraphCalendarEvent[]> {
+  const events: GraphCalendarEvent[] = [];
+  let nextUrl: string | null =
+    `/me/calendarView?startDateTime=${encodeURIComponent(startDate)}` +
+    `&endDateTime=${encodeURIComponent(endDate)}&$select=${CALENDAR_SELECT}&$top=100`;
+  let pages = 0;
+
+  while (nextUrl && pages < 25) {
+    const data: GraphCalendarResponse =
+      await graphCalendarFetch<GraphCalendarResponse>(accessToken, nextUrl);
+    for (const row of data.value || []) {
+      if (!isRemovedRow(row)) events.push(row);
+    }
+    nextUrl = data["@odata.nextLink"] || null;
+    pages++;
+  }
+
+  return events;
 }
 
 /**
@@ -442,6 +562,22 @@ export async function updateGraphCalendarEvent(
   }
   if (changes.all_day !== undefined) graphChanges.isAllDay = changes.all_day;
 
+  // CAL: push the recurrence too. An RRULE edited in Cantaia used to stay
+  // local, so Outlook kept showing the old (or no) series.
+  if (changes.recurrence_rule !== undefined) {
+    if (changes.recurrence_rule && changes.start_at) {
+      const recurrence = rruleToGraphRecurrence(
+        changes.recurrence_rule,
+        changes.start_at,
+        timeZone,
+        changes.recurrence_end ?? null
+      );
+      if (recurrence) graphChanges.recurrence = recurrence;
+    } else if (!changes.recurrence_rule) {
+      graphChanges.recurrence = null; // series → single occurrence
+    }
+  }
+
   const result = await graphCalendarFetch<GraphCalendarEvent>(
     accessToken,
     `/me/events/${outlookEventId}`,
@@ -524,11 +660,19 @@ export async function fetchExternalMemberCalendar(
   startDate: string,
   endDate: string
 ): Promise<GraphCalendarEvent[]> {
-  const url = `/users/${encodeURIComponent(memberEmail)}/calendarView?startDateTime=${startDate}&endDateTime=${endDate}&$select=id,subject,start,end,location,isAllDay,isCancelled,showAs&$top=100`;
+  const url =
+    `/users/${encodeURIComponent(memberEmail)}/calendarView` +
+    `?startDateTime=${encodeURIComponent(startDate)}&endDateTime=${encodeURIComponent(endDate)}` +
+    `&$select=id,subject,start,end,location,isAllDay,isCancelled,showAs,sensitivity&$top=100`;
 
   const data = await graphCalendarFetch<GraphCalendarResponse>(accessToken, url);
-  return data.value;
+  return (data.value || []).filter(
+    (row): row is GraphCalendarEvent => !isRemovedRow(row)
+  );
 }
+
+/** Public alias so callers outside this module can type external events. */
+export type ExternalGraphEvent = GraphCalendarEvent;
 
 /**
  * Search org members via Microsoft Graph (for adding external calendars).
@@ -667,6 +811,19 @@ function calendarEventToGraphFormat(event: CreateCalendarEventDTO): Record<strin
       emailAddress: { address: a.email, name: a.name || a.email },
       type: "required",
     }));
+  }
+
+  // CAL: a recurring Cantaia event was created in Outlook as a one-off —
+  // the RRULE was never translated. Simple daily/weekly/monthly patterns are
+  // now pushed; anything else logs and falls back to a single occurrence.
+  if (event.recurrence_rule) {
+    const recurrence = rruleToGraphRecurrence(
+      event.recurrence_rule,
+      event.start_at,
+      timeZone,
+      event.recurrence_end ?? null
+    );
+    if (recurrence) graphEvent.recurrence = recurrence;
   }
 
   return graphEvent;

@@ -8,22 +8,29 @@ import {
   buildPlanAnalysisPrompt,
   type PlanAnalysisContext,
 } from "./prompts";
-import { MODEL_FOR_TASK, isRetryableAIError } from "./ai-utils";
+import { MODEL_FOR_TASK, callAnthropicWithRetry, parseAIJson } from "./ai-utils";
 import {
   planAnalysisResultSchema,
   type PlanAnalysisResult,
 } from "../models/plan-analysis";
 import type { ApiUsageCallback } from "../tracking/api-cost-tracker";
 
-const DEFAULT_RESULT: PlanAnalysisResult = {
-  plan_type: "other",
-  discipline: "Inconnu",
-  title_block: null,
-  legend_items: [],
-  quantities: [],
-  observations: ["L'analyse n'a pas pu être effectuée."],
-  summary: "Analyse non disponible.",
-};
+/**
+ * Échec DUR de l'analyse (type non supporté, réponse illisible ou tronquée).
+ *
+ * Contrat : `analyzePlan` LÈVE cette erreur plutôt que de renvoyer un résultat
+ * vide "complété". La route persiste alors un statut `failed` (jamais mis en
+ * cache) et rembourse les crédits — l'ancien comportement enregistrait un
+ * résultat vide en `completed`, facturé et mis en cache, qui bloquait toute
+ * nouvelle tentative. Les erreurs réseau/surcharge (429/503/529) remontent
+ * telles quelles pour être classées par `classifyAIError`.
+ */
+export class PlanAnalysisError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PlanAnalysisError";
+  }
+}
 
 // Supported media types for Claude Vision
 type DocumentMediaType = "application/pdf";
@@ -79,94 +86,84 @@ export async function analyzePlan(
       },
     });
   } else {
-    console.error(`[analyzePlan] Unsupported file type: ${fileMediaType}`);
-    return DEFAULT_RESULT;
+    // Type non supporté : échec dur (jamais mis en cache/facturé côté route).
+    throw new PlanAnalysisError(`Type de fichier non supporté pour l'analyse : ${fileMediaType}`);
   }
 
   contentBlocks.push({ type: "text", text: prompt });
 
-  try {
-    const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 90_000 });
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
+  // maxRetries: 0 — la stratégie de retry est portée par callAnthropicWithRetry
+  // (sinon le SDK ajoute ses 2 retries par-dessus, soit un double retry sur un
+  // appel Vision facturé lourd).
+  const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 90_000, maxRetries: 0 });
 
-    const response = await client.messages.create({
+  // Les erreurs réseau/surcharge (429/503/529) remontent : la route les classe
+  // via classifyAIError. Les erreurs client (400/401/403) ne sont pas retentées.
+  const response = await callAnthropicWithRetry(() =>
+    client.messages.create({
       model,
       max_tokens: 8000,
       messages: [{ role: "user", content: contentBlocks }],
+    })
+  );
+
+  // Fire-and-forget usage tracking
+  try {
+    onUsage?.({
+      model,
+      inputTokens: response.usage?.input_tokens ?? 0,
+      outputTokens: response.usage?.output_tokens ?? 0,
     });
+  } catch { /* tracking must never fail */ }
 
-    // Fire-and-forget usage tracking
-    try {
-      onUsage?.({
-        model,
-        inputTokens: response.usage?.input_tokens ?? 0,
-        outputTokens: response.usage?.output_tokens ?? 0,
-      });
-    } catch { /* tracking must never fail */ }
-
-    if (response.stop_reason !== "end_turn") {
-      console.error(`[analyzePlan] Warning: response truncated (stop_reason=${response.stop_reason})`);
-    }
-
-    // Extract text content from response
-    const textBlock = response.content.find((block) => block.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      console.error("[analyzePlan] No text content in Claude response");
-      return DEFAULT_RESULT;
-    }
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[analyzePlan] Claude response length: ${textBlock.text.length} chars`);
-    }
-
-    // Parse JSON from response (handle markdown code blocks)
-    let jsonStr = textBlock.text.trim();
-    const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      jsonStr = codeBlockMatch[1].trim();
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let parsed: any;
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          parsed = JSON.parse(jsonMatch[0]);
-        } catch {
-          console.error("[analyzePlan] Failed to parse JSON even with regex fallback");
-          return DEFAULT_RESULT;
-        }
-      } else {
-        console.error("[analyzePlan] No JSON object found in response");
-        return DEFAULT_RESULT;
-      }
-    }
-    const validated = planAnalysisResultSchema.safeParse(parsed);
-
-    if (!validated.success) {
-      console.error("[analyzePlan] Invalid Claude response schema:", validated.error.issues);
-      console.error("[analyzePlan] Parsed JSON was:", JSON.stringify(parsed).substring(0, 1000));
-      // Try to return partial data even if validation fails
-      return {
-        ...DEFAULT_RESULT,
-        plan_type: parsed.plan_type || "other",
-        discipline: parsed.discipline || "Inconnu",
-        title_block: parsed.title_block || null,
-        legend_items: Array.isArray(parsed.legend_items) ? parsed.legend_items : [],
-        quantities: Array.isArray(parsed.quantities) ? parsed.quantities : [],
-        observations: Array.isArray(parsed.observations) ? parsed.observations : [],
-        summary: parsed.summary || "Analyse partielle — certains champs n'ont pas pu être validés.",
-      };
-    }
-
-    console.log(`[analyzePlan] Analysis complete: ${validated.data.plan_type}, ${validated.data.quantities.length} quantities found`);
-    return validated.data;
-  } catch (error: any) {
-    console.error("[analyzePlan] AI error:", error?.message || error);
-    if (isRetryableAIError(error)) throw error;
-    return DEFAULT_RESULT;
+  // Troncature = échec explicite : un JSON coupé donnerait des quantités
+  // partielles présentées comme complètes.
+  if (response.stop_reason === "max_tokens") {
+    throw new PlanAnalysisError(
+      "Réponse du modèle tronquée (plan trop dense) — analyse non fiable."
+    );
   }
+
+  const textBlock = response.content.find((block) => block.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new PlanAnalysisError("Réponse du modèle sans contenu texte.");
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[analyzePlan] Claude response length: ${textBlock.text.length} chars`);
+  }
+
+  // Parser tolérant partagé (fences markdown, virgules traînantes, préambules).
+  const parsed = parseAIJson<Record<string, any>>(textBlock.text);
+  if (!parsed || typeof parsed !== "object") {
+    throw new PlanAnalysisError("Réponse du modèle illisible (JSON invalide).");
+  }
+
+  const validated = planAnalysisResultSchema.safeParse(parsed);
+
+  if (!validated.success) {
+    console.error("[analyzePlan] Invalid Claude response schema:", validated.error.issues);
+    // Données partielles exploitables : on les retourne plutôt que d'échouer,
+    // MAIS seulement si le modèle a produit au moins des quantités ou un type.
+    const hasSignal =
+      Array.isArray(parsed.quantities) && parsed.quantities.length > 0;
+    if (!hasSignal) {
+      throw new PlanAnalysisError(
+        "Réponse du modèle non conforme et sans quantité exploitable."
+      );
+    }
+    return {
+      plan_type: parsed.plan_type || "other",
+      discipline: parsed.discipline || "Inconnu",
+      title_block: parsed.title_block || null,
+      legend_items: Array.isArray(parsed.legend_items) ? parsed.legend_items : [],
+      quantities: Array.isArray(parsed.quantities) ? parsed.quantities : [],
+      observations: Array.isArray(parsed.observations) ? parsed.observations : [],
+      summary: parsed.summary || "Analyse partielle — certains champs n'ont pas pu être validés.",
+    };
+  }
+
+  console.log(`[analyzePlan] Analysis complete: ${validated.data.plan_type}, ${validated.data.quantities.length} quantities found`);
+  return validated.data;
 }

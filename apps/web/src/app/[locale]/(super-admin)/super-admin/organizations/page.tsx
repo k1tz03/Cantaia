@@ -1,5 +1,7 @@
 "use client";
 
+import { subscriptionRevenueFor } from "@cantaia/config/credit-costs";
+
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -29,12 +31,7 @@ interface OrgCost {
   cost: number;
 }
 
-const PLAN_PRICING: Record<string, number> = {
-  trial: 0,
-  starter: 149,
-  pro: 349,
-  enterprise: 790,
-};
+
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   setup: { bg: "bg-yellow-500/10", text: "text-yellow-400", dot: "bg-yellow-400" },
@@ -129,9 +126,9 @@ export default function SuperAdminOrganizationsPage() {
         </div>
       ) : organizations.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#27272A] py-20">
-          <Building2 className="h-12 w-12 text-[#52525B]" />
+          <Building2 className="h-12 w-12 text-[#A1A1AA]" />
           <p className="mt-3 text-lg font-medium text-[#A1A1AA]">{t("noOrganizations")}</p>
-          <p className="mt-1 text-sm text-[#71717A]">{t("noOrganizationsDesc")}</p>
+          <p className="mt-1 text-sm text-[#A1A1AA]">{t("noOrganizationsDesc")}</p>
           <Link
             href="/super-admin/organizations/create"
             className="mt-4 flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
@@ -172,7 +169,7 @@ export default function SuperAdminOrganizationsPage() {
                         )}
                         <span>Plan : {PLAN_LABELS[org.plan] || org.plan}</span>
                       </div>
-                      <div className="mt-2 flex items-center gap-4 text-xs text-[#71717A]">
+                      <div className="mt-2 flex items-center gap-4 text-xs text-[#A1A1AA]">
                         <span className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
                           {org.member_count} {t("members")}
@@ -186,7 +183,7 @@ export default function SuperAdminOrganizationsPage() {
                       {(() => {
                         const cost = orgCosts.get(org.id);
                         const plan = (org as any).subscription_plan || (org as any).plan || "trial";
-                        const revenue = PLAN_PRICING[plan] || 0;
+                        const revenue = subscriptionRevenueFor(plan);
                         const aiCost = cost?.cost || 0;
                         const margin = revenue > 0 ? ((revenue - aiCost) / revenue) * 100 : 0;
                         return (
@@ -195,7 +192,7 @@ export default function SuperAdminOrganizationsPage() {
                               <Sparkles className="h-3 w-3" />
                               {cost?.calls || 0} appels IA
                             </span>
-                            <span className="flex items-center gap-1 text-[#71717A]">
+                            <span className="flex items-center gap-1 text-[#A1A1AA]">
                               <DollarSign className="h-3 w-3" />
                               {aiCost > 0 ? `${aiCost.toFixed(2)} CHF` : "0 CHF"}
                             </span>

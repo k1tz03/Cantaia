@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useProject } from "@/lib/hooks/use-supabase-data";
 import { createClient } from "@/lib/supabase/client";
+import { toLocalDateString } from "@/components/calendar/datetime-utils";
 import {
   ArrowLeft,
   CheckCircle,
@@ -14,11 +15,14 @@ import {
   XCircle,
   X,
   Loader2,
+  Plus,
+  ClipboardList,
 } from "lucide-react";
 import {
   formatDate,
 } from "@/lib/format";
 import type { ReceptionReserve } from "@cantaia/database";
+import { ReserveFormModal } from "@/components/closure/ReserveFormModal";
 
 const severityConfig = {
   minor: { label: "minor", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10", icon: "🟡" },
@@ -50,8 +54,28 @@ export default function ReservesPage() {
 
   const [selectedReserve, setSelectedReserve] = useState<ReceptionReserve | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
 
-  // ── Load receptions + reserves (RLS-scoped to the user's org) ──
+  /**
+   * Reserves come from GET /api/reserves (org-scoped, admin client) rather than
+   * a direct RLS query: a project manager who is not in `project_members` still
+   * has to see the reserves of his org's project.
+   */
+  const loadReserves = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`/api/reserves?project_id=${projectId}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Chargement des réserves impossible");
+      setReserves(data.reserves || []);
+      return data.reserves as ReceptionReserve[];
+    } catch (err: any) {
+      setLoadError(err?.message || "Erreur de chargement");
+      return undefined;
+    }
+  }, [projectId]);
+
+  // ── Load reception (for the header) + reserves ──
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
@@ -61,25 +85,16 @@ export default function ReservesPage() {
       setLoadError(null);
       try {
         const supabase = createClient();
-        const [recRes, resRes] = await Promise.all([
-          (supabase.from("project_receptions") as any)
-            .select("id, reception_date")
-            .eq("project_id", projectId)
-            .order("reception_date", { ascending: false })
-            .limit(1),
-          (supabase.from("reception_reserves") as any)
-            .select("*")
-            .eq("project_id", projectId)
-            .order("created_at", { ascending: true }),
-        ]);
+        const recPromise = (supabase.from("project_receptions") as any)
+          .select("id, reception_date")
+          .eq("project_id", projectId)
+          .order("reception_date", { ascending: false })
+          .limit(1);
+
+        const [recRes] = await Promise.all([recPromise, loadReserves()]);
 
         if (cancelled) return;
-        if (recRes.error || resRes.error) {
-          // Tables may not exist yet (migration 010 not applied)
-          setLoadError(recRes.error?.message || resRes.error?.message || null);
-        }
         setReception(recRes.data?.[0] || null);
-        setReserves(resRes.data || []);
       } catch (err: any) {
         if (!cancelled) setLoadError(err?.message || "Erreur de chargement");
       } finally {
@@ -90,29 +105,36 @@ export default function ReservesPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, loadReserves]);
 
-  /** Persists a status change on one reserve, then syncs local state. */
+  /**
+   * Persists a status change through PATCH /api/reserves so the linked task is
+   * updated in the same move (verified ⇒ task done). Writing straight to the
+   * table would leave the task open forever.
+   */
   const updateReserve = useCallback(
     async (reserveId: string, updates: Record<string, unknown>) => {
       setSaving(true);
+      setLoadError(null);
       try {
-        const supabase = createClient();
-        const { data, error } = await (supabase.from("reception_reserves") as any)
-          .update({ ...updates, updated_at: new Date().toISOString() })
-          .eq("id", reserveId)
-          .select("*")
-          .single();
+        const res = await fetch("/api/reserves", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: reserveId, ...updates }),
+        });
+        const data = await res.json().catch(() => ({}));
 
-        if (error) {
-          console.error("[Reserves] Update error:", error.message);
-          setLoadError(error.message);
+        if (!res.ok || !data.reserve) {
+          console.error("[Reserves] Update error:", data.error);
+          setLoadError(data.error || "Mise à jour impossible");
           return;
         }
 
-        setReserves((prev) => prev.map((r) => (r.id === reserveId ? data : r)));
+        setReserves((prev) => prev.map((r) => (r.id === reserveId ? data.reserve : r)));
         setSelectedReserve(null);
         setCorrectionNotes("");
+      } catch (err: any) {
+        setLoadError(err?.message || "Mise à jour impossible");
       } finally {
         setSaving(false);
       }
@@ -132,7 +154,7 @@ export default function ReservesPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-[#71717A]">{t("projectNotFound")}</p>
+        <p className="text-[#A1A1AA]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -143,22 +165,20 @@ export default function ReservesPage() {
 
   const isOverdue = (reserve: ReceptionReserve) => {
     if (!reserve.deadline) return false;
-    return reserve.deadline < new Date().toISOString().split("T")[0] && reserve.status !== "verified";
+    return reserve.deadline < toLocalDateString(new Date()) && reserve.status !== "verified";
   };
 
+  // corrected_at / verified_at / verified_by are stamped server-side by
+  // PATCH /api/reserves — the client only declares the intent.
   const handleMarkCorrected = (reserveId: string) => {
     updateReserve(reserveId, {
       status: "corrected",
       correction_notes: correctionNotes.trim() || null,
-      corrected_at: new Date().toISOString(),
     });
   };
 
   const handleMarkVerified = (reserveId: string) => {
-    updateReserve(reserveId, {
-      status: "verified",
-      verified_at: new Date().toISOString(),
-    });
+    updateReserve(reserveId, { status: "verified" });
   };
 
   const handleMarkDisputed = (reserveId: string) => {
@@ -171,19 +191,27 @@ export default function ReservesPage() {
       <div className="flex items-start gap-4">
         <Link
           href={`/projects/${project.id}/closure`}
-          className="mt-1 rounded-md p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+          className="mt-1 rounded-md p-2 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-semibold text-[#FAFAFA]">
             {t("reservesTitle")} — {project.name}
           </h1>
-          <p className="mt-1 text-sm text-[#71717A]">
+          <p className="mt-1 text-sm text-[#A1A1AA]">
             {reception?.reception_date && `PV de réception du ${formatDate(reception.reception_date)}`}
             {" — "}{totalCount} {t("reserves").toLowerCase()}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="mt-1 inline-flex shrink-0 items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-[#0F0F11] transition-colors hover:bg-[#EA580C]"
+        >
+          <Plus className="h-4 w-4" />
+          Ajouter une réserve
+        </button>
       </div>
 
       {loadError && (
@@ -197,7 +225,7 @@ export default function ReservesPage() {
       <div className="mt-6">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-[#FAFAFA]">{t("progression")}</span>
-          <span className="text-[#71717A]">{verifiedCount}/{totalCount} {t("reserveVerified").toLowerCase()}</span>
+          <span className="text-[#A1A1AA]">{verifiedCount}/{totalCount} {t("reserveVerified").toLowerCase()}</span>
         </div>
         <div className="mt-2 h-2.5 w-full rounded-full bg-[#27272A]">
           <div
@@ -230,19 +258,29 @@ export default function ReservesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#27272A] bg-[#27272A]">
-              <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A]">{t("reserveRef")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A]">{t("reserveDescription")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A]">{t("reserveLot")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A]">{t("reserveSeverity")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A]">{t("deadline")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A]">{t("reserveStatus")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-[#A1A1AA]">{t("reserveRef")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-[#A1A1AA]">{t("reserveDescription")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-[#A1A1AA]">{t("reserveLot")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-[#A1A1AA]">{t("reserveSeverity")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-[#A1A1AA]">{t("deadline")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-[#A1A1AA]">{t("reserveStatus")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {reserves.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-[#71717A]">
-                  0 {t("reserves").toLowerCase()}
+                <td colSpan={6} className="px-4 py-10 text-center">
+                  <ClipboardList className="mx-auto h-8 w-8 text-[#52525B]" />
+                  <p className="mt-2 text-sm text-[#A1A1AA]">
+                    Aucune réserve enregistrée pour ce projet.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreate(true)}
+                    className="mt-3 text-sm font-medium text-[#F97316] hover:text-[#EA580C]"
+                  >
+                    Ajouter la première réserve
+                  </button>
                 </td>
               </tr>
             )}
@@ -260,13 +298,13 @@ export default function ReservesPage() {
                     selectedReserve?.id === reserve.id ? "bg-[#F97316]/10" : ""
                   } ${overdue ? "bg-red-500/10" : ""}`}
                 >
-                  <td className="px-4 py-3 font-mono text-xs text-[#71717A]">
+                  <td className="px-4 py-3 font-mono text-xs text-[#A1A1AA]">
                     R-{String(index + 1).padStart(3, "0")}
                   </td>
                   <td className="max-w-xs truncate px-4 py-3 font-medium text-[#FAFAFA]">
                     {reserve.description}
                   </td>
-                  <td className="px-4 py-3 text-xs text-[#71717A]">
+                  <td className="px-4 py-3 text-xs text-[#A1A1AA]">
                     {reserve.cfc_code && `CFC ${reserve.cfc_code}`}
                   </td>
                   <td className="px-4 py-3">
@@ -274,7 +312,7 @@ export default function ReservesPage() {
                       {sev.icon} {t(sev.label)}
                     </span>
                   </td>
-                  <td className={`px-4 py-3 text-xs ${overdue ? "font-medium text-red-600 dark:text-red-400" : "text-[#71717A]"}`}>
+                  <td className={`px-4 py-3 text-xs ${overdue ? "font-medium text-red-600 dark:text-red-400" : "text-[#A1A1AA]"}`}>
                     {reserve.deadline ? formatDate(reserve.deadline) : "—"}
                     {overdue && <span className="ml-1">⚠️</span>}
                   </td>
@@ -301,7 +339,7 @@ export default function ReservesPage() {
             <button
               type="button"
               onClick={() => setSelectedReserve(null)}
-              className="rounded-md p-1 text-[#71717A] hover:bg-[#27272A]"
+              className="rounded-md p-1 text-[#A1A1AA] hover:bg-[#27272A]"
             >
               <X className="h-4 w-4" />
             </button>
@@ -310,22 +348,22 @@ export default function ReservesPage() {
           <div className="flex-1 overflow-y-auto p-5">
             <dl className="space-y-4 text-sm">
               <div>
-                <dt className="text-xs font-medium text-[#71717A]">{t("reserveLocation")}</dt>
+                <dt className="text-xs font-medium text-[#A1A1AA]">{t("reserveLocation")}</dt>
                 <dd className="mt-0.5 text-[#FAFAFA]">{selectedReserve.location || "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium text-[#71717A]">{t("reserveLot")}</dt>
+                <dt className="text-xs font-medium text-[#A1A1AA]">{t("reserveLot")}</dt>
                 <dd className="mt-0.5 text-[#FAFAFA]">
                   {selectedReserve.cfc_code && `CFC ${selectedReserve.cfc_code} — `}
                   {selectedReserve.lot_name || "—"}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-medium text-[#71717A]">{t("company")}</dt>
+                <dt className="text-xs font-medium text-[#A1A1AA]">{t("company")}</dt>
                 <dd className="mt-0.5 text-[#FAFAFA]">{selectedReserve.responsible_company || "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium text-[#71717A]">{t("deadline")}</dt>
+                <dt className="text-xs font-medium text-[#A1A1AA]">{t("deadline")}</dt>
                 <dd className={`mt-0.5 ${isOverdue(selectedReserve) ? "font-medium text-red-600 dark:text-red-400" : "text-[#FAFAFA]"}`}>
                   {selectedReserve.deadline ? formatDate(selectedReserve.deadline) : "—"}
                   {isOverdue(selectedReserve) && ` — ${t("overdue")}`}
@@ -334,14 +372,14 @@ export default function ReservesPage() {
 
               {selectedReserve.correction_notes && (
                 <div>
-                  <dt className="text-xs font-medium text-[#71717A]">{t("correctionNotes")}</dt>
+                  <dt className="text-xs font-medium text-[#A1A1AA]">{t("correctionNotes")}</dt>
                   <dd className="mt-0.5 text-[#FAFAFA]">{selectedReserve.correction_notes}</dd>
                 </div>
               )}
 
               {selectedReserve.corrected_at && (
                 <div>
-                  <dt className="text-xs font-medium text-[#71717A]">{t("correctedAt")}</dt>
+                  <dt className="text-xs font-medium text-[#A1A1AA]">{t("correctedAt")}</dt>
                   <dd className="mt-0.5 text-[#FAFAFA]">
                     {formatDate(selectedReserve.corrected_at)} par {selectedReserve.corrected_by}
                   </dd>
@@ -350,7 +388,7 @@ export default function ReservesPage() {
 
               {selectedReserve.verified_at && (
                 <div>
-                  <dt className="text-xs font-medium text-[#71717A]">{t("verifiedAt")}</dt>
+                  <dt className="text-xs font-medium text-[#A1A1AA]">{t("verifiedAt")}</dt>
                   <dd className="mt-0.5 text-[#FAFAFA]">{formatDate(selectedReserve.verified_at)}</dd>
                 </div>
               )}
@@ -362,7 +400,7 @@ export default function ReservesPage() {
                 {(selectedReserve.status === "open" || selectedReserve.status === "in_progress") && (
                   <>
                     <div>
-                      <label className="text-xs font-medium text-[#71717A]">{t("correctionNotes")}</label>
+                      <label className="text-xs font-medium text-[#A1A1AA]">{t("correctionNotes")}</label>
                       <textarea
                         value={correctionNotes}
                         onChange={(e) => setCorrectionNotes(e.target.value)}
@@ -407,6 +445,15 @@ export default function ReservesPage() {
             )}
           </div>
         </div>
+      )}
+
+      {showCreate && (
+        <ReserveFormModal
+          projectId={projectId}
+          receptionId={reception?.id ?? null}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => loadReserves()}
+        />
       )}
     </div>
   );

@@ -69,7 +69,7 @@ export default function TeamHealthCard({
           <p className="truncate text-sm font-medium text-[#FAFAFA]">
             {member.first_name} {member.last_name}
           </p>
-          <p className="truncate text-xs text-[#71717A]">
+          <p className="truncate text-xs text-[#A1A1AA]">
             {getRoleLabel(member.role)}
           </p>
         </div>
@@ -85,12 +85,12 @@ export default function TeamHealthCard({
                 ? "text-red-600"
                 : member.overdue_tasks > 0
                   ? "text-amber-600"
-                  : "text-[#71717A]"
+                  : "text-[#A1A1AA]"
             }`}
           >
             {member.overdue_tasks}
           </div>
-          <div className="flex items-center justify-center gap-0.5 text-[10px] text-[#71717A]">
+          <div className="flex items-center justify-center gap-0.5 text-[10px] text-[#A1A1AA]">
             <AlertTriangle className="h-2.5 w-2.5" />
             {t("overdueTasks")}
           </div>
@@ -101,7 +101,7 @@ export default function TeamHealthCard({
           <div className="text-lg font-bold text-[#F97316]">
             {member.in_progress_tasks}
           </div>
-          <div className="flex items-center justify-center gap-0.5 text-[10px] text-[#71717A]">
+          <div className="flex items-center justify-center gap-0.5 text-[10px] text-[#A1A1AA]">
             <Loader2 className="h-2.5 w-2.5" />
             {t("inProgressTasks")}
           </div>
@@ -113,12 +113,12 @@ export default function TeamHealthCard({
             className={`text-lg font-bold ${
               member.unprocessed_emails > 10
                 ? "text-amber-600"
-                : "text-[#71717A]"
+                : "text-[#A1A1AA]"
             }`}
           >
             {member.unprocessed_emails}
           </div>
-          <div className="flex items-center justify-center gap-0.5 text-[10px] text-[#71717A]">
+          <div className="flex items-center justify-center gap-0.5 text-[10px] text-[#A1A1AA]">
             <Mail className="h-2.5 w-2.5" />
             Emails
           </div>
@@ -127,10 +127,10 @@ export default function TeamHealthCard({
 
       {/* Last sign-in */}
       <div className="mt-2 flex items-center gap-1.5 border-t border-[#27272A] pt-2">
-        <Clock className="h-3 w-3 text-[#71717A]" />
+        <Clock className="h-3 w-3 text-[#A1A1AA]" />
         <span
           className={`text-xs ${
-            lastSignIn.isOld ? "font-medium text-amber-600" : "text-[#71717A]"
+            lastSignIn.isOld ? "font-medium text-amber-600" : "text-[#A1A1AA]"
           }`}
         >
           {lastSignIn.isOld && member.last_sign_in

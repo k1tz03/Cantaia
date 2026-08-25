@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Calculator,
   Clock,
@@ -9,6 +10,8 @@ import {
   Upload,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 import {
   PlanOption,
   PricingConfig,
@@ -31,6 +34,8 @@ const USE_MANAGED_AGENTS = process.env.NEXT_PUBLIC_USE_MANAGED_AGENTS === "true"
 
 export default function CantaiaPrixPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const t = useTranslations("cantaiaPrix");
   const urlPlanId = searchParams.get("plan_id");
   const urlAnalysisId = searchParams.get("analysis_id");
 
@@ -136,12 +141,26 @@ export default function CantaiaPrixPage() {
     [extractorAgent]
   );
 
+  // Helper : convertit une réponse en JSON, redirige vers /login sur 401
+  // (convention : session expirée → login) et renvoie null sur échec.
+  const jsonOrRedirect = useCallback(
+    async (res: Response): Promise<any | null> => {
+      if (res.status === 401) {
+        router.replace("/login");
+        return null;
+      }
+      if (!res.ok) return null;
+      return res.json().catch(() => null);
+    },
+    [router]
+  );
+
   // ── Load config from API ──
   useEffect(() => {
     fetch("/api/pricing/config")
-      .then((r) => r.json())
+      .then(jsonOrRedirect)
       .then((d) => {
-        if (d.config) {
+        if (d?.config) {
           setConfig(d.config);
           setExclusionsText((d.config.default_exclusions || []).join(", "));
           setScope(d.config.default_scope || "line_by_line");
@@ -149,13 +168,14 @@ export default function CantaiaPrixPage() {
         setConfigLoaded(true);
       })
       .catch(() => setConfigLoaded(true));
-  }, []);
+  }, [jsonOrRedirect]);
 
   // ── Load plans from API ──
   useEffect(() => {
     fetch("/api/plans")
-      .then((r) => r.json())
+      .then(jsonOrRedirect)
       .then((d) => {
+        if (!d) return;
         const plansList = (d.plans || []).map((p: any) => ({
           id: p.id,
           plan_number: p.plan_number,
@@ -169,7 +189,7 @@ export default function CantaiaPrixPage() {
       })
       .catch(() => {})
       .finally(() => setPlansLoading(false));
-  }, [urlPlanId]);
+  }, [urlPlanId, jsonOrRedirect]);
 
   // ── Auto-load analysis if analysis_id in URL ──
   useEffect(() => {
@@ -198,13 +218,13 @@ export default function CantaiaPrixPage() {
   const loadHistory = useCallback(() => {
     setHistoryLoading(true);
     fetch("/api/pricing/estimates")
-      .then((r) => r.json())
+      .then(jsonOrRedirect)
       .then((d) => {
-        if (d.estimates) setHistory(d.estimates);
+        if (d?.estimates) setHistory(d.estimates);
       })
       .catch(() => {})
       .finally(() => setHistoryLoading(false));
-  }, []);
+  }, [jsonOrRedirect]);
 
   useEffect(() => {
     loadHistory();
@@ -213,13 +233,14 @@ export default function CantaiaPrixPage() {
   // ── Load projects for benchmark filter ──
   useEffect(() => {
     fetch("/api/projects/list")
-      .then((r) => r.json())
+      .then(jsonOrRedirect)
       .then((d) => {
+        if (!d) return;
         const list = (d.projects || d || []).map((p: any) => ({ id: p.id, name: p.name }));
         setProjects(list);
       })
       .catch(() => {});
-  }, []);
+  }, [jsonOrRedirect]);
 
   // ── Load benchmark data ──
   const loadBenchmark = useCallback(async (projectFilter?: string) => {
@@ -229,16 +250,16 @@ export default function CantaiaPrixPage() {
         ? `/api/pricing/benchmark?project_id=${projectFilter}`
         : "/api/pricing/benchmark";
       const res = await fetch(url);
-      const data = await res.json();
-      setBenchmarkData(data.items || []);
-      setBenchmarkSummary(data.summary || null);
+      const data = await jsonOrRedirect(res);
+      setBenchmarkData(data?.items || []);
+      setBenchmarkSummary(data?.summary || null);
     } catch {
       setBenchmarkData([]);
       setBenchmarkSummary(null);
     } finally {
       setBenchmarkLoading(false);
     }
-  }, []);
+  }, [jsonOrRedirect]);
 
   // Auto-load benchmark on tab switch
   useEffect(() => {
@@ -261,13 +282,13 @@ export default function CantaiaPrixPage() {
     setHistoryDetailLoading(true);
     setHistoryDetail(null);
     fetch(`/api/pricing/estimates/${estimateId}`)
-      .then((r) => r.json())
+      .then(jsonOrRedirect)
       .then((d) => {
-        if (d.estimate) setHistoryDetail(d.estimate);
+        if (d?.estimate) setHistoryDetail(d.estimate);
       })
       .catch(() => {})
       .finally(() => setHistoryDetailLoading(false));
-  }, []);
+  }, [jsonOrRedirect]);
 
   // ── Run estimation ──
   const handleEstimate = useCallback(async () => {
@@ -278,7 +299,7 @@ export default function CantaiaPrixPage() {
     const analysisId = urlAnalysisId || analysisData?.id;
 
     if (!analysisId && !selectedPlanId) {
-      setEstimateError("Veuillez sélectionner un plan ou fournir un analysis_id.");
+      setEstimateError(t("errors.selectPlanOrAnalysis"));
       setEstimating(false);
       return;
     }
@@ -291,23 +312,32 @@ export default function CantaiaPrixPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ plan_id: selectedPlanId }),
         });
-        const analyzeData = await analyzeRes.json();
-        if (!analyzeRes.ok || !analyzeData.success) {
-          setEstimateError(analyzeData.error || "Erreur lors de l'analyse du plan.");
+        if (analyzeRes.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (await handleInsufficientCredits(analyzeRes)) {
           setEstimating(false);
           return;
         }
+        const analyzeData = await analyzeRes.json();
+        if (!analyzeRes.ok || !analyzeData.success) {
+          setEstimateError(analyzeData.error || t("errors.planAnalysis"));
+          setEstimating(false);
+          return;
+        }
+        notifyCreditsChanged();
         finalAnalysisId = analyzeData.analysis?.id;
         setAnalysisData(analyzeData.analysis);
       } catch (err: unknown) {
-        setEstimateError(err instanceof Error ? err.message : "Erreur lors de l'analyse du plan.");
+        setEstimateError(err instanceof Error ? err.message : t("errors.planAnalysis"));
         setEstimating(false);
         return;
       }
     }
 
     if (!finalAnalysisId) {
-      setEstimateError("Impossible de déterminer l'analyse à utiliser.");
+      setEstimateError(t("errors.cannotDetermineAnalysis"));
       setEstimating(false);
       return;
     }
@@ -335,19 +365,27 @@ export default function CantaiaPrixPage() {
           config: estimateConfig,
         }),
       });
+      if (res.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      if (await handleInsufficientCredits(res)) {
+        return;
+      }
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setEstimateError(data.error || "Erreur lors de l'estimation.");
+        setEstimateError(data.error || t("errors.estimation"));
       } else {
         setEstimateResult(data.estimate);
+        notifyCreditsChanged();
         loadHistory();
       }
     } catch (err: unknown) {
-      setEstimateError(err instanceof Error ? err.message : "Erreur réseau.");
+      setEstimateError(err instanceof Error ? err.message : t("errors.network"));
     } finally {
       setEstimating(false);
     }
-  }, [config, exclusionsText, scope, context, selectedPlanId, urlAnalysisId, analysisData, loadHistory]);
+  }, [config, exclusionsText, scope, context, selectedPlanId, urlAnalysisId, analysisData, loadHistory, router, t]);
 
   // ── Selected plan display ──
   const selectedPlan = useMemo(
@@ -371,9 +409,9 @@ export default function CantaiaPrixPage() {
               <Calculator className="h-5 w-5 text-brand" />
             </div>
             <div>
-              <h1 className="text-xl font-display font-extrabold text-[#FAFAFA]">Cantaia Prix</h1>
-              <p className="text-sm text-[#71717A]">
-                Estimation automatique des coûts pour vos projets de construction
+              <h1 className="text-xl font-display font-extrabold text-[#FAFAFA]">{t("title")}</h1>
+              <p className="text-sm text-[#A1A1AA]">
+                {t("subtitle")}
               </p>
             </div>
           </div>
@@ -383,10 +421,10 @@ export default function CantaiaPrixPage() {
         <div className="mb-6 flex flex-wrap gap-1 rounded-lg bg-[#27272A] p-0.5 w-fit">
           {([
             // HIDDEN: Budget estimation temporarily disabled — prices unreliable
-            // { key: "estimate" as Tab, label: "Chiffrage IA", icon: Calculator },
-            { key: "import" as Tab, label: "Import prix", icon: Upload },
-            { key: "analysis" as Tab, label: "Analyse prix", icon: BarChart3 },
-            { key: "history" as Tab, label: "Historique", icon: Clock },
+            // { key: "estimate" as Tab, label: t("tabs.estimate"), icon: Calculator },
+            { key: "import" as Tab, label: t("tabs.import"), icon: Upload },
+            { key: "analysis" as Tab, label: t("tabs.analysis"), icon: BarChart3 },
+            { key: "history" as Tab, label: t("tabs.history"), icon: Clock },
           ]).map((tab) => (
             <button
               key={tab.key}
@@ -395,7 +433,7 @@ export default function CantaiaPrixPage() {
                 "flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors",
                 activeTab === tab.key
                   ? "bg-[#0F0F11] text-[#FAFAFA] shadow-sm"
-                  : "text-[#71717A] hover:text-[#FAFAFA]"
+                  : "text-[#A1A1AA] hover:text-[#FAFAFA]"
               )}
             >
               <tab.icon className="h-3.5 w-3.5" />

@@ -43,13 +43,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No organization found" }, { status: 400 });
   }
 
-  // Delete existing connections for this user
-  await adminClient
-    .from("email_connections")
-    .delete()
-    .eq("user_id", user.id);
+  // Encrypt BEFORE any mutation: encryptPassword throws when
+  // EMAIL_ENCRYPTION_KEY is missing. The old order deleted the existing
+  // connection first, so a missing key destroyed the previous connection and
+  // then failed — leaving the user with nothing.
+  let imapPasswordEncrypted: string;
+  let smtpPasswordEncrypted: string;
+  try {
+    imapPasswordEncrypted = encryptPassword(imap_password);
+    smtpPasswordEncrypted = encryptPassword(smtp_password || imap_password);
+  } catch (err) {
+    console.error("[save-connection] Encryption failed:", err);
+    return NextResponse.json({ error: "Email encryption is not configured" }, { status: 500 });
+  }
 
-  // Insert new IMAP connection
+  // Insert the new IMAP connection FIRST (convention §8: insert-before-delete).
   const { data: connection, error } = await adminClient
     .from("email_connections")
     .insert({
@@ -60,12 +68,12 @@ export async function POST(request: Request) {
       imap_port: imap_port || 993,
       imap_security: imap_security || "ssl",
       imap_username: imap_username || email_address,
-      imap_password_encrypted: encryptPassword(imap_password),
+      imap_password_encrypted: imapPasswordEncrypted,
       smtp_host: smtp_host || imap_host,
       smtp_port: smtp_port || 587,
       smtp_security: smtp_security || "tls",
       smtp_username: smtp_username || imap_username || email_address,
-      smtp_password_encrypted: encryptPassword(smtp_password || imap_password),
+      smtp_password_encrypted: smtpPasswordEncrypted,
       email_address,
       display_name: display_name || null,
       status: "active",
@@ -73,8 +81,19 @@ export async function POST(request: Request) {
     .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !connection) {
+    return NextResponse.json({ error: error?.message || "Failed to save connection" }, { status: 500 });
+  }
+
+  // Only after the new row exists, remove the user's OTHER connections.
+  const { error: deleteErr } = await adminClient
+    .from("email_connections")
+    .delete()
+    .eq("user_id", user.id)
+    .neq("id", connection.id);
+  if (deleteErr) {
+    // The new connection is saved; a stale sibling is non-fatal.
+    console.warn("[save-connection] could not remove previous connections:", deleteErr.message);
   }
 
   return NextResponse.json({ success: true, connection });

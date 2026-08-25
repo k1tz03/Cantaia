@@ -68,23 +68,23 @@ export default function QuantityCorrectionModal({ poste, consensusValeurs, conse
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-[#0F0F11] rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold text-[#0A1F30] mb-4">Corriger la quantité</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-[#18181B] border border-[#27272A] rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-[#FAFAFA] mb-4">Corriger la quantité</h3>
 
         <div className="space-y-4">
           {/* Poste info */}
-          <div className="bg-[#F5F2EB] rounded-lg p-3">
-            <div className="text-xs text-[#8A9CA8]">Poste</div>
-            <div className="font-medium text-[#0A1F30]">{poste.cfc_code} — {poste.description}</div>
+          <div className="bg-[#0F0F11] border border-[#27272A] rounded-lg p-3">
+            <div className="text-xs text-[#A1A1AA]">Poste</div>
+            <div className="font-medium text-[#FAFAFA]">{poste.cfc_code} — {poste.description}</div>
           </div>
 
           {/* Valeur estimée */}
           <div>
-            <label className="text-sm text-[#8A9CA8]">Valeur estimée (non modifiable)</label>
+            <label className="text-sm text-[#A1A1AA]">Valeur estimée (non modifiable)</label>
             <div className="flex items-center gap-2 mt-1">
-              <div className="bg-[#27272A] rounded px-3 py-2 font-mono text-lg">{poste.quantite}</div>
-              <span className="text-sm text-[#8A9CA8]">{poste.unite}</span>
+              <div className="bg-[#27272A] text-[#FAFAFA] rounded px-3 py-2 font-mono text-lg">{poste.quantite}</div>
+              <span className="text-sm text-[#A1A1AA]">{poste.unite}</span>
               {consensusMethode && (
                 <span className="text-xs bg-[#F97316]/10 text-[#F97316] px-2 py-0.5 rounded">
                   {consensusMethode}
@@ -96,13 +96,13 @@ export default function QuantityCorrectionModal({ poste, consensusValeurs, conse
           {/* Détail par modèle */}
           {consensusValeurs && consensusValeurs.length > 0 && (
             <div>
-              <button onClick={() => setShowDetail(!showDetail)} className="text-xs text-[#C4A661] hover:underline">
+              <button onClick={() => setShowDetail(!showDetail)} className="text-xs text-[#F97316] hover:underline">
                 {showDetail ? 'Masquer' : 'Voir'} le détail par modèle
               </button>
               {showDetail && (
                 <div className="mt-2 space-y-1">
                   {consensusValeurs.map((v) => (
-                    <div key={v.provider} className="flex justify-between text-sm bg-[#27272A] rounded px-3 py-1">
+                    <div key={v.provider} className="flex justify-between text-sm bg-[#27272A] text-[#FAFAFA] rounded px-3 py-1">
                       <span className="capitalize">{v.provider}</span>
                       <span className="font-mono">{v.quantite} ({v.ecart_vs_median_pct > 0 ? '+' : ''}{Math.round(v.ecart_vs_median_pct)}%)</span>
                     </div>
@@ -114,18 +114,18 @@ export default function QuantityCorrectionModal({ poste, consensusValeurs, conse
 
           {/* Quantité corrigée */}
           <div>
-            <label className="text-sm text-[#8A9CA8]">Quantité corrigée</label>
+            <label className="text-sm text-[#A1A1AA]">Quantité corrigée</label>
             <div className="flex items-center gap-2 mt-1">
               <input
                 type="number"
                 step="0.01"
                 value={quantiteCorrigee}
                 onChange={(e) => setQuantiteCorrigee(e.target.value)}
-                className="border border-[#27272A] rounded-lg px-3 py-2 font-mono text-lg w-40 focus:outline-none focus:ring-2 focus:ring-[#C4A661]"
+                className="bg-[#0F0F11] text-[#FAFAFA] border border-[#27272A] rounded-lg px-3 py-2 font-mono text-lg w-40 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
               />
-              <span className="text-sm text-[#8A9CA8]">{poste.unite}</span>
+              <span className="text-sm text-[#A1A1AA]">{poste.unite}</span>
               {ecartPct !== 0 && (
-                <span className={`text-sm font-medium ${ecartPct > 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                <span className={`text-sm font-medium ${ecartPct > 0 ? 'text-[#EF4444]' : 'text-[#3B82F6]'}`}>
                   {ecartPct > 0 ? '+' : ''}{ecartPct}%
                 </span>
               )}
@@ -134,11 +134,11 @@ export default function QuantityCorrectionModal({ poste, consensusValeurs, conse
 
           {/* Raison */}
           <div>
-            <label className="text-sm text-[#8A9CA8]">Raison de la correction</label>
+            <label className="text-sm text-[#A1A1AA]">Raison de la correction</label>
             <select
               value={raison}
               onChange={(e) => setRaison(e.target.value)}
-              className="w-full border border-[#27272A] rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-[#C4A661]"
+              className="w-full bg-[#0F0F11] text-[#FAFAFA] border border-[#27272A] rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
             >
               <option value="">Sélectionner...</option>
               {RAISONS.map((r) => (
@@ -149,36 +149,36 @@ export default function QuantityCorrectionModal({ poste, consensusValeurs, conse
 
           {/* Commentaire */}
           <div>
-            <label className="text-sm text-[#8A9CA8]">Commentaire (optionnel)</label>
+            <label className="text-sm text-[#A1A1AA]">Commentaire (optionnel)</label>
             <textarea
               value={commentaire}
               onChange={(e) => setCommentaire(e.target.value)}
               rows={2}
-              className="w-full border border-[#27272A] rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-[#C4A661] resize-none"
+              className="w-full bg-[#0F0F11] text-[#FAFAFA] border border-[#27272A] rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-[#F97316] resize-none placeholder-[#71717A]"
               placeholder="Précisions sur la correction..."
             />
           </div>
 
           {/* Message info */}
-          <div className="text-xs text-[#8A9CA8] bg-[#F97316]/10 rounded p-2">
+          <div className="text-xs text-[#A1A1AA] bg-[#F97316]/10 rounded p-2">
             Cette correction améliorera les futures estimations sur ce type d'élément.
           </div>
 
           {error && (
-            <div className="rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-400">
+            <div className="rounded border border-[#EF4444]/30 bg-[#EF4444]/10 p-2 text-xs text-[#EF4444]">
               {error}
             </div>
           )}
 
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-[#71717A] hover:text-[#FAFAFA]">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-[#A1A1AA] hover:text-[#FAFAFA]">
               Annuler
             </button>
             <button
               onClick={handleSave}
               disabled={saving || !raison || !quantiteCorrigee}
-              className="px-4 py-2 bg-[#0A1F30] text-white rounded-lg text-sm hover:bg-[#0A1F30]/90 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-[#F97316] text-[#0F0F11] rounded-lg text-sm font-medium hover:bg-[#EA580C] disabled:opacity-50 transition-colors"
             >
               {saving ? 'Enregistrement...' : 'Enregistrer la correction'}
             </button>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { gateFolderSuggestion, type FolderSuggestionCandidate } from "@cantaia/core/emails";
+import { logLearningEvent } from "@cantaia/core/learning";
 
 /**
  * POST /api/email/suggest-folder
@@ -50,8 +52,10 @@ export async function POST(request: NextRequest) {
       folderMap.set(f.id, f.name);
     }
 
-    type ScoredSuggestion = { folder_id: string; folder_name: string; score: number; reason: string };
-    const candidates: ScoredSuggestion[] = [];
+    // AUDIT 08/2026 — chaque candidat porte le plafond de son tier : la
+    // normalisation + le seuil (≥0.6 sinon pas de suggestion) sont appliqués
+    // par gateFolderSuggestion (@cantaia/core/emails), testé unitairement.
+    const candidates: FolderSuggestionCandidate[] = [];
 
     // ── Tier 0: Project name matching ──────────────────────────
     // When the email is assigned to a project, find the folder whose name
@@ -61,10 +65,14 @@ export async function POST(request: NextRequest) {
       // Also try to match project name from DB if project_id is provided
       let dbProjectName: string | null = null;
       if (project_id) {
+        // Anti-IDOR / oracle cross-tenant : le service role bypasse la RLS, donc
+        // le lookup DOIT être scopé à l'org du caller — sinon un project_id
+        // arbitraire révèle le nom d'un projet d'une autre organisation.
         const { data: proj } = await (admin as any)
           .from("projects")
           .select("name")
           .eq("id", project_id)
+          .eq("organization_id", profile.organization_id)
           .maybeSingle();
         if (proj?.name) dbProjectName = proj.name.toLowerCase().trim();
       }
@@ -82,6 +90,8 @@ export async function POST(request: NextRequest) {
             folder_id: folderId,
             folder_name: folderName,
             score: 200, // Always wins over rule-based suggestions
+            tier_max: 200,
+            decision_source: "project_match",
             reason: `Projet "${project_name}" → ${folderName}`,
           });
         }
@@ -114,6 +124,8 @@ export async function POST(request: NextRequest) {
             folder_id: rule.folder_id,
             folder_name: folderName,
             score: 100 * confidence * projectBoost,
+            tier_max: 100,
+            decision_source: "sender_email",
             reason: `Expéditeur ${sender_email} → ${folderName}`,
           });
         } else if (rule.rule_type === "sender_domain" && rule.rule_value.toLowerCase() === senderDomain) {
@@ -121,6 +133,8 @@ export async function POST(request: NextRequest) {
             folder_id: rule.folder_id,
             folder_name: folderName,
             score: 70 * confidence * projectBoost,
+            tier_max: 70,
+            decision_source: "sender_domain",
             reason: `Domaine @${senderDomain} → ${folderName}`,
           });
         } else if (rule.rule_type === "subject_keyword" && subjectLower.includes(rule.rule_value.toLowerCase())) {
@@ -128,6 +142,8 @@ export async function POST(request: NextRequest) {
             folder_id: rule.folder_id,
             folder_name: folderName,
             score: 50 * confidence * projectBoost,
+            tier_max: 50,
+            decision_source: "subject_keyword",
             reason: `Sujet contient "${rule.rule_value}" → ${folderName}`,
           });
         } else if (rule.rule_type === "body_keyword" && bodyLower.includes(rule.rule_value.toLowerCase())) {
@@ -135,35 +151,40 @@ export async function POST(request: NextRequest) {
             folder_id: rule.folder_id,
             folder_name: folderName,
             score: 30 * confidence * projectBoost,
+            tier_max: 30,
+            decision_source: "body_keyword",
             reason: `Corps contient "${rule.rule_value}" → ${folderName}`,
           });
         }
       }
     }
 
-    if (candidates.length === 0) {
+    // Gate : normalisation par tier + seuil ≥0.6, sinon pas de suggestion.
+    const suggestion = gateFolderSuggestion(candidates);
+
+    if (!suggestion) {
       return NextResponse.json({ suggestion: null });
     }
 
-    // Deduplicate: if the same folder appears multiple times, keep the highest score
-    const bestByFolder = new Map<string, ScoredSuggestion>();
-    for (const c of candidates) {
-      const existing = bestByFolder.get(c.folder_id);
-      if (!existing || c.score > existing.score) {
-        bestByFolder.set(c.folder_id, c);
-      }
-    }
-
-    // Return the highest-scoring suggestion
-    const sorted = Array.from(bestByFolder.values()).sort((a, b) => b.score - a.score);
-    const best = sorted[0];
+    // Journal d'apprentissage : suggestion montrée → l'accept-rate devient
+    // mesurable (le pendant accepted/rejected est loggé par /api/email/folder-learn).
+    await logLearningEvent(admin, {
+      organizationId: profile.organization_id,
+      module: "mail_folders",
+      eventType: "suggestion_shown",
+      decisionSource: suggestion.decision_source,
+      payload: {
+        folder_id: suggestion.folder_id,
+        confidence: suggestion.confidence,
+      },
+    });
 
     return NextResponse.json({
       suggestion: {
-        folder_id: best.folder_id,
-        folder_name: best.folder_name,
-        confidence: Math.min(0.99, best.score / 200),
-        reason: best.reason,
+        folder_id: suggestion.folder_id,
+        folder_name: suggestion.folder_name,
+        confidence: suggestion.confidence,
+        reason: suggestion.reason,
       },
     });
   } catch (err) {

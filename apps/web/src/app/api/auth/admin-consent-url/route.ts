@@ -26,11 +26,16 @@ export async function GET(request: NextRequest) {
 
   const redirectUri = `${appUrl}/api/auth/callback`;
 
+  // Must match the scopes requested at connect/refresh time (microsoft-connect +
+  // lib/microsoft/tokens), otherwise a tenant that grants admin consent still
+  // triggers per-user consent for People.Read / Contacts.Read.
   const scopes = [
     "Mail.Read",
     "Mail.ReadWrite",
     "Mail.Send",
     "User.Read",
+    "People.Read",
+    "Contacts.Read",
     "offline_access",
     "openid",
     "email",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bot, AlertTriangle, Clock, FileX, Calendar, ChevronDown, ChevronUp, Check, X, Timer, Send } from "lucide-react";
+import { Bot, AlertTriangle, Clock, FileX, Calendar, ChevronDown, ChevronUp, Check, X, Timer, Send, Loader2 } from "lucide-react";
 
 interface FollowupItem {
   id: string;
@@ -40,6 +40,8 @@ export function FollowupSection() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
   const [showDraftId, setShowDraftId] = useState<string | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendErrors, setSendErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch("/api/agents/followups?status=pending&limit=20")
@@ -49,19 +51,39 @@ export function FollowupSection() {
       .finally(() => setLoading(false));
   }, []);
 
+  /**
+   * Optimistic dismiss/snooze with rollback: the card disappears immediately,
+   * and comes back with the reason when the API refuses — a failed dismiss
+   * used to vanish silently and reappear on the next reload.
+   */
   const updateStatus = async (id: string, status: string, snoozedUntil?: string) => {
+    const previous = followups;
+    setFollowups((prev) => prev.filter((f) => f.id !== id));
+    setSendErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     try {
       const body: Record<string, unknown> = { followup_id: id, status };
       if (snoozedUntil) body.snoozed_until = snoozedUntil;
 
-      await fetch("/api/agents/followups", {
+      const res = await fetch("/api/agents/followups", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      setFollowups((prev) => prev.filter((f) => f.id !== id));
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({} as Record<string, unknown>));
+        setFollowups(previous);
+        setSendErrors((prev) => ({
+          ...prev,
+          [id]: (json as { error?: string })?.error || "Mise a jour impossible",
+        }));
+      }
     } catch {
-      // Silently ignore
+      setFollowups(previous);
+      setSendErrors((prev) => ({ ...prev, [id]: "Erreur reseau" }));
     }
   };
 
@@ -70,6 +92,37 @@ export function FollowupSection() {
     const snoozeDate = new Date();
     snoozeDate.setDate(snoozeDate.getDate() + 3);
     updateStatus(id, "snoozed", snoozeDate.toISOString());
+  };
+
+  /**
+   * "Valider" used to flip the status to `approved` and send nothing, so an
+   * overdue price request stayed overdue. It now asks the API to actually
+   * deliver — and keeps the card on screen with the reason when it cannot.
+   */
+  const sendFollowup = async (id: string) => {
+    setSendingId(id);
+    setSendErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    try {
+      const res = await fetch("/api/agents/followups", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ followup_id: id, action: "send" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        setSendErrors((prev) => ({ ...prev, [id]: json?.error || "Envoi impossible" }));
+        return;
+      }
+      setFollowups((prev) => prev.filter((f) => f.id !== id));
+    } catch {
+      setSendErrors((prev) => ({ ...prev, [id]: "Erreur reseau" }));
+    } finally {
+      setSendingId(null);
+    }
   };
 
   if (loading) {
@@ -103,7 +156,7 @@ export function FollowupSection() {
                 ? `${followups.length} relance${followups.length > 1 ? "s" : ""} en attente`
                 : "Relances automatiques"}
             </span>
-            <span className="text-[11px] text-[#71717A] ml-2">Followup Engine</span>
+            <span className="text-[11px] text-[#A1A1AA] ml-2">Followup Engine</span>
           </div>
           {/* Urgency pills */}
           <div className="flex items-center gap-1.5 ml-2">
@@ -120,9 +173,9 @@ export function FollowupSection() {
           </div>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-[#71717A]" />
+          <ChevronUp className="h-4 w-4 text-[#A1A1AA]" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-[#71717A]" />
+          <ChevronDown className="h-4 w-4 text-[#A1A1AA]" />
         )}
       </button>
 
@@ -132,7 +185,7 @@ export function FollowupSection() {
           {followups.length === 0 && (
             <div className="flex flex-col items-center justify-center py-8 text-center px-6">
               <Clock className="h-8 w-8 text-[#27272A] mb-3" />
-              <p className="text-[13px] text-[#52525B]">Aucune relance en attente</p>
+              <p className="text-[13px] text-[#A1A1AA]">Aucune relance en attente</p>
               <p className="text-[11px] text-[#3F3F46] mt-1">
                 L&apos;agent Followup Engine analyse chaque jour vos demandes de prix, tâches et réserves pour détecter les retards.
               </p>
@@ -143,6 +196,11 @@ export function FollowupSection() {
             const typeInfo = TYPE_ICONS[item.followup_type] || TYPE_ICONS.overdue_task;
             const TypeIcon = typeInfo.icon;
             const hasDraft = item.draft_email_subject && item.draft_email_body;
+            // A price-request followup needs no draft: the relance route builds
+            // the localized reminder (with the portal link) from the request.
+            const canSend =
+              item.followup_type === "price_request_no_response" ||
+              (!!hasDraft && !!item.recipient_email);
 
             return (
               <div key={item.id} className="border-b border-[#27272A]/50 last:border-b-0">
@@ -179,7 +237,7 @@ export function FollowupSection() {
 
                     {/* Recipient */}
                     {item.recipient_name && (
-                      <p className="text-[10px] text-[#52525B] mt-1">
+                      <p className="text-[10px] text-[#A1A1AA] mt-1">
                         {item.recipient_name} {item.recipient_email ? `<${item.recipient_email}>` : ""}
                       </p>
                     )}
@@ -192,14 +250,14 @@ export function FollowupSection() {
                       className="p-1.5 rounded-md hover:bg-[#27272A] transition-colors"
                       title="Ignorer"
                     >
-                      <X className="h-3.5 w-3.5 text-[#52525B]" />
+                      <X className="h-3.5 w-3.5 text-[#A1A1AA]" />
                     </button>
                     <button
                       onClick={() => handleSnooze(item.id)}
                       className="p-1.5 rounded-md hover:bg-[#27272A] transition-colors"
                       title="Reporter (3 jours)"
                     >
-                      <Timer className="h-3.5 w-3.5 text-[#52525B]" />
+                      <Timer className="h-3.5 w-3.5 text-[#A1A1AA]" />
                     </button>
                     {hasDraft && (
                       <button
@@ -212,14 +270,27 @@ export function FollowupSection() {
                       </button>
                     )}
                     <button
-                      onClick={() => updateStatus(item.id, "approved")}
-                      className="p-1.5 rounded-md hover:bg-[#10B981]/15 transition-colors"
-                      title="Valider"
+                      onClick={() => (canSend ? sendFollowup(item.id) : updateStatus(item.id, "approved"))}
+                      disabled={sendingId === item.id}
+                      className="p-1.5 rounded-md hover:bg-[#10B981]/15 transition-colors disabled:opacity-50"
+                      title={canSend ? "Envoyer la relance" : "Valider"}
                     >
-                      <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                      {sendingId === item.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-[#10B981]" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                      )}
                     </button>
                   </div>
                 </div>
+
+                {/* Send failure — the card stays actionable with the reason */}
+                {sendErrors[item.id] && (
+                  <div className="mx-4 mb-3 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2">
+                    <AlertTriangle className="h-3 w-3 shrink-0 text-red-400 mt-0.5" />
+                    <p className="text-[11px] text-red-400">{sendErrors[item.id]}</p>
+                  </div>
+                )}
 
                 {/* Draft email preview */}
                 {showDraftId === item.id && hasDraft && (

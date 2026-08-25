@@ -46,7 +46,7 @@ export function PVSectionEditor({
             onChange={(e) =>
               onUpdateSection(sectionIdx, "title", e.target.value)
             }
-            className="border-0 bg-transparent text-sm font-semibold text-[#FAFAFA] focus:outline-none disabled:text-[#71717A]"
+            className="border-0 bg-transparent text-sm font-semibold text-[#FAFAFA] focus:outline-none disabled:text-[#A1A1AA]"
             placeholder={t("section_title")}
             disabled={isFinalized}
           />
@@ -54,7 +54,7 @@ export function PVSectionEditor({
         {!isFinalized && (
           <button
             onClick={() => onRemoveSection(sectionIdx)}
-            className="rounded p-1 text-[#71717A] hover:bg-red-500/10 hover:text-red-500"
+            className="rounded p-1 text-[#A1A1AA] hover:bg-red-500/10 hover:text-red-500"
             title={t("delete_section")}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -63,7 +63,7 @@ export function PVSectionEditor({
       </div>
 
       <div className="mb-3">
-        <label className="mb-1 block text-xs text-[#71717A]">
+        <label className="mb-1 block text-xs text-[#A1A1AA]">
           {t("discussion")}
         </label>
         <textarea
@@ -78,7 +78,7 @@ export function PVSectionEditor({
       </div>
 
       <div className="mb-3">
-        <label className="mb-1 block text-xs font-medium text-[#71717A]">
+        <label className="mb-1 block text-xs font-medium text-[#A1A1AA]">
           {t("decisions")}
         </label>
         {(section.decisions || []).map(
@@ -87,7 +87,7 @@ export function PVSectionEditor({
               key={decIdx}
               className="mb-1 flex items-center gap-1"
             >
-              <span className="text-xs text-[#71717A]">•</span>
+              <span className="text-xs text-[#A1A1AA]">•</span>
               <input
                 type="text"
                 value={decision}
@@ -106,7 +106,7 @@ export function PVSectionEditor({
                   onClick={() =>
                     onRemoveDecision(sectionIdx, decIdx)
                   }
-                  className="rounded p-0.5 text-[#71717A] hover:text-red-500"
+                  className="rounded p-0.5 text-[#A1A1AA] hover:text-red-500"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -126,7 +126,7 @@ export function PVSectionEditor({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-[#71717A]">
+        <label className="mb-1 block text-xs font-medium text-[#A1A1AA]">
           {t("actions")}
         </label>
         {(section.actions || []).map(
@@ -156,7 +156,7 @@ export function PVSectionEditor({
                     onClick={() =>
                       onRemoveAction(sectionIdx, actIdx)
                     }
-                    className="rounded p-0.5 text-[#71717A] hover:text-red-500"
+                    className="rounded p-0.5 text-[#A1A1AA] hover:text-red-500"
                   >
                     <X className="h-3 w-3" />
                   </button>

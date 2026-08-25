@@ -34,8 +34,8 @@ export default function DurationTooltip({
 
         {/* Quantity & ratio */}
         {task.quantity != null && task.unit && (
-          <div className="flex items-center gap-1.5 text-[#71717A] mb-1">
-            <Calculator className="h-3.5 w-3.5 shrink-0 text-[#71717A]" />
+          <div className="flex items-center gap-1.5 text-[#A1A1AA] mb-1">
+            <Calculator className="h-3.5 w-3.5 shrink-0 text-[#A1A1AA]" />
             <span>
               {t("tooltip.quantity")}: {task.quantity} {task.unit}
             </span>
@@ -43,11 +43,11 @@ export default function DurationTooltip({
         )}
 
         {task.productivity_ratio != null && (
-          <div className="text-[#71717A] mb-1 pl-5">
+          <div className="text-[#A1A1AA] mb-1 pl-5">
             {t("tooltip.ratio")}: {task.productivity_ratio} {task.unit ?? ""}/
             {t("tooltip.day")}
             {task.productivity_source && (
-              <span className="text-[#71717A] ml-1">
+              <span className="text-[#A1A1AA] ml-1">
                 ({task.productivity_source})
               </span>
             )}
@@ -69,7 +69,7 @@ export default function DurationTooltip({
         {/* Adjustment factors */}
         {hasFactors && (
           <div className="mb-2">
-            <div className="text-xs text-[#71717A] font-medium mb-1">
+            <div className="text-xs text-[#A1A1AA] font-medium mb-1">
               {t("tooltip.adjustments")}
             </div>
             <div className="space-y-0.5">
@@ -78,14 +78,14 @@ export default function DurationTooltip({
                   key={key}
                   className="flex items-center justify-between text-xs"
                 >
-                  <span className="text-[#71717A]">{key}</span>
+                  <span className="text-[#A1A1AA]">{key}</span>
                   <span
                     className={
                       value > 1
-                        ? "text-red-600 font-medium"
+                        ? "text-[#EF4444] font-medium"
                         : value < 1
-                          ? "text-green-600 font-medium"
-                          : "text-[#71717A]"
+                          ? "text-[#10B981] font-medium"
+                          : "text-[#A1A1AA]"
                     }
                   >
                     &times;{value.toFixed(2)}

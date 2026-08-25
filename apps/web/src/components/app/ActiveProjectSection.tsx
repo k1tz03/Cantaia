@@ -93,12 +93,12 @@ export function ActiveProjectSection({ collapsed }: { collapsed: boolean }) {
               {activeProject.name.charAt(0).toUpperCase()}
             </div>
           ) : (
-            <div className="h-8 w-8 rounded-md flex items-center justify-center bg-[#27272A] text-[#71717A] text-xs">
+            <div className="h-8 w-8 rounded-md flex items-center justify-center bg-[#27272A] text-[#A1A1AA] text-xs">
               ?
             </div>
           )}
           <div className="invisible group-hover:visible absolute left-full ml-2 top-0 z-50 min-w-[200px] rounded-md border border-[#27272A] bg-[#18181B] p-2 shadow-md">
-            <p className="px-2 py-1 text-[10px] font-semibold text-[#52525B] uppercase tracking-wider">
+            <p className="px-2 py-1 text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider">
               {t("sections.activeProject")}
             </p>
             {activeProject ? (
@@ -116,14 +116,14 @@ export function ActiveProjectSection({ collapsed }: { collapsed: boolean }) {
                       <Icon className="h-3.5 w-3.5" />
                       <span>{t(tool.labelKey)}</span>
                       {count !== null && (
-                        <span className="ml-auto text-xs text-[#71717A]">{count}</span>
+                        <span className="ml-auto text-xs text-[#A1A1AA]">{count}</span>
                       )}
                     </Link>
                   );
                 })}
               </>
             ) : (
-              <p className="px-2 py-1 text-sm text-[#71717A]">{t("selectProject")}</p>
+              <p className="px-2 py-1 text-sm text-[#A1A1AA]">{t("selectProject")}</p>
             )}
           </div>
         </div>
@@ -133,7 +133,7 @@ export function ActiveProjectSection({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="py-1">
-      <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-wider px-[10px] pt-[8px] pb-[2px]">
+      <p className="text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider px-[10px] pt-[8px] pb-[2px]">
         {t("sections.activeProject")}
       </p>
 
@@ -160,7 +160,7 @@ export function ActiveProjectSection({ collapsed }: { collapsed: boolean }) {
                 {count !== null && (
                   <span
                     className={`ml-auto text-xs ${
-                      active ? "text-[#F97316]" : "text-[#71717A]"
+                      active ? "text-[#F97316]" : "text-[#A1A1AA]"
                     }`}
                   >
                     {count}

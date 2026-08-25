@@ -1,6 +1,8 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { grantCredits } from "@/lib/credits";
 
 export const maxDuration = 120;
 
@@ -84,10 +86,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Upload failed" }, { status: 500 });
     }
 
-    // Get current photo count for sort_order
-    const { count } = await ((admin as any).from("visit_photos"))
-      .select("id", { count: "exact", head: true })
-      .eq("visit_id", visitId);
+    // Next sort_order = max + 1, not count: a deleted photo would make count
+    // reuse an order already in use. (Still best-effort under concurrency, but
+    // no longer wrong after a deletion.)
+    const { data: lastPhoto } = await ((admin as any).from("visit_photos"))
+      .select("sort_order")
+      .eq("visit_id", visitId)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextSortOrder = ((lastPhoto as any)?.sort_order ?? -1) + 1;
 
     // Insert DB record
     const { data: photo, error: insertErr } = await ((admin as any).from("visit_photos"))
@@ -99,7 +107,7 @@ export async function POST(request: NextRequest) {
         file_name: safeName,
         file_size: file.size,
         mime_type: file.type,
-        sort_order: (count || 0),
+        sort_order: nextSortOrder,
         caption: caption || null,
         location_description: locationDescription || null,
         ai_analysis_status: "pending",
@@ -116,22 +124,55 @@ export async function POST(request: NextRequest) {
     // Handwritten notes are analysed automatically in the background so the
     // report generation never runs on un-transcribed notes. Direct function
     // call (no internal HTTP fetch) — the request cookies would not survive.
+    //
+    // Billing policy: the automatic path is charged the SAME `handwritten_notes`
+    // credit as the manual "Analyser" button — otherwise the nominal path was
+    // free while the manual re-run cost 5, an inconsistency. The debit is taken
+    // synchronously here (atomic) and refunded if the background job fails; if
+    // the org cannot pay, auto-analysis is skipped and the manual button remains.
     if (photoType === "handwritten_notes" && photo?.id) {
-      after(async () => {
-        try {
-          const { runHandwrittenNotesAnalysis } = await import("@cantaia/core/visits");
-          const result = await runHandwrittenNotesAnalysis({
-            admin: admin as any,
-            photoId: photo.id,
-            userId: user.id,
-          });
-          if (!result.ok) {
-            console.warn("[PhotoUpload] Background notes analysis failed:", result.error);
+      const { data: orgRow } = await admin
+        .from("organizations")
+        .select("subscription_plan")
+        .eq("id", orgId)
+        .maybeSingle();
+
+      const usageCheck = await checkUsageLimit(
+        admin,
+        orgId,
+        (orgRow as any)?.subscription_plan || "trial",
+        "handwritten_notes"
+      );
+
+      if (usageCheck.allowed) {
+        const refundCredits =
+          usageCheck.remaining_credits !== null ? usageCheck.required_credits ?? 0 : 0;
+        after(async () => {
+          try {
+            const { runHandwrittenNotesAnalysis } = await import("@cantaia/core/visits");
+            const result = await runHandwrittenNotesAnalysis({
+              admin: admin as any,
+              photoId: photo.id,
+              userId: user.id,
+            });
+            if (!result.ok) {
+              console.warn("[PhotoUpload] Background notes analysis failed:", result.error);
+              if (refundCredits > 0) {
+                await grantCredits(orgId, refundCredits, "refund", `handwritten_notes:${photo.id}`, user.id);
+              }
+            }
+          } catch (err) {
+            console.error("[PhotoUpload] Background notes analysis threw:", err);
+            if (refundCredits > 0) {
+              await grantCredits(orgId, refundCredits, "refund", `handwritten_notes:${photo.id}`, user.id);
+            }
           }
-        } catch (err) {
-          console.error("[PhotoUpload] Background notes analysis threw:", err);
-        }
-      });
+        });
+      } else {
+        // Not enough credits / over quota → leave the note un-analysed; the
+        // manual "Analyser" action can run it once the org tops up.
+        console.log("[PhotoUpload] Auto notes analysis skipped (usage limit):", usageCheck);
+      }
     }
 
     // Private bucket → return a signed URL the client can render directly

@@ -145,7 +145,7 @@ export function OnboardingChecklist() {
       {/* Close button */}
       <button
         onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
-        className="absolute right-2 top-2 rounded-full p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA] transition-colors"
+        className="absolute right-2 top-2 rounded-full p-1 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA] transition-colors"
         title="Fermer"
       >
         <X className="h-3.5 w-3.5" />
@@ -167,15 +167,15 @@ export function OnboardingChecklist() {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className="text-[10px] text-[#71717A]">
+            <span className="text-[10px] text-[#A1A1AA]">
               {completedCount}/{steps.length}
             </span>
           </div>
         </div>
         {open ? (
-          <ChevronDown className="h-4 w-4 text-[#71717A]" />
+          <ChevronDown className="h-4 w-4 text-[#A1A1AA]" />
         ) : (
-          <ChevronUp className="h-4 w-4 text-[#71717A]" />
+          <ChevronUp className="h-4 w-4 text-[#A1A1AA]" />
         )}
       </button>
 
@@ -195,14 +195,14 @@ export function OnboardingChecklist() {
                 {isDone ? (
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
                 ) : (
-                  <Circle className="mt-0.5 h-4 w-4 shrink-0 text-[#71717A]" />
+                  <Circle className="mt-0.5 h-4 w-4 shrink-0 text-[#A1A1AA]" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${isDone ? "text-[#71717A] line-through" : "text-[#FAFAFA]"}`}>
+                  <p className={`text-sm font-medium ${isDone ? "text-[#A1A1AA] line-through" : "text-[#FAFAFA]"}`}>
                     {step.title}
                   </p>
                   {!isDone && (
-                    <p className="text-[11px] text-[#71717A] mt-0.5">{step.description}</p>
+                    <p className="text-[11px] text-[#A1A1AA] mt-0.5">{step.description}</p>
                   )}
                 </div>
               </button>
@@ -210,7 +210,7 @@ export function OnboardingChecklist() {
           })}
           <button
             onClick={handleDismiss}
-            className="mt-1 flex w-full items-center justify-center gap-1 py-1.5 text-[11px] text-[#71717A] hover:text-[#FAFAFA] transition-colors"
+            className="mt-1 flex w-full items-center justify-center gap-1 py-1.5 text-[11px] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
           >
             <X className="h-3 w-3" />
             Masquer

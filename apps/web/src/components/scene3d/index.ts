@@ -13,6 +13,14 @@ export { Toolbar } from "./Toolbar";
 export { MeasureTool } from "./MeasureTool";
 export { SectionCutTool } from "./SectionCutTool";
 export { WatermarkOverlay } from "./WatermarkOverlay";
+export { QualityBanner } from "./QualityBanner";
+export {
+  exportSceneToGltf,
+  exportViewerToPng,
+  exportViewerToPdf,
+  EXPORT_DISCLAIMER,
+} from "./scene-export";
+export { confidenceBand, confidenceTint, CONFIDENCE_THRESHOLDS } from "./confidence-visuals";
 
 export type {
   BuildingScene,
@@ -27,4 +35,7 @@ export type {
   MeasureMode,
   ModelName,
   ViewMode,
+  QualityCheck,
+  ValidationIssue,
+  ScaleCalibration,
 } from "./types";

@@ -279,7 +279,7 @@ export function IntegrationsTab() {
       <div className="space-y-4">
         <button
           onClick={() => setView("main")}
-          className="flex items-center gap-1 text-[11px] text-[#71717A] hover:text-[#FAFAFA]"
+          className="flex items-center gap-1 text-[11px] text-[#A1A1AA] hover:text-[#FAFAFA]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {t("back")}
@@ -295,15 +295,15 @@ export function IntegrationsTab() {
               className="flex w-full items-center justify-between rounded-[10px] border border-[#27272A] bg-[#18181B] px-4 py-3 text-left text-[13px] hover:bg-[#1C1C1F]"
             >
               <span className="font-medium text-[#FAFAFA]">{p.name}</span>
-              <ChevronRight className="h-4 w-4 text-[#71717A]" />
+              <ChevronRight className="h-4 w-4 text-[#A1A1AA]" />
             </button>
           ))}
           <button
             onClick={() => handleSelectKnownProvider("manual")}
             className="flex w-full items-center justify-between rounded-[10px] border border-dashed border-[#27272A] bg-[#18181B] px-4 py-3 text-left text-[13px] hover:bg-[#1C1C1F]"
           >
-            <span className="text-[#71717A]">{t("emailManualConfig")}</span>
-            <ChevronRight className="h-4 w-4 text-[#71717A]" />
+            <span className="text-[#A1A1AA]">{t("emailManualConfig")}</span>
+            <ChevronRight className="h-4 w-4 text-[#A1A1AA]" />
           </button>
         </div>
       </div>
@@ -319,7 +319,7 @@ export function IntegrationsTab() {
       <div className="space-y-4">
         <button
           onClick={() => setView("imap-select")}
-          className="flex items-center gap-1 text-[11px] text-[#71717A] hover:text-[#FAFAFA]"
+          className="flex items-center gap-1 text-[11px] text-[#A1A1AA] hover:text-[#FAFAFA]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {t("back")}
@@ -335,7 +335,7 @@ export function IntegrationsTab() {
               type="email"
               value={imapForm.email_address}
               onChange={(e) => setImapForm((f) => ({ ...f, email_address: e.target.value }))}
-              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
+              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316]"
               placeholder="julien@monbureau.ch"
             />
           </div>
@@ -353,7 +353,7 @@ export function IntegrationsTab() {
             <p className="text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-2">{t("emailImapServer")}</p>
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-2">
-                <input type="text" value={imapForm.imap_host} onChange={(e) => setImapForm((f) => ({ ...f, imap_host: e.target.value }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]" placeholder="imap.example.com" />
+                <input type="text" value={imapForm.imap_host} onChange={(e) => setImapForm((f) => ({ ...f, imap_host: e.target.value }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316]" placeholder="imap.example.com" />
               </div>
               <div>
                 <input type="number" value={imapForm.imap_port} onChange={(e) => setImapForm((f) => ({ ...f, imap_port: parseInt(e.target.value) || 993 }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] outline-none focus:border-[#F97316]" />
@@ -376,7 +376,7 @@ export function IntegrationsTab() {
             <p className="text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-2">{t("emailSmtpServer")}</p>
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-2">
-                <input type="text" value={imapForm.smtp_host} onChange={(e) => setImapForm((f) => ({ ...f, smtp_host: e.target.value }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]" placeholder="smtp.example.com" />
+                <input type="text" value={imapForm.smtp_host} onChange={(e) => setImapForm((f) => ({ ...f, smtp_host: e.target.value }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#71717A] outline-none focus:border-[#F97316]" placeholder="smtp.example.com" />
               </div>
               <div>
                 <input type="number" value={imapForm.smtp_port} onChange={(e) => setImapForm((f) => ({ ...f, smtp_port: parseInt(e.target.value) || 587 }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] outline-none focus:border-[#F97316]" />
@@ -397,7 +397,7 @@ export function IntegrationsTab() {
               {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
               {t("emailTestConnection")}
             </button>
-            <button type="button" onClick={handleSaveImapConnection} disabled={!testResult?.success || saving} className="inline-flex items-center gap-1.5 rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-[14px] py-[6px] text-[11px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
+            <button type="button" onClick={handleSaveImapConnection} disabled={!testResult?.success || saving} className="inline-flex items-center gap-1.5 rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-[14px] py-[6px] text-[11px] font-semibold text-[#0F0F11] hover:opacity-90 disabled:opacity-50">
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {t("emailSaveConnection")}
             </button>
@@ -438,12 +438,12 @@ export function IntegrationsTab() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {(connection?.last_sync_at || profile?.profile?.last_sync_at) && (
-              <span className="text-[10px] text-[#71717A] hidden sm:inline-flex items-center gap-1">
+              <span className="text-[10px] text-[#A1A1AA] hidden sm:inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {getRelativeSyncTime(connection?.last_sync_at || profile?.profile?.last_sync_at || "")}
               </span>
             )}
-            <button type="button" onClick={handleSyncNow} disabled={syncing} className="inline-flex items-center gap-1 rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-3 py-[6px] text-[11px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
+            <button type="button" onClick={handleSyncNow} disabled={syncing} className="inline-flex items-center gap-1 rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-3 py-[6px] text-[11px] font-semibold text-[#0F0F11] hover:opacity-90 disabled:opacity-50">
               {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
               {t("syncNow")}
             </button>
@@ -461,7 +461,7 @@ export function IntegrationsTab() {
     return (
       <div className="flex items-center gap-3 rounded-[10px] border border-[#27272A] bg-[#18181B] p-[14px]">
         <Loader2 className="h-5 w-5 animate-spin text-[#F97316]" />
-        <p className="text-[13px] text-[#71717A]">{t("emailConnecting")}</p>
+        <p className="text-[13px] text-[#A1A1AA]">{t("emailConnecting")}</p>
       </div>
     );
   }
@@ -475,9 +475,9 @@ export function IntegrationsTab() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[13px] font-semibold text-[#FAFAFA]">Microsoft 365</div>
-          <div className="text-[11px] text-[#71717A] mt-[1px]">{t("notConnected") || "Non connect\u00e9"}</div>
+          <div className="text-[11px] text-[#A1A1AA] mt-[1px]">{t("notConnected") || "Non connect\u00e9"}</div>
         </div>
-        <button type="button" onClick={handleConnectMicrosoft} disabled={connecting} className="rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-[14px] py-[6px] text-[11px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
+        <button type="button" onClick={handleConnectMicrosoft} disabled={connecting} className="rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-[14px] py-[6px] text-[11px] font-semibold text-[#0F0F11] hover:opacity-90 disabled:opacity-50">
           {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (t("connect") || "Connecter")}
         </button>
       </div>
@@ -488,9 +488,9 @@ export function IntegrationsTab() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[13px] font-semibold text-[#FAFAFA]">Gmail</div>
-          <div className="text-[11px] text-[#71717A] mt-[1px]">{t("notConnected") || "Non connect\u00e9"}</div>
+          <div className="text-[11px] text-[#A1A1AA] mt-[1px]">{t("notConnected") || "Non connect\u00e9"}</div>
         </div>
-        <button type="button" onClick={handleConnectGoogle} disabled={connecting} className="rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-[14px] py-[6px] text-[11px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
+        <button type="button" onClick={handleConnectGoogle} disabled={connecting} className="rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-[14px] py-[6px] text-[11px] font-semibold text-[#0F0F11] hover:opacity-90 disabled:opacity-50">
           {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (t("connect") || "Connecter")}
         </button>
       </div>
@@ -501,7 +501,7 @@ export function IntegrationsTab() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[13px] font-semibold text-[#FAFAFA]">IMAP / SMTP</div>
-          <div className="text-[11px] text-[#71717A] mt-[1px]">{t("emailManualConnection") || "Connexion manuelle"}</div>
+          <div className="text-[11px] text-[#A1A1AA] mt-[1px]">{t("emailManualConnection") || "Connexion manuelle"}</div>
         </div>
         <button type="button" onClick={() => setView("imap-select")} className="rounded-[7px] border border-[#3F3F46] bg-[#27272A] px-[14px] py-[6px] text-[11px] font-medium text-[#D4D4D8] hover:bg-[#3F3F46]">
           {t("configure") || "Configurer"}
@@ -509,12 +509,12 @@ export function IntegrationsTab() {
       </div>
 
       {connecting && (
-        <div className="flex items-center gap-2 text-[11px] text-[#71717A] px-1 pt-1">
+        <div className="flex items-center gap-2 text-[11px] text-[#A1A1AA] px-1 pt-1">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           {t("emailConnecting")}
         </div>
       )}
-      <p className="text-[10px] text-[#52525B] px-1 pt-2">{t("emailPrivacyNote")}</p>
+      <p className="text-[10px] text-[#A1A1AA] px-1 pt-2">{t("emailPrivacyNote")}</p>
     </div>
   );
 }

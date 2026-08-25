@@ -1,7 +1,7 @@
 // Moteur de calibration — 4 fonctions principales
 // Récupère les coefficients de correction basés sur l'historique
 
-import type { ModelProvider, BureauProfile } from './types';
+import type { BureauProfile } from './types';
 
 // ─── 1. Calibration quantités ───
 
@@ -140,71 +140,16 @@ function calcPriceBonus(nb: number, stddev: number): number {
   return 0;
 }
 
-// ─── 3. Profil d'erreur modèle ───
-
-export async function getModelErrorProfile(params: {
-  provider: ModelProvider;
-  discipline: string;
-  cfc_prefix: string;
-  org_id: string;
-  supabase: any;
-}): Promise<{
-  coefficient_correction: number;
-  fiabilite: number;
-  source: 'org_specific' | 'platform_aggregate' | 'none';
-  nb_datapoints: number;
-}> {
-  const { provider, discipline, cfc_prefix, org_id, supabase } = params;
-
-  // D'abord, chercher les corrections spécifiques à l'org (C1)
-  try {
-    const { data: orgCorrections } = await supabase
-      .from('quantity_corrections')
-      .select('ecart_pct')
-      .eq('org_id', org_id)
-      .eq('discipline', discipline)
-      .like('cfc_code', `${cfc_prefix}%`)
-      .eq('modele_plus_eloigne', provider)
-      .limit(50);
-
-    if (orgCorrections && orgCorrections.length >= 3) {
-      const ecarts = orgCorrections.map((c: any) => Number(c.ecart_pct));
-      const avg = ecarts.reduce((a: number, b: number) => a + b, 0) / ecarts.length;
-      const stddev = Math.sqrt(ecarts.reduce((s: number, v: number) => s + (v - avg) ** 2, 0) / ecarts.length);
-
-      return {
-        coefficient_correction: 1 + (avg / 100),
-        fiabilite: Math.max(0, 1 - stddev / 50),
-        source: 'org_specific',
-        nb_datapoints: ecarts.length,
-      };
-    }
-  } catch { /* table peut ne pas exister */ }
-
-  // Ensuite, chercher le profil agrégé (C2)
-  try {
-    const { data: profile } = await supabase
-      .from('model_error_profiles')
-      .select('*')
-      .eq('provider', provider)
-      .eq('discipline', discipline)
-      .eq('type_element_cfc', cfc_prefix)
-      .maybeSingle();
-
-    if (profile) {
-      return {
-        coefficient_correction: Number(profile.coefficient_correction),
-        fiabilite: Number(profile.fiabilite),
-        source: 'platform_aggregate',
-        nb_datapoints: Number(profile.nb_corrections),
-      };
-    }
-  } catch { /* table peut ne pas exister */ }
-
-  return { coefficient_correction: 1.0, fiabilite: 0.5, source: 'none', nb_datapoints: 0 };
-}
-
-// ─── 4. Profil bureau d'études ───
+// ─── 3. Profil bureau d'études ───
+//
+// (L'ancienne fonction `getModelErrorProfile` a été SUPPRIMÉE — AUDIT 08/2026,
+// politique de purge du code mort du 24.08. Elle n'avait aucun appelant : les
+// poids modèle sont lus par le bloc inline d'estimate-v2 depuis
+// `model_error_profiles` (writer unique @cantaia/core/learning, migration 102).
+// Son chemin C1 lisait par ailleurs `quantity_corrections.ecart_pct` — l'erreur
+// du CONSENSUS, pas celle du provider filtré — sur un échantillon biaisé, sans
+// clamp : sémantiquement faux. À réécrire sur `valeurs_par_modele` avec le clamp
+// du writer si le besoin réapparaît.)
 //
 // B13 — Il y avait DEUX écrivains incompatibles sur `bureau_profiles` :
 //   * ce module         → bureau_nom = nom minusculé, hash = nom minusculé

@@ -102,7 +102,7 @@ export default function SuperAdminLayout({
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="ml-auto rounded p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA]"
+            className="ml-auto rounded p-1 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA]"
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -129,7 +129,7 @@ export default function SuperAdminLayout({
               >
                 <item.icon
                   className={`h-4 w-4 shrink-0 ${
-                    active ? "text-amber-400" : "text-[#71717A]"
+                    active ? "text-amber-400" : "text-[#A1A1AA]"
                   }`}
                 />
                 {!collapsed && <span>{t(item.labelKey)}</span>}
@@ -141,13 +141,13 @@ export default function SuperAdminLayout({
         {/* User + Back to app */}
         <div className="border-t border-[#27272A] p-2">
           {!collapsed && userName && (
-            <div className="mb-2 px-2.5 py-1.5 text-xs text-[#71717A]">
+            <div className="mb-2 px-2.5 py-1.5 text-xs text-[#A1A1AA]">
               {t("connectedAs")} <span className="font-medium text-[#FAFAFA]">{userName}</span>
             </div>
           )}
           <Link
             href="/dashboard"
-            className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA]"
+            className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA]"
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />
             {!collapsed && <span>{t("backToApp")}</span>}

@@ -31,6 +31,13 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
+  // Resolve caller's organization (needed to reject cross-org project_id).
+  const { data: callerOrg } = await admin
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
   // Verify the email belongs to this user
   const { data: email, error: fetchErr } = await admin
     .from("email_records")
@@ -42,6 +49,22 @@ export async function POST(request: NextRequest) {
   if (fetchErr || !email) {
     if (process.env.NODE_ENV === "development") console.log("[emails/update] Email not found:", body.email_id, fetchErr?.message);
     return NextResponse.json({ error: "Email not found" }, { status: 404 });
+  }
+
+  // Anti-IDOR: any body-supplied project_id must belong to the caller's org.
+  // createAdminClient bypasses RLS, so this application check is mandatory.
+  if (body.project_id) {
+    if (!callerOrg?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const { data: proj } = await admin
+      .from("projects")
+      .select("id, organization_id")
+      .eq("id", body.project_id)
+      .maybeSingle();
+    if (!proj || proj.organization_id !== callerOrg.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   // Build update payload

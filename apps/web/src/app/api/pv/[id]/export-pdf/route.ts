@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generatePVPdf, type PVData } from "@/lib/pdf/PVDocument";
+import { buildPVPdf } from "../../_shared/pv-pdf";
 
 export async function GET(
   _request: NextRequest,
@@ -51,16 +51,13 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const pv = meeting.pv_content as unknown as PVData;
-    const projectName = proj?.name ?? pv.header?.project_name ?? "Projet";
-    const code = proj?.code ?? pv.header?.project_code ?? "";
-
-    const buffer = await generatePVPdf(pv, projectName, code);
-
-    const projectSlug = projectName.replace(/\s/g, "_");
-    const meetingNum = pv.header?.meeting_number ?? "";
-    const dateStr = (pv.header?.date ?? "").replace(/\./g, "-");
-    const filename = `PV_${projectSlug}_Seance${meetingNum}_${dateStr}.pdf`;
+    // Branding, opposition notice and signature block all live in buildPVPdf,
+    // so the downloaded file and the circulated attachment are byte-identical.
+    const { buffer, filename } = await buildPVPdf(
+      admin,
+      meeting,
+      userProfile.organization_id
+    );
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {

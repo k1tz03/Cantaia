@@ -7,6 +7,7 @@
 import type { BriefingContent } from "@cantaia/database";
 import type { BriefingRawData } from "./briefing-collector";
 import type { ApiUsageCallback } from "../tracking/api-cost-tracker";
+import { MODEL_FOR_TASK, callAnthropicWithRetry, parseAIJson } from "../ai/ai-utils";
 
 // ---------- Prompt builder ----------
 
@@ -51,6 +52,27 @@ function buildBriefingPrompt(data: BriefingRawData, marketTrends = ""): string {
     )
     .join("\n");
 
+  const calendarList = (data.calendar_today || [])
+    .map(
+      (e) =>
+        `- ${e.all_day ? "ALL DAY" : e.time}: ${e.title}${e.event_type ? ` [${e.event_type}]` : ""}${e.project_name ? ` — ${e.project_name}` : ""}${e.location ? ` @ ${e.location}` : ""}`
+    )
+    .join("\n");
+
+  const followupsList = (data.pending_followups || [])
+    .map(
+      (f) =>
+        `- [${String(f.urgency).toUpperCase()}] ${f.title}${f.project_name ? ` (${f.project_name})` : ""}${f.recipient_name ? ` → ${f.recipient_name}` : ""}${f.days_overdue ? `, ${f.days_overdue}d overdue` : ""}${f.suggested_action ? ` — suggested: ${f.suggested_action}` : ""}`
+    )
+    .join("\n");
+
+  const supplierAlertsList = (data.supplier_alerts || [])
+    .map(
+      (a) =>
+        `- [${a.alert_type.toUpperCase()}/${a.category}] ${a.title}: ${a.description}${a.recommended_action ? ` — recommended: ${a.recommended_action}` : ""}`
+    )
+    .join("\n");
+
   return `You are an AI assistant for Swiss construction project managers. Generate a daily morning briefing in ${lang}.
 
 USER: ${data.user_name}
@@ -74,6 +96,15 @@ ${urgentEmailsList || "(none)"}
 TODAY'S MEETINGS:
 ${meetingsList || "(none)"}
 
+TODAY'S CALENDAR (meetings, site visits, deadlines, milestones):
+${calendarList || "(none)"}
+
+PENDING FOLLOW-UPS (detected by the Followup Engine — awaiting the user's approval):
+${followupsList || "(none)"}
+
+ACTIVE SUPPLIER ALERTS (detected by the Supplier Monitor):
+${supplierAlertsList || "(none)"}
+
 SUBMISSION DEADLINES (next 30 days):
 ${deadlinesList || "(none)"}${marketTrends}
 
@@ -81,7 +112,8 @@ INSTRUCTIONS:
 Generate a structured JSON briefing. The tone should be professional, concise, and actionable — like a trusted assistant briefing a busy construction PM in the morning.
 
 1. "greeting": A short, personalized greeting with the date. Example: "Bonjour Julien — lundi 17 février 2026"
-2. "priority_alerts": Array of 0-5 short alert strings for critical items (overdue tasks, urgent emails, today's deadlines). Be specific.
+2. "priority_alerts": Array of 0-5 short alert strings for critical items (overdue tasks, urgent emails, today's deadlines, critical follow-ups, critical supplier alerts). Be specific.
+   Ground every alert in the data above — never invent a number, and never restate a section that says "(none)".
 3. "projects": For EACH active project, provide:
    - "project_id": the project ID
    - "name": project name
@@ -109,7 +141,7 @@ Output ONLY valid JSON matching this structure. No markdown, no explanation.
 export async function generateBriefingAI(
   anthropicApiKey: string,
   rawData: BriefingRawData,
-  model = "claude-sonnet-4-5-20250929",
+  model = MODEL_FOR_TASK.briefing,
   onUsage?: ApiUsageCallback,
   marketTrends = ""
 ): Promise<BriefingContent> {
@@ -120,13 +152,18 @@ export async function generateBriefingAI(
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
+    // maxRetries:0 on the SDK — the retry policy lives in callAnthropicWithRetry.
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000, maxRetries: 0 });
 
-    const response = await client.messages.create({
-      model,
-      max_tokens: 4096,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
-    });
+    // The briefing prompt is unique per user per day — never cache it
+    // (cache_control on unique content is a +25% write with no reuse).
+    const response = await callAnthropicWithRetry(() =>
+      client.messages.create({
+        model,
+        max_tokens: 4096,
+        messages: [{ role: "user", content: prompt }],
+      })
+    );
 
     // Track usage
     try {
@@ -143,14 +180,11 @@ export async function generateBriefingAI(
       return generateBriefingFallback(rawData);
     }
 
-    // Parse JSON
-    let jsonStr = textBlock.text.trim();
-    const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      jsonStr = codeBlockMatch[1].trim();
+    const parsed = parseAIJson<Record<string, any>>(textBlock.text);
+    if (!parsed) {
+      console.error("[generateBriefingAI] Failed to parse briefing JSON");
+      return generateBriefingFallback(rawData);
     }
-
-    const parsed = JSON.parse(jsonStr);
 
     console.log("[generateBriefingAI] AI briefing generated successfully");
 
@@ -265,12 +299,24 @@ export function generateBriefingFallback(rawData: BriefingRawData): BriefingCont
     };
   });
 
-  // Meetings today
+  // Meetings today — merged with the calendar feed so the briefing shows the
+  // same "today" as the calendar module (site visits, deadlines, milestones).
   const meetingsToday = rawData.meetings_today.map((m) => ({
     time: m.time,
     project: m.project_name,
     title: m.title,
   }));
+  const seenSlots = new Set(meetingsToday.map((m) => `${m.time}|${m.title}`));
+  for (const e of rawData.calendar_today || []) {
+    const slot = `${e.time}|${e.title}`;
+    if (seenSlots.has(slot)) continue;
+    seenSlots.add(slot);
+    meetingsToday.push({
+      time: e.time,
+      project: e.project_name ?? "—",
+      title: e.title,
+    });
+  }
 
   // Submission deadlines
   const submissionDeadlines = rawData.submission_deadlines.map((s) => {
@@ -299,6 +345,43 @@ export function generateBriefingFallback(rawData: BriefingRawData): BriefingCont
     alerts.push(msgs[rawData.locale]);
   }
 
+  // Pending follow-ups awaiting approval
+  const urgentFollowups = (rawData.pending_followups || []).filter(
+    (f) => f.urgency === "critical" || f.urgency === "high"
+  );
+  if (urgentFollowups.length > 0) {
+    const msgs: Record<string, string> = {
+      fr: `${urgentFollowups.length} relance(s) prioritaire(s) à valider`,
+      en: `${urgentFollowups.length} priority follow-up(s) to approve`,
+      de: `${urgentFollowups.length} vorrangige Nachfassaktion(en) zu bestätigen`,
+    };
+    alerts.push(msgs[rawData.locale]);
+  }
+
+  // Active supplier alerts
+  const criticalSupplierAlerts = (rawData.supplier_alerts || []).filter(
+    (a) => a.alert_type === "critical" || a.alert_type === "warning"
+  );
+  if (criticalSupplierAlerts.length > 0) {
+    const msgs: Record<string, string> = {
+      fr: `${criticalSupplierAlerts.length} alerte(s) fournisseur active(s)`,
+      en: `${criticalSupplierAlerts.length} active supplier alert(s)`,
+      de: `${criticalSupplierAlerts.length} aktive Lieferantenwarnung(en)`,
+    };
+    alerts.push(msgs[rawData.locale]);
+  }
+
+  // Today's calendar
+  if ((rawData.calendar_today || []).length > 0) {
+    const count = rawData.calendar_today.length;
+    const msgs: Record<string, string> = {
+      fr: `${count} événement(s) au calendrier aujourd'hui`,
+      en: `${count} calendar event(s) today`,
+      de: `${count} Kalendereintrag/-einträge heute`,
+    };
+    alerts.push(msgs[rawData.locale]);
+  }
+
   // Global summary
   const globalMsgs: Record<string, string> = {
     fr: `${rawData.stats.total_projects} projets actifs, ${rawData.stats.emails_unread} emails non lus, ${rawData.stats.tasks_overdue} tâches en retard, ${rawData.stats.meetings_today} réunion(s) aujourd'hui.`,
@@ -307,7 +390,10 @@ export function generateBriefingFallback(rawData: BriefingRawData): BriefingCont
   };
 
   return {
-    mode: "fallback",
+    // "data", never "ai": this briefing is assembled from real rows with no
+    // model involved. Mislabelling it as AI-generated would be a lie to the
+    // user about where the content came from.
+    mode: "data",
     greeting: greetings[rawData.locale],
     priority_alerts: alerts,
     projects,

@@ -11,6 +11,8 @@ type FooterLink = {
   external?: boolean;
   comingSoon?: boolean;
   mailto?: boolean;
+  /** Label comes from the `chantier.solutionsPage` namespace instead of `chantier.footer`. */
+  solutionsNs?: boolean;
 };
 
 type FooterColumn = {
@@ -32,6 +34,17 @@ const COLUMNS: FooterColumn[] = [
   },
   {
     code: "02",
+    titleKey: "columns.solutions.title",
+    links: [
+      { key: "index.s1Name", href: "/solutions/soumissions-cfc", solutionsNs: true },
+      { key: "index.s2Name", href: "/solutions/pv-chantier", solutionsNs: true },
+      { key: "index.s3Name", href: "/solutions/planning-chantier", solutionsNs: true },
+      { key: "index.s4Name", href: "/solutions/rapports-chantier", solutionsNs: true },
+      { key: "columns.solutions.links.all", href: "/solutions" },
+    ],
+  },
+  {
+    code: "03",
     titleKey: "columns.resources.title",
     links: [
       { key: "columns.resources.links.about", href: "/about" },
@@ -41,7 +54,7 @@ const COLUMNS: FooterColumn[] = [
     ],
   },
   {
-    code: "03",
+    code: "04",
     titleKey: "columns.legal.title",
     links: [
       { key: "columns.legal.links.terms", href: "/legal/cgv" },
@@ -53,6 +66,7 @@ const COLUMNS: FooterColumn[] = [
 
 export function MarketingFooter() {
   const t = useTranslations("chantier.footer");
+  const tSol = useTranslations("chantier.solutionsPage");
   const router = useRouter();
   const pathname = usePathname();
   const locale = useLocale();
@@ -91,20 +105,20 @@ export function MarketingFooter() {
               {t("placard.title")}
             </span>
             <span className="h-px w-10 bg-[#27272A]" />
-            <span className="font-tech text-[10px] font-semibold tracking-[0.18em] text-[#52525B]">
+            <span className="font-tech text-[10px] font-semibold tracking-[0.18em] text-[#A1A1AA]">
               {t("placard.cfc")}
             </span>
           </div>
           <div className="flex items-center gap-2.5">
             <span className="flex h-1.5 w-1.5 animate-pulse rounded-full bg-[#22C55E]" />
-            <span className="font-tech text-[10px] font-semibold tracking-[0.22em] text-[#71717A]">
+            <span className="font-tech text-[10px] font-semibold tracking-[0.22em] text-[#A1A1AA]">
               {t("placard.status")}
             </span>
           </div>
         </div>
 
         {/* Main grid */}
-        <div className="mt-12 grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)] lg:gap-10">
+        <div className="mt-12 grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-[1.3fr_repeat(4,1fr)] lg:gap-8">
           {/* Brand column */}
           <div>
             <Link href="/" className="group inline-flex items-center gap-3">
@@ -125,7 +139,7 @@ export function MarketingFooter() {
             {/* Language switcher — chantier style */}
             <div className="mt-8">
               <div className="mb-2 flex items-center gap-2">
-                <span className="font-tech text-[9px] font-bold uppercase tracking-[0.28em] text-[#52525B]">
+                <span className="font-tech text-[9px] font-bold uppercase tracking-[0.28em] text-[#A1A1AA]">
                   {t("language.label")}
                 </span>
                 <span className="h-px flex-1 bg-[#27272A]" />
@@ -135,10 +149,11 @@ export function MarketingFooter() {
                   <button
                     key={lang}
                     onClick={() => switchLocale(lang)}
-                    className={`${i > 0 ? "border-l border-[#27272A]" : ""} px-3.5 py-2 font-condensed text-[11px] font-700 uppercase tracking-[0.22em] transition-colors ${
+                    type="button"
+                    className={`${i > 0 ? "border-l border-[#27272A]" : ""} min-h-[44px] min-w-[48px] px-4 font-condensed text-[12px] font-700 uppercase tracking-[0.22em] transition-colors ${
                       locale === lang
                         ? "bg-[#F97316] text-[#0A0A0C]"
-                        : "text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA]"
+                        : "text-[#A1A1AA] hover:bg-[#18181B] hover:text-[#FAFAFA]"
                     }`}
                   >
                     {lang}
@@ -159,16 +174,16 @@ export function MarketingFooter() {
                   {t(col.titleKey)}
                 </span>
               </div>
-              <ul className="space-y-3">
+              <ul className="space-y-0.5">
                 {col.links.map((link) => {
-                  const label = t(link.key);
+                  const label = link.solutionsNs ? tSol(link.key) : t(link.key);
                   if (link.comingSoon) {
                     return (
-                      <li key={link.key} className="flex items-center gap-2">
+                      <li key={link.key} className="flex min-h-[44px] items-center gap-2">
                         <span className="font-sans text-[13px] text-[#3F3F46]">
                           {label}
                         </span>
-                        <span className="border border-[#27272A] bg-[#111114] px-1.5 py-0.5 font-tech text-[9px] font-semibold uppercase tracking-[0.18em] text-[#52525B]">
+                        <span className="border border-[#27272A] bg-[#111114] px-1.5 py-0.5 font-tech text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A1A1AA]">
                           {t("comingSoon")}
                         </span>
                       </li>
@@ -179,7 +194,7 @@ export function MarketingFooter() {
                       <li key={link.key}>
                         <a
                           href={`mailto:${link.href}`}
-                          className="group inline-flex items-center gap-1.5 font-sans text-[13px] text-[#A1A1AA] transition-colors hover:text-[#F97316]"
+                          className="group inline-flex min-h-[44px] items-center gap-1.5 font-sans text-[13px] text-[#A1A1AA] transition-colors hover:text-[#F97316]"
                         >
                           <span>{label}</span>
                           <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -191,7 +206,7 @@ export function MarketingFooter() {
                     <li key={link.key}>
                       <Link
                         href={link.href!}
-                        className="group inline-flex items-center gap-1.5 font-sans text-[13px] text-[#A1A1AA] transition-colors hover:text-[#F97316]"
+                        className="group inline-flex min-h-[44px] items-center gap-1.5 font-sans text-[13px] text-[#A1A1AA] transition-colors hover:text-[#F97316]"
                       >
                         <span>{label}</span>
                         <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -207,7 +222,7 @@ export function MarketingFooter() {
         {/* Bottom strip — site identification */}
         <div className="mt-16 border-t border-[#27272A] pt-8">
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-tech text-[10px] font-semibold tracking-[0.18em] text-[#52525B]">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-tech text-[10px] font-semibold tracking-[0.18em] text-[#A1A1AA]">
               <span>{t("bottom.copyright", { year })}</span>
               <span className="hidden h-3 w-px bg-[#27272A] sm:inline-block" />
               <span>{t("bottom.build")}</span>
@@ -216,7 +231,7 @@ export function MarketingFooter() {
               <span className="hidden h-3 w-px bg-[#27272A] sm:inline-block" />
               <span className="text-[#F97316]">{t("bottom.status")}</span>
             </div>
-            <div className="flex items-center gap-3 font-tech text-[10px] font-semibold tracking-[0.22em] text-[#71717A]">
+            <div className="flex items-center gap-3 font-tech text-[10px] font-semibold tracking-[0.22em] text-[#A1A1AA]">
               <span>{t("bottom.hosting")}</span>
               <span className="h-px w-6 bg-[#27272A]" />
               <span>{t("bottom.compliance")}</span>

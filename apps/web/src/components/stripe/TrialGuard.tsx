@@ -138,18 +138,18 @@ export function TrialGuard() {
           <h1 className="text-2xl font-bold mb-4 text-[#FAFAFA]">
             Votre essai gratuit est termin&eacute;
           </h1>
-          <p className="text-[#71717A] mb-8 text-lg">
+          <p className="text-[#A1A1AA] mb-8 text-lg">
             Choisissez un plan pour continuer &agrave; utiliser Cantaia et
             acc&eacute;der &agrave; tous vos projets.
           </p>
           <Link
             href="/settings?tab=subscription&section=plans"
-            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#F97316] to-[#EA580C] px-6 py-3 font-medium text-white shadow-lg shadow-[#F97316]/25 transition-shadow hover:shadow-xl"
+            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#F97316] to-[#EA580C] px-6 py-3 font-medium text-[#0F0F11] shadow-lg shadow-[#F97316]/25 transition-shadow hover:shadow-xl"
           >
             Voir les plans
             <ArrowRight className="h-4 w-4" />
           </Link>
-          <p className="mt-6 text-sm text-[#71717A]">
+          <p className="mt-6 text-sm text-[#A1A1AA]">
             Vos donn&eacute;es sont conserv&eacute;es et seront accessibles
             d&egrave;s l&apos;activation d&apos;un plan.
           </p>

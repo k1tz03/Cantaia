@@ -1,3 +1,5 @@
+"use client";
+
 // ============================================================
 // useAgent — React hook for Managed Agent sessions
 // State machine: idle → starting → running → tool_pending → completed/failed
@@ -6,6 +8,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { AgentType, SessionStatus } from "@cantaia/core/agents";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -106,14 +110,33 @@ export function useAgent(agentType: AgentType): UseAgentReturn {
           body: JSON.stringify({ input, message, title }),
         });
 
+        // AGT — /api/agents/[type]/start answers 402 when the org is out of
+        // credits (insufficientCreditsResponse). The hook used to turn that
+        // into a generic "Start failed: 402" error string, so the user saw a
+        // technical failure instead of the paywall every other module shows.
+        if (await handleInsufficientCredits(startRes)) {
+          setStatus("idle");
+          return;
+        }
+
         if (!startRes.ok) {
           const errData = await startRes.json().catch(() => ({}));
+          if (startRes.status === 429) {
+            throw new Error(
+              errData.error === "usage_limit_reached"
+                ? "Quota d'agents atteint pour votre plan."
+                : "Trop de démarrages d'agents — réessayez dans quelques minutes."
+            );
+          }
           throw new Error(errData.error || `Start failed: ${startRes.status}`);
         }
 
         const startData = await startRes.json();
         sessionIdRef.current = startData.session_id;
         dbSessionIdRef.current = startData.id;
+
+        // The session start consumed credits — refresh every credit widget.
+        notifyCreditsChanged();
 
         setStatus("running");
 
@@ -219,6 +242,8 @@ export function useAgent(agentType: AgentType): UseAgentReturn {
           } catch {
             // Result fetch failed — not critical, we have events
           }
+          // Token spend is settled at this point.
+          notifyCreditsChanged();
         }
       } catch (err) {
         if ((err as Error).name === "AbortError") {

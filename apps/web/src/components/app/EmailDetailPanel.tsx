@@ -8,7 +8,6 @@ import {
   X,
   Send,
   Copy,
-  RefreshCw,
   Archive,
   Tag,
   CheckCircle,
@@ -33,12 +32,17 @@ import {
 } from "lucide-react";
 import type { EmailRecord, Project } from "@cantaia/database";
 import { formatDate } from "@/lib/format";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
+// Dark theme is forced app-wide — use the hardcoded hex palette, never `dark:`
+// variants or semantic Tailwind colors (which don't resolve under forcedTheme).
 const classificationConfig: Record<string, { label: string; icon: React.ComponentType<any>; color: string }> = {
-  action_required: { label: "Action", icon: AlertCircle, color: "text-orange-600 dark:text-orange-400 bg-orange-500/10" },
-  urgent: { label: "Urgent", icon: AlertTriangle, color: "text-red-600 dark:text-red-400 bg-red-500/10" },
-  waiting_response: { label: "En attente", icon: Clock, color: "text-blue-600 dark:text-blue-400 bg-blue-500/10" },
-  info_only: { label: "Info", icon: Info, color: "text-[#71717A] bg-[#27272A]" },
+  action_required: { label: "Action", icon: AlertCircle, color: "text-[#F97316] bg-[#F97316]/10" },
+  urgent: { label: "Urgent", icon: AlertTriangle, color: "text-[#EF4444] bg-[#EF4444]/10" },
+  waiting_response: { label: "En attente", icon: Clock, color: "text-[#3B82F6] bg-[#3B82F6]/10" },
+  info_only: { label: "Info", icon: Info, color: "text-[#A1A1AA] bg-[#27272A]" },
 };
 
 interface AttachmentInfo {
@@ -72,7 +76,7 @@ function getAttachmentIcon(contentType: string, name: string) {
   if (contentType.startsWith("image/")) {
     return { icon: ImageIcon, color: "text-purple-500 bg-purple-500/10" };
   }
-  return { icon: Paperclip, color: "text-[#71717A] bg-[#27272A]" };
+  return { icon: Paperclip, color: "text-[#A1A1AA] bg-[#27272A]" };
 }
 
 function formatFileSize(bytes: number): string {
@@ -102,70 +106,100 @@ interface EmailDetailPanelProps {
 
 export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onCreateTask }: EmailDetailPanelProps) {
   const t = useTranslations("dashboard");
+  // D-FIX8 — ONE reply mechanism.
+  //
+  // The panel used to carry two: an always-auto-generated "AI reply proposal"
+  // section and a separate "direct reply" composer opened from the action bar.
+  // They had different state, different buttons and posted to the SAME
+  // endpoint, so the user could type into one box and send the other's
+  // (possibly stale) text. They are now a single composer whose body can be
+  // filled by hand or by the AI.
+  const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replyLoading, setReplyLoading] = useState(false);
   const [noReplyNeeded, setNoReplyNeeded] = useState(false);
-  const [forceReply, setForceReply] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [showReclassDropdown, setShowReclassDropdown] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
   const [markingProcessed, setMarkingProcessed] = useState(false);
   const [markingUrgent, setMarkingUrgent] = useState(false);
-  const [taskCreatedIds, setTaskCreatedIds] = useState<Set<string>>(new Set());
   const [extractedTasks, setExtractedTasks] = useState<{ id: string; title: string; responsible?: string | null; deadline?: string | null }[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [extractingTasks, setExtractingTasks] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AttachmentInfo[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [emailBody, setEmailBody] = useState<{ contentType: string; content: string } | null>(null);
   const [emailBodyLoading, setEmailBodyLoading] = useState(false);
   const [savedPlans, setSavedPlans] = useState<Map<string, { planId: string; planTitle: string }>>(new Map());
-  // Direct reply/forward/delete states
-  const [showDirectReply, setShowDirectReply] = useState(false);
-  const [directReplyText, setDirectReplyText] = useState("");
-  const [sendingDirectReply, setSendingDirectReply] = useState(false);
+  // Forward / delete states
   const [showForward, setShowForward] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [forwardTo, setForwardTo] = useState("");
   const [forwardNote, setForwardNote] = useState("");
   const [sendingForward, setSendingForward] = useState(false);
+  const [forwardError, setForwardError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const project = email.project_id ? projects.find((p) => p.id === email.project_id) : null;
   const detailedSummary = email.ai_summary || null;
   const config = email.classification ? classificationConfig[email.classification] : null;
 
-  // Fetch AI reply when panel opens
+  /**
+   * D-FIX8 — AI reply generation is now ON DEMAND.
+   *
+   * This used to run in a `useEffect` on every panel open: opening an email to
+   * read it billed a Claude call whose output was usually discarded when the
+   * panel closed. The user asks for a draft when they want one.
+   */
   const fetchReply = useCallback(async () => {
     setReplyLoading(true);
     setNoReplyNeeded(false);
-    setForceReply(false);
+    setReplyError(null);
     try {
       const res = await fetch("/api/ai/generate-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email_id: email.id }),
       });
-      const data = await res.json();
-      if (data.no_reply_needed) {
+      // 402 → open the global paywall instead of showing a raw error string.
+      if (await handleInsufficientCredits(res)) {
+        setReplyLoading(false);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReplyError(data.error || `Erreur ${res.status}`);
+      } else if (data.no_reply_needed) {
         setNoReplyNeeded(true);
-        setReplyText("");
+        notifyCreditsChanged();
       } else if (data.reply_text) {
         setReplyText(data.reply_text);
+        notifyCreditsChanged();
       } else {
-        // Insufficient context or fallback
-        setReplyText("");
+        setReplyError(t("insufficientContext"));
       }
     } catch {
-      setReplyText("");
+      setReplyError(t("insufficientContext"));
     } finally {
       setReplyLoading(false);
     }
-  }, [email.id]);
+  }, [email.id, t]);
 
+  // Reset the composer whenever the panel switches to another email —
+  // otherwise a draft written for email A stayed loaded over email B.
   useEffect(() => {
-    fetchReply();
-  }, [fetchReply]);
+    setShowReply(false);
+    setReplyText("");
+    setReplyError(null);
+    setNoReplyNeeded(false);
+    setShowForward(false);
+    setForwardError(null);
+    setExtractError(null);
+    setConfirmDeleteOpen(false);
+  }, [email.id]);
 
   // Fetch attachments if email has them
   useEffect(() => {
@@ -225,85 +259,72 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
       .finally(() => setEmailBodyLoading(false));
   }, [email.id, email.outlook_message_id]);
 
-  // Fetch existing tasks linked to this email, then auto-extract if none found
-  useEffect(() => {
-    let cancelled = false;
+  /**
+   * D-FIX5 — load the tasks that EXIST for this email.
+   *
+   * This effect used to fall through to `/api/ai/extract-tasks` whenever the
+   * email had no task yet: every single panel open on such an email paid for a
+   * Claude extraction whose result was held in local state and thrown away on
+   * close — the same emails were re-extracted forever and never persisted.
+   * Extraction is now an explicit user action that writes real `tasks` rows.
+   */
+  const loadTasks = useCallback(async () => {
     setTasksLoading(true);
-    setExtractedTasks([]);
-
-    fetch(`/api/tasks/by-email?email_id=${encodeURIComponent(email.id)}`)
-      .then((res) => res.json())
-      .then(async (data) => {
-        if (cancelled) return;
-        if (data.tasks?.length > 0) {
-          setExtractedTasks(
-            data.tasks.map((t: { id: string; title: string; assigned_to_name?: string | null; due_date?: string | null }) => ({
-              id: t.id,
-              title: t.title,
-              responsible: t.assigned_to_name,
-              deadline: t.due_date,
-            }))
-          );
-          setTasksLoading(false);
-          return;
-        }
-
-        // No tasks in DB — auto-extract via AI
-        setExtractingTasks(true);
-        setTasksLoading(false);
-        try {
-          const aiRes = await fetch("/api/ai/extract-tasks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email_id: email.id }),
-          });
-          const aiData = await aiRes.json();
-          if (!cancelled && aiData.tasks?.length > 0) {
-            setExtractedTasks(
-              aiData.tasks.map((t: { title: string; assigned_to_name?: string | null; due_date?: string | null }, idx: number) => ({
-                id: `ai-${Date.now()}-${idx}`,
-                title: t.title,
-                responsible: t.assigned_to_name,
-                deadline: t.due_date,
-              }))
-            );
-          }
-        } catch {
-          // ignore
-        } finally {
-          if (!cancelled) setExtractingTasks(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setTasksLoading(false);
-      });
-
-    return () => { cancelled = true; };
+    try {
+      const res = await fetch(`/api/tasks/by-email?email_id=${encodeURIComponent(email.id)}`);
+      const data = await res.json();
+      setExtractedTasks(
+        (data.tasks || []).map((task: { id: string; title: string; assigned_to_name?: string | null; due_date?: string | null }) => ({
+          id: task.id,
+          title: task.title,
+          responsible: task.assigned_to_name,
+          deadline: task.due_date,
+        }))
+      );
+    } catch {
+      setExtractedTasks([]);
+    } finally {
+      setTasksLoading(false);
+    }
   }, [email.id]);
 
-  // Manual re-extract tasks from email using AI
+  useEffect(() => {
+    setExtractedTasks([]);
+    loadTasks();
+  }, [loadTasks]);
+
+  /**
+   * Extract tasks with `persist: true`: the route enforces the org check and
+   * inserts the rows, so the AI spend produces something that survives the
+   * panel closing. Then re-read from the DB — a single source of truth.
+   */
   async function handleExtractTasks() {
     setExtractingTasks(true);
+    setExtractError(null);
     try {
       const res = await fetch("/api/ai/extract-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_id: email.id }),
+        body: JSON.stringify({ email_id: email.id, persist: true }),
       });
-      const data = await res.json();
-      if (data.tasks?.length > 0) {
-        setExtractedTasks((prev) => [
-          ...prev,
-          ...data.tasks.map((t: { title: string; assigned_to_name?: string | null; due_date?: string | null }, idx: number) => ({
-            id: `ai-${Date.now()}-${idx}`,
-            title: t.title,
-            responsible: t.assigned_to_name,
-            deadline: t.due_date,
-          })),
-        ]);
+      // 402 → global paywall; abort silently (dialog handles messaging).
+      if (await handleInsufficientCredits(res)) {
+        setExtractingTasks(false);
+        return;
       }
-    } catch {
-      // ignore
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.persisted) {
+        notifyCreditsChanged();
+        await loadTasks();
+        onEmailUpdated?.();
+      } else {
+        const msg = data.error || `Erreur ${res.status}`;
+        console.error("[EmailDetail] Task extraction failed:", msg);
+        setExtractError(t("taskExtractionFailed"));
+      }
+    } catch (err) {
+      console.error("[EmailDetail] Task extraction error:", err);
+      setExtractError(t("taskExtractionFailed"));
     } finally {
       setExtractingTasks(false);
     }
@@ -337,52 +358,17 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
     }
   }
 
-  async function handleCreateTask(taskId: string, taskTitle?: string, taskResponsible?: string | null, taskDeadline?: string | null) {
-    const taskData: TaskPrefill = {
-      title: taskTitle || email.subject,
-      project_id: email.project_id || undefined,
-      description: email.ai_summary || email.body_preview || "",
-      source: "email",
-      source_id: email.id,
-      source_reference: `Email «${email.subject}» du ${formatDate(email.received_at)}`,
-      due_date: taskDeadline || undefined,
-      assigned_to_name: taskResponsible || undefined,
-    };
-
-    try {
-      const res = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(taskData),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setTaskCreatedIds((prev) => new Set(prev).add(taskId));
-      } else {
-        console.error("[Task] Creation failed:", data.error);
-      }
-    } catch (err) {
-      console.error("[Task] Creation error:", err);
-    }
-
-    if (onCreateTask) {
-      onCreateTask(taskData);
-    }
-  }
-
   function handleCopyReply() {
     navigator.clipboard.writeText(replyText);
   }
 
-  function handleRegenerate() {
-    fetchReply();
-  }
-
+  /** The single send path for this panel (D-FIX8). */
   async function handleSendReply() {
-    if (!replyText || !email.outlook_message_id) return;
+    if (!replyText.trim() || !email.outlook_message_id) return;
     setSendingReply(true);
+    setReplyError(null);
     try {
-      await fetch("/api/outlook/send-reply", {
+      const res = await fetch("/api/outlook/send-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -390,6 +376,18 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           reply_content: replyText,
         }),
       });
+      // A non-2xx used to be ignored entirely: the spinner stopped and the user
+      // believed the reply had gone out.
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setReplyError(data.error || `Envoi échoué (${res.status})`);
+        return;
+      }
+      setShowReply(false);
+      setReplyText("");
+      onEmailUpdated?.();
+    } catch {
+      setReplyError(t("replyNetworkError"));
     } finally {
       setSendingReply(false);
     }
@@ -465,40 +463,34 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
     }
   }
 
-  // Direct reply (non-AI) — sends reply via Outlook
-  async function handleSendDirectReply() {
-    if (!directReplyText.trim() || !email.outlook_message_id) return;
-    setSendingDirectReply(true);
-    try {
-      const res = await fetch("/api/outlook/send-reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          outlook_message_id: email.outlook_message_id,
-          reply_content: directReplyText,
-        }),
-      });
-      if (res.ok) {
-        setShowDirectReply(false);
-        setDirectReplyText("");
-        onEmailUpdated?.();
-      }
-    } catch (err) {
-      console.error("[EmailDetail] Direct reply error:", err);
-    } finally {
-      setSendingDirectReply(false);
-    }
-  }
-
-  // Forward email to another recipient
+  // Forward email to another recipient.
+  // /api/email/send always treats `body` as HTML (it has no content_type
+  // handling), so we must build HTML: text newlines → <br>, and embed the FULL
+  // original body (loaded from Graph into `emailBody`) rather than the truncated
+  // preview.
   async function handleSendForward() {
     if (!forwardTo.trim() || !email.outlook_message_id) return;
     setSendingForward(true);
+    setForwardError(null);
     try {
+      const esc = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const textToHtml = (s: string) => esc(s).replace(/\r?\n/g, "<br>");
+
+      // Prefer the full body already fetched from Graph; fall back to preview.
+      const originalHtml =
+        emailBody && emailBody.contentType === "html"
+          ? emailBody.content
+          : textToHtml(emailBody?.content || email.body_preview || "");
+
       const subject = `TR: ${email.subject}`;
-      const forwardBody = forwardNote
-        ? `${forwardNote}\n\n---------- Message transféré ----------\nDe : ${email.sender_name || email.sender_email}\nDate : ${formatDate(email.received_at)}\nObjet : ${email.subject}\n\n${email.body_preview || ""}`
-        : `---------- Message transféré ----------\nDe : ${email.sender_name || email.sender_email}\nDate : ${formatDate(email.received_at)}\nObjet : ${email.subject}\n\n${email.body_preview || ""}`;
+      const header =
+        `---------- Message transféré ----------<br>` +
+        `De : ${esc(email.sender_name || email.sender_email)}<br>` +
+        `Date : ${esc(formatDate(email.received_at))}<br>` +
+        `Objet : ${esc(email.subject)}<br><br>`;
+      const notePart = forwardNote ? `${textToHtml(forwardNote)}<br><br>` : "";
+      const forwardBody = `${notePart}${header}${originalHtml}`;
 
       const res = await fetch("/api/email/send", {
         method: "POST",
@@ -507,27 +499,38 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           to: forwardTo.split(",").map((e: string) => e.trim()),
           subject,
           body: forwardBody,
-          content_type: "text",
         }),
       });
+      if (await handleInsufficientCredits(res)) {
+        setSendingForward(false);
+        return;
+      }
       if (res.ok) {
         setShowForward(false);
         setForwardTo("");
         setForwardNote("");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setForwardError(data.error || `Erreur ${res.status}`);
       }
     } catch (err) {
       console.error("[EmailDetail] Forward error:", err);
+      setForwardError(t("forwardFailed"));
     } finally {
       setSendingForward(false);
     }
   }
 
-  // Delete email (move to Deleted Items in Outlook)
+  /**
+   * Delete email (move to Deleted Items in Outlook).
+   * D-FIX8 — a single click on a small icon button used to move the message to
+   * the bin with no confirmation and no undo; it now goes through a dialog.
+   */
   async function handleDeleteEmail() {
     if (!email.outlook_message_id) return;
     setDeleting(true);
     try {
-      await fetch("/api/outlook/move-email", {
+      const res = await fetch("/api/outlook/move-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -535,6 +538,11 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           folder_name: "Deleted Items",
         }),
       });
+      if (!res.ok) {
+        console.error("[EmailDetail] Delete failed:", res.status);
+        return;
+      }
+      setConfirmDeleteOpen(false);
       onEmailUpdated?.();
       onClose();
     } catch (err) {
@@ -578,7 +586,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
         </h3>
         <button
           onClick={onClose}
-          className="rounded-md p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
+          className="rounded-md p-1 text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#A1A1AA]"
         >
           <X className="h-4 w-4" />
         </button>
@@ -590,26 +598,26 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           {/* Section 1 — Header */}
           <div className="space-y-2">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
                 {t("from")}
               </p>
               <p className="text-sm font-medium text-[#FAFAFA]">
                 {email.sender_name || email.sender_email}
               </p>
-              <p className="text-xs text-[#71717A]">{email.sender_email}</p>
+              <p className="text-xs text-[#A1A1AA]">{email.sender_email}</p>
             </div>
             {(email.recipients?.length ?? 0) > 0 && (
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
                   {t("recipients")}
                 </p>
-                <p className="text-xs text-[#71717A]">
+                <p className="text-xs text-[#A1A1AA]">
                   {email.recipients?.join(", ")}
                 </p>
               </div>
             )}
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
                 {t("subject")}
               </p>
               <p className="text-sm font-medium text-[#FAFAFA]">
@@ -617,11 +625,11 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-[#71717A]">
+              <span className="text-xs text-[#A1A1AA]">
                 {formatDate(email.received_at)}
               </span>
               {email.has_attachments && (
-                <span className="flex items-center gap-1 text-xs text-[#71717A]">
+                <span className="flex items-center gap-1 text-xs text-[#A1A1AA]">
                   <Paperclip className="h-3 w-3" />
                   {t("attachment")}
                 </span>
@@ -653,11 +661,11 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           {/* ACTION BAR — Reply, Forward, Delete */}
           <div className="flex flex-wrap items-center gap-2 border-b border-[#27272A] pb-4">
             <button
-              onClick={() => { setShowDirectReply(!showDirectReply); setShowForward(false); }}
+              onClick={() => { setShowReply(!showReply); setShowForward(false); }}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                showDirectReply
-                  ? "bg-[#F97316] text-white"
+                showReply
+                  ? "bg-[#F97316] text-[#0F0F11]"
                   : "bg-[#F97316]/10 text-[#F97316] hover:bg-[#F97316]/20 border border-[#F97316]/20"
               )}
             >
@@ -665,7 +673,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               Répondre
             </button>
             <button
-              onClick={() => { setShowForward(!showForward); setShowDirectReply(false); }}
+              onClick={() => { setShowForward(!showForward); setShowReply(false); }}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border",
                 showForward
@@ -677,7 +685,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               Transférer
             </button>
             <button
-              onClick={handleDeleteEmail}
+              onClick={() => setConfirmDeleteOpen(true)}
               disabled={deleting || !email.outlook_message_id}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 transition-colors disabled:opacity-50"
             >
@@ -686,33 +694,67 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
             </button>
           </div>
 
-          {/* Direct Reply Compose */}
-          {showDirectReply && (
+          {/* Reply composer — ONE box, hand-written or AI-filled (D-FIX8) */}
+          {showReply && (
             <div className="rounded-lg border border-[#F97316]/20 bg-[#F97316]/5 p-3 space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#F97316]">
-                Répondre à {email.sender_name || email.sender_email}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#F97316]">
+                  Répondre à {email.sender_name || email.sender_email}
+                </p>
+                <button
+                  onClick={fetchReply}
+                  disabled={replyLoading}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[#F97316]/20 px-2 py-1 text-[11px] font-medium text-[#F97316] hover:bg-[#F97316]/10 disabled:opacity-50"
+                >
+                  {replyLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {replyText ? t("regenerate") : t("aiReplyProposal")}
+                </button>
+              </div>
+
+              {noReplyNeeded && !replyText && (
+                <p className="flex items-center gap-1.5 rounded-md border border-green-500/20 bg-green-500/10 px-2.5 py-2 text-xs text-green-400">
+                  <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                  {t("noReplyNeeded")}
+                </p>
+              )}
+
               <textarea
-                value={directReplyText}
-                onChange={(e) => setDirectReplyText(e.target.value)}
-                rows={5}
-                placeholder="Votre réponse..."
-                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] p-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]/20"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                rows={6}
+                placeholder={t("replyPlaceholder")}
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] p-2.5 text-sm leading-relaxed text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]/20"
               />
+
+              {replyError && (
+                <p className="flex items-center gap-1.5 rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-2 text-xs text-red-400">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  {replyError}
+                </p>
+              )}
+
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleSendDirectReply}
-                  disabled={sendingDirectReply || !directReplyText.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
+                  onClick={handleSendReply}
+                  disabled={sendingReply || !replyText.trim() || !email.outlook_message_id}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-3 py-1.5 text-xs font-medium text-[#0F0F11] hover:bg-[#EA580C] disabled:opacity-50"
                 >
-                  {sendingDirectReply ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                  Envoyer
+                  {sendingReply ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                  {t("send")}
                 </button>
                 <button
-                  onClick={() => { setShowDirectReply(false); setDirectReplyText(""); }}
-                  className="rounded-md px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+                  onClick={handleCopyReply}
+                  disabled={!replyText}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
                 >
-                  Annuler
+                  <Copy className="h-3 w-3" />
+                  {t("copy")}
+                </button>
+                <button
+                  onClick={() => { setShowReply(false); setReplyText(""); setReplyError(null); }}
+                  className="ml-auto rounded-md px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
+                >
+                  {t("cancel")}
                 </button>
               </div>
             </div>
@@ -722,22 +764,28 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           {showForward && (
             <div className="rounded-lg border border-[#3B82F6]/20 bg-[#3B82F6]/5 p-3 space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-[#3B82F6]">
-                Transférer cet email
+                {t("forwardTitle")}
               </p>
               <input
                 type="email"
                 value={forwardTo}
                 onChange={(e) => setForwardTo(e.target.value)}
-                placeholder="Destinataire(s) — séparer par des virgules"
-                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#3B82F6] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]/20"
+                placeholder={t("forwardToPlaceholder")}
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-[#3B82F6] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]/20"
               />
               <textarea
                 value={forwardNote}
                 onChange={(e) => setForwardNote(e.target.value)}
                 rows={3}
-                placeholder="Ajouter une note (optionnel)..."
-                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] p-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#3B82F6] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]/20"
+                placeholder={t("forwardNotePlaceholder")}
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] p-2.5 text-sm text-[#FAFAFA] placeholder:text-[#A1A1AA] focus:border-[#3B82F6] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]/20"
               />
+              {forwardError && (
+                <p className="flex items-center gap-1.5 rounded-md border border-[#EF4444]/20 bg-[#EF4444]/10 px-2.5 py-2 text-xs text-[#EF4444]">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  {forwardError}
+                </p>
+              )}
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSendForward}
@@ -745,13 +793,13 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                   className="inline-flex items-center gap-1.5 rounded-md bg-[#3B82F6] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2563EB] disabled:opacity-50"
                 >
                   {sendingForward ? <Loader2 className="h-3 w-3 animate-spin" /> : <Forward className="h-3 w-3" />}
-                  Transférer
+                  {t("forwardAction")}
                 </button>
                 <button
                   onClick={() => { setShowForward(false); setForwardTo(""); setForwardNote(""); }}
-                  className="rounded-md px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
                 >
-                  Annuler
+                  {t("cancel")}
                 </button>
               </div>
             </div>
@@ -772,12 +820,12 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
 
           {/* Section 1b — Email Content */}
           <div>
-            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
+            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
               <Mail className="h-3 w-3" />
               {t("emailContent")}
             </h4>
             {emailBodyLoading ? (
-              <div className="mt-2 flex items-center gap-2 text-xs text-[#71717A]">
+              <div className="mt-2 flex items-center gap-2 text-xs text-[#A1A1AA]">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 {t("loadingBody")}
               </div>
@@ -801,7 +849,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 )}
               </div>
             ) : email.body_preview ? (
-              <p className="mt-2 text-sm leading-relaxed text-[#71717A]">
+              <p className="mt-2 text-sm leading-relaxed text-[#A1A1AA]">
                 {email.body_preview}
               </p>
             ) : null}
@@ -810,12 +858,12 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           {/* Section 2b — Attachments */}
           {email.has_attachments && (
             <div>
-              <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
+              <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
                 <Paperclip className="h-3 w-3" />
                 {t("attachments")}
               </h4>
               {attachmentsLoading ? (
-                <div className="mt-2 flex items-center gap-2 text-xs text-[#71717A]">
+                <div className="mt-2 flex items-center gap-2 text-xs text-[#A1A1AA]">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   {t("loadingAttachments")}
                 </div>
@@ -838,7 +886,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                             <p className="truncate text-sm font-medium text-[#FAFAFA]">
                               {att.name}
                             </p>
-                            <p className="text-[11px] text-[#71717A]">
+                            <p className="text-[11px] text-[#A1A1AA]">
                               {formatFileSize(att.size)}
                             </p>
                           </div>
@@ -855,7 +903,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                   {attachments.length > 1 && (
                     <button
                       onClick={handleDownloadAll}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
                     >
                       <Download className="h-3.5 w-3.5" />
                       {t("downloadAll")}
@@ -863,21 +911,21 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                   )}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-[#71717A]">{t("noAttachmentsFound")}</p>
+                <p className="mt-2 text-xs text-[#A1A1AA]">{t("noAttachmentsFound")}</p>
               )}
             </div>
           )}
 
           {/* Section 3 — Extracted Tasks */}
           <div>
-            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
+            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
               <CheckCircle className="h-3 w-3" />
               {t("extractedTasks")}
             </h4>
             {tasksLoading || extractingTasks ? (
-              <div className="mt-2 flex items-center gap-2 text-xs text-[#71717A]">
+              <div className="mt-2 flex items-center gap-2 text-xs text-[#A1A1AA]">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {extractingTasks ? (t("extractingTasks") || "Analyse en cours...") : (t("loadingTasks") || "Chargement...")}
+                {extractingTasks ? t("extractingTasks") : t("loadingTasks")}
               </div>
             ) : extractedTasks.length > 0 ? (
               <div className="mt-2 space-y-2">
@@ -889,7 +937,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                     <p className="text-sm font-medium text-[#FAFAFA]">
                       {task.title}
                     </p>
-                    <div className="mt-1 flex items-center gap-3 text-[11px] text-[#71717A]">
+                    <div className="mt-1 flex items-center gap-3 text-[11px] text-[#A1A1AA]">
                       {task.responsible && (
                         <span className="flex items-center gap-1">
                           <User className="h-3 w-3" />
@@ -903,113 +951,57 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                         </span>
                       )}
                     </div>
-                    {taskCreatedIds.has(task.id) ? (
-                      <p className="mt-2 text-xs font-medium text-green-600">
-                        {t("taskCreated")}
-                      </p>
-                    ) : (
-                      <button
-                        onClick={() => handleCreateTask(task.id, task.title, task.responsible, task.deadline)}
-                        className="mt-2 flex items-center gap-1 text-xs font-medium text-brand hover:text-brand/80"
-                      >
-                        <Plus className="h-3 w-3" />
-                        {t("createTask")}
-                      </button>
-                    )}
+                    {/*
+                      D-FIX5 — every row here is now a REAL `tasks` row loaded
+                      from the DB, so the old per-row "Créer la tâche" button
+                      would have created a duplicate.
+                    */}
+                    <p className="mt-2 flex items-center gap-1 text-xs font-medium text-green-500">
+                      <CheckCircle className="h-3 w-3" />
+                      {t("taskCreated")}
+                    </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-xs text-[#71717A]">
+              <p className="mt-2 text-xs text-[#A1A1AA]">
                 {t("noExtractedTasks")}
+              </p>
+            )}
+            {extractError && (
+              <p className="mt-2 flex items-center gap-1.5 rounded-md border border-[#EF4444]/20 bg-[#EF4444]/10 px-2.5 py-2 text-xs text-[#EF4444]">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                {extractError}
               </p>
             )}
             {!extractingTasks && !tasksLoading && (
               <button
                 onClick={handleExtractTasks}
-                className="mt-2 flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80"
+                className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[#F97316] hover:text-[#EA580C]"
               >
                 <Sparkles className="h-3 w-3" />
-                {extractedTasks.length > 0
-                  ? (t("redetectTasks") || "Relancer la détection")
-                  : (t("extractMoreTasks") || "Détecter les tâches")}
+                {extractedTasks.length > 0 ? t("redetectTasks") : t("extractMoreTasks")}
               </button>
             )}
           </div>
 
-          {/* Section 4 — AI Reply Proposal */}
-          <div>
-            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
-              <Mail className="h-3 w-3" />
-              {t("aiReplyProposal")}
-            </h4>
-            {replyLoading ? (
-              <div className="mt-2 flex h-40 items-center justify-center rounded-md border border-[#27272A] bg-[#27272A]">
-                <div className="flex items-center gap-2 text-xs text-[#71717A]">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("generatingReply") || "Génération en cours..."}
-                </div>
-              </div>
-            ) : noReplyNeeded && !forceReply ? (
-              <div className="mt-2 rounded-md border border-green-200 bg-green-500/10 p-4">
-                <p className="flex items-center gap-2 text-sm font-medium text-green-700">
-                  <CheckCircle className="h-4 w-4" />
-                  {t("noReplyNeeded")}
-                </p>
-                <button
-                  onClick={() => setForceReply(true)}
-                  className="mt-2 text-xs font-medium text-green-600 underline hover:text-green-800"
-                >
-                  {t("composeAnyway")}
-                </button>
-              </div>
-            ) : (
-              <textarea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                rows={8}
-                placeholder={t("insufficientContext")}
-                className="mt-2 w-full rounded-md border border-[#27272A] bg-[#0F0F11] p-3 text-sm leading-relaxed text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
-              />
-            )}
-            {(!noReplyNeeded || forceReply) && !replyLoading && (
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  onClick={handleSendReply}
-                  disabled={sendingReply || !replyText}
-                  className="flex items-center gap-1.5 rounded-md bg-gold px-3 py-1.5 text-xs font-medium text-white hover:bg-gold/90 disabled:opacity-50"
-                >
-                  {sendingReply ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                  {t("send")}
-                </button>
-                <button
-                  onClick={handleCopyReply}
-                  className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
-                >
-                  <Copy className="h-3 w-3" />
-                  {t("copy")}
-                </button>
-                <button
-                  onClick={handleRegenerate}
-                  className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  {t("regenerate")}
-                </button>
-              </div>
-            )}
-          </div>
+          {/*
+            D-FIX8 — the old "Section 4 — AI Reply Proposal" lived here. It was
+            a second, always-visible composer over the SAME `replyText` and the
+            same send endpoint as the action-bar one. Replying is now a single
+            composer opened from the action bar above.
+          */}
 
           {/* Section 5 — Quick Actions */}
           <div className="border-t border-[#27272A] pt-4">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA]">
               {t("quickActions")}
             </h4>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 onClick={handleArchive}
                 disabled={archiving}
-                className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
               >
                 {archiving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
                 {t("archiveOutlook")}
@@ -1018,7 +1010,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 <button
                   onClick={() => setShowReclassDropdown(!showReclassDropdown)}
                   disabled={reclassifying}
-                  className="flex w-full items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
+                  className="flex w-full items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
                 >
                   {reclassifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Tag className="h-3.5 w-3.5" />}
                   {t("reclassify")}
@@ -1030,7 +1022,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                       <button
                         key={p.id}
                         onClick={() => handleReclassify(p.id)}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-[#71717A] hover:bg-[#27272A]"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-[#A1A1AA] hover:bg-[#27272A]"
                       >
                         <span
                           className="h-2 w-2 rounded-full"
@@ -1045,7 +1037,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               <button
                 onClick={handleMarkProcessed}
                 disabled={markingProcessed}
-                className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
               >
                 {markingProcessed ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
                 {t("markProcessed")}
@@ -1053,7 +1045,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               <button
                 onClick={handleMarkUrgent}
                 disabled={markingUrgent}
-                className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-orange-600 hover:bg-orange-500/10 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#F97316] hover:bg-[#F97316]/10 disabled:opacity-50"
               >
                 {markingUrgent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AlertTriangle className="h-3.5 w-3.5" />}
                 {t("markUrgent")}
@@ -1071,7 +1063,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                     });
                   }
                 }}
-                className="col-span-2 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+                className="col-span-2 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {t("createManualTask")}
@@ -1080,6 +1072,16 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           </div>
         </div>
       </div>
+
+      {/* D-FIX8 — deleting an email now asks first. */}
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={handleDeleteEmail}
+        variant="danger"
+        title={t("deleteEmailTitle")}
+        description={t("deleteEmailDescription", { subject: email.subject })}
+      />
     </div>
   );
 }

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
-import { insufficientCreditsResponse } from "@/lib/credits";
+import { insufficientCreditsResponse, grantCredits } from "@/lib/credits";
 
 export const maxDuration = 60;
 
@@ -58,6 +59,8 @@ export async function POST(request: NextRequest) {
   // Captured outside the try: the request body is consumed by parseBody(),
   // so request.clone() is no longer usable from the catch block.
   let failedVisitId: string | null = null;
+  // Refund context for the outer catch (credits mode only).
+  let refundCtx: { orgId: string; amount: number; userId: string } | null = null;
 
   try {
     const supabase = await createClient();
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     // Get the visit
     const { data: visit, error: visitErr } = await (supabase.from("client_visits") as any)
-      .select("id, transcription, client_name, client_address, client_postal_code, client_city, visit_date, project_id, organization_id, created_by, title, client_email, client_phone, is_prospect")
+      .select("id, transcription, pre_visit_notes, client_name, client_address, client_postal_code, client_city, visit_date, project_id, organization_id, created_by, title, client_email, client_phone, is_prospect, report_status")
       .eq("id", visit_id)
       .maybeSingle();
 
@@ -93,10 +96,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No transcription available" }, { status: 400 });
     }
 
-    // Update status
-    await (supabase.from("client_visits") as any)
-      .update({ report_status: "generating" })
-      .eq("id", visit_id);
+    // A completed report must not be silently overwritten (a double-click, a
+    // stray re-run): tasks would be duplicated. Require an explicit regenerate.
+    const regenerate = reqBody.regenerate === true;
+    if (visit.report_status === "completed" && !regenerate) {
+      return NextResponse.json(
+        { error: "report_already_generated", visit_id, report_status: "completed" },
+        { status: 409 }
+      );
+    }
 
     // Get user info for the prompt (use admin client to bypass RLS recursion on users table)
     const admin = createAdminClient();
@@ -107,6 +115,11 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     let orgName = "";
+    // Captured so a technical failure AFTER the debit can refund exactly what
+    // was charged (credits mode only — `remaining_credits` is null in legacy
+    // quota mode, where nothing was debited).
+    let refundCredits = 0;
+    let refundOrgId: string | null = null;
     if (userData?.organization_id) {
       const { data: org } = await (supabase.from("organizations") as any)
         .select("name, subscription_plan")
@@ -114,19 +127,38 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       orgName = org?.name || "";
 
-      // Check AI usage limit
+      // Check AI usage limit BEFORE marking the visit "generating", so a refusal
+      // (402/429) leaves the visit untouched instead of stuck on the spinner.
       const usageCheck = await checkUsageLimit(admin, userData.organization_id, org?.subscription_plan || "trial", "visit_report");
       if (!usageCheck.allowed) {
         if (usageCheck.insufficient_credits) {
           return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
         }
-        await markReportFailed(supabase, visit_id);
         return NextResponse.json(
           { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
           { status: 429 }
         );
       }
+      if (usageCheck.remaining_credits !== null) {
+        refundCredits = usageCheck.required_credits ?? 0;
+        refundOrgId = userData.organization_id;
+        if (refundCredits > 0) {
+          refundCtx = { orgId: refundOrgId, amount: refundCredits, userId: user.id };
+        }
+      }
     }
+
+    // Refund the debit on any technical failure past this point.
+    const refundOnFailure = async () => {
+      if (refundOrgId && refundCredits > 0) {
+        await grantCredits(refundOrgId, refundCredits, "refund", `visit_report:${visit_id}`, user.id);
+      }
+    };
+
+    // Checks passed → now mark the visit as generating.
+    await (supabase.from("client_visits") as any)
+      .update({ report_status: "generating" })
+      .eq("id", visit_id);
 
     const userName = userData ? `${userData.first_name} ${userData.last_name}` : "";
 
@@ -186,6 +218,7 @@ export async function POST(request: NextRequest) {
 
     if (!process.env.ANTHROPIC_API_KEY && !useMock) {
       await markReportFailed(supabase, visit_id);
+      await refundOnFailure();
       return NextResponse.json(
         { error: "Génération indisponible : la clé ANTHROPIC_API_KEY n'est pas configurée.", visit_id, report_status: "failed" },
         { status: 503 }
@@ -196,9 +229,16 @@ export async function POST(request: NextRequest) {
       console.warn("[Visit Report] DEV ONLY — no ANTHROPIC_API_KEY, using mock report");
       report = getMockVisitReport();
     } else {
+      // Pre-visit notes give the model the context the user gathered before the
+      // visit — prepended to the transcription so it needs no core signature
+      // change.
+      const transcriptionForPrompt = visit.pre_visit_notes
+        ? `[Notes pré-visite]\n${visit.pre_visit_notes}\n\n[Transcription de la visite]\n${visit.transcription}`
+        : visit.transcription;
+
       // Real Claude API call
       const prompt = buildVisitReportPrompt({
-        transcription: visit.transcription,
+        transcription: transcriptionForPrompt,
         user_name: userName,
         user_company: orgName,
         client_name: visit.client_name,
@@ -208,30 +248,43 @@ export async function POST(request: NextRequest) {
         sketch_descriptions: sketchDescriptions,
       });
 
+      const { AI_MODELS, callAnthropicWithRetry, parseAIJson, classifyAIError } = await import("@cantaia/core/ai");
       const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const anthropic = new Anthropic({ timeout: 60_000 });
+      // maxRetries:0 — retries are owned by callAnthropicWithRetry, not the SDK
+      // (otherwise both retry: the "double retry" the convention forbids).
+      const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 0 });
+      const model = AI_MODELS.SONNET;
 
-      const response = await anthropic.messages.create({
-        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: prompt }],
-      });
+      let response;
+      try {
+        response = await callAnthropicWithRetry(() =>
+          anthropic.messages.create({
+            model,
+            max_tokens: 4096,
+            messages: [{ role: "user", content: prompt }],
+          })
+        );
+      } catch (aiErr) {
+        console.error("[Visit Report] Claude call failed:", aiErr);
+        await markReportFailed(supabase, visit_id);
+        await refundOnFailure();
+        const classified = classifyAIError(aiErr, "fr");
+        return NextResponse.json(
+          { error: classified.message, visit_id, report_status: "failed" },
+          { status: classified.status }
+        );
+      }
 
       const content = response.content[0];
-      if (!content) {
-        throw new Error("Empty response from Claude API");
-      }
-      const text = content.type === "text" ? content.text : "";
+      const text = content && content.type === "text" ? content.text : "";
 
       // Parse JSON from response — NO mock fallback: a template report would
       // silently overwrite the real visit data with fictional content.
-      try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("No JSON in response");
-        report = JSON.parse(jsonMatch[0]);
-      } catch {
+      const parsed = parseAIJson<VisitReport>(text);
+      if (!parsed) {
         console.error("[Visit Report] Failed to parse AI response. Raw:", text.substring(0, 300));
         await markReportFailed(supabase, visit_id);
+        await refundOnFailure();
         return NextResponse.json(
           {
             error: "La réponse de l'IA n'a pas pu être interprétée. Relancez la génération du rapport.",
@@ -241,23 +294,24 @@ export async function POST(request: NextRequest) {
           { status: 502 }
         );
       }
+      report = parsed;
 
-      // Track API usage
-      try {
-        await (supabase.from("api_usage_logs") as any).insert({
-          user_id: user.id,
-          organization_id: visit.organization_id,
-          action_type: "visit_report_generate",
-          api_provider: "anthropic",
-          model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929",
-          input_tokens: response.usage.input_tokens,
-          output_tokens: response.usage.output_tokens,
-          estimated_cost_chf: (response.usage.input_tokens * 0.003 + response.usage.output_tokens * 0.015) / 1000,
-          metadata: { visit_id },
-        });
-      } catch {
-        // non-critical
-      }
+      // Track API usage.
+      // Was a hand-rolled insert under `action_type: "visit_report_generate"`,
+      // a key that exists in neither ApiActionType nor CREDIT_COSTS — so the
+      // row was billed as `visit_report` but reported under a name no dashboard
+      // knows. Canonical tracker + canonical key now.
+      trackApiUsage({
+        supabase: admin,
+        userId: user.id,
+        organizationId: visit.organization_id,
+        actionType: "visit_report" as any,
+        apiProvider: "anthropic",
+        model,
+        inputTokens: response.usage?.input_tokens || 0,
+        outputTokens: response.usage?.output_tokens || 0,
+        metadata: { visit_id },
+      }).catch(() => {});
     }
 
     // Update visit title if generated by AI
@@ -280,126 +334,68 @@ export async function POST(request: NextRequest) {
       if (info.address && !visit.client_address) updateData.client_address = info.address;
     }
 
-    await (supabase.from("client_visits") as any)
+    // supabase-js does not throw: check {error}. A silent failure here would
+    // burn the credits, lose the report, and still answer 200 "completed".
+    const { error: saveErr } = await (supabase.from("client_visits") as any)
       .update(updateData)
       .eq("id", visit_id);
+    if (saveErr) {
+      console.error("[Visit Report] Failed to persist report:", saveErr);
+      await markReportFailed(supabase, visit_id);
+      await refundOnFailure();
+      return NextResponse.json(
+        { error: "La sauvegarde du rapport a échoué. Relancez la génération.", visit_id, report_status: "failed" },
+        { status: 500 }
+      );
+    }
+
+    // Regeneration replaces the previous run's tasks: delete the old ones first
+    // so `force: true` below does not stack a second copy.
+    if (regenerate) {
+      const { error: delErr } = await admin
+        .from("tasks")
+        .delete()
+        .eq("source_id", visit_id)
+        .eq("source", "manual" as any);
+      if (delErr) console.error("[Visit Report] Failed to clear previous tasks:", delErr);
+    }
 
     // ──── Auto-create tasks (21.5) ────
-    // `tasks.project_id` is NOT NULL: a prospect visit without a linked
-    // project cannot carry tasks. Skip creation entirely in that case.
+    // `tasks.project_id` is NOT NULL: a prospect visit without a linked project
+    // cannot carry tasks, so creation is skipped there. The same function is
+    // replayed by POST /api/projects/create when such a visit is converted into
+    // a project, so nothing is lost — see @cantaia/core/visits.
+    const { createVisitTasks } = await import("@cantaia/core/visits");
 
-    let quoteTaskId: string | null = null;
-    const createdTasks: string[] = [];
-    const taskErrors: string[] = [];
+    const taskResult = await createVisitTasks({
+      admin,
+      visit: {
+        id: visit_id,
+        project_id: visit.project_id,
+        client_name: visit.client_name,
+        visit_date: visit.visit_date,
+        created_by: visit.created_by,
+        title: visit.title,
+      },
+      report,
+      fallbackUserId: user.id,
+      // First generation owns the tasks; the idempotency guard is for the
+      // conversion replay.
+      force: true,
+    });
 
-    if (!visit.project_id) {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Visit Report] No linked project — skipping task creation (prospect visit)");
-      }
-    } else {
-    // Main task: establish quote
-    if (report.client_requests && report.client_requests.length > 0) {
-      const requestsList = report.client_requests
-        .map((r: ClientRequest) => `- ${r.description} (${r.category})`)
-        .join("\n");
-
-      const budgetInfo = report.budget?.client_mentioned
-        ? `Budget client : ${report.budget.range_min?.toLocaleString()}-${report.budget.range_max?.toLocaleString()} ${report.budget.currency || "CHF"}`
-        : "Budget non évoqué";
-
-      const timelineInfo = report.timeline?.desired_start
-        ? `Délai souhaité : ${report.timeline.desired_start}${report.timeline.desired_end ? ` — ${report.timeline.desired_end}` : ""}`
-        : "";
-
-      // Calculate due date (5 business days from visit)
-      const visitDate = new Date(visit.visit_date);
-      let dueDate = new Date(visitDate);
-      let businessDays = 0;
-      while (businessDays < 5) {
-        dueDate.setDate(dueDate.getDate() + 1);
-        const day = dueDate.getDay();
-        if (day !== 0 && day !== 6) businessDays++;
-      }
-
-      const urgency = report.timeline?.urgency;
-      const priority = (urgency === "high" || urgency === "critical") ? "high" : "medium";
-
-      // NOTE: real `tasks` columns are assigned_to / source / source_id
-      // (see migrations 001 + 006). `source` is the task_source enum
-      // ('email' | 'meeting' | 'manual' | 'reserve') — there is no 'visit'
-      // value, so we use 'manual' and carry the visit id in source_id.
-      const { data: quoteTask, error: quoteTaskErr } = await (admin.from("tasks") as any)
-        .insert({
-          title: `Établir devis — ${visit.client_name}${report.title ? ` — ${report.title}` : ""}`,
-          description: `Suite à la visite du ${visit.visit_date}.\n\nDemandes du client :\n${requestsList}\n\n${budgetInfo}\n${timelineInfo}`,
-          project_id: visit.project_id,
-          created_by: visit.created_by || user.id,
-          assigned_to: visit.created_by || user.id,
-          priority,
-          due_date: dueDate.toISOString().split("T")[0],
-          status: "todo",
-          source: "manual",
-          source_id: visit_id,
-          source_reference: `Visite client — ${visit.client_name}`,
-        })
-        .select("id")
-        .single();
-
-      if (quoteTaskErr) {
-        console.error("[Visit Report] Quote task insert failed:", quoteTaskErr);
-        taskErrors.push(quoteTaskErr.message);
-      } else if (quoteTask) {
-        quoteTaskId = quoteTask.id;
-        const { error: linkErr } = await (admin.from("client_visits") as any)
-          .update({ quote_task_id: quoteTask.id })
-          .eq("id", visit_id);
-        if (linkErr) {
-          console.error("[Visit Report] Failed to link quote_task_id:", linkErr);
-        }
-      }
-    }
-
-    // Next steps tasks (only actionable ones)
-    if (report.next_steps && report.next_steps.length > 0) {
-      for (const step of report.next_steps) {
-        // Skip the main "devis" step since we already created it
-        if (step.toLowerCase().includes("devis")) continue;
-
-        const { data: stepTask, error: stepTaskErr } = await (admin.from("tasks") as any)
-          .insert({
-            title: step,
-            description: `Suite à la visite — ${visit.client_name} (${visit.visit_date})`,
-            project_id: visit.project_id,
-            created_by: visit.created_by || user.id,
-            assigned_to: visit.created_by || user.id,
-            priority: "medium",
-            due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-            status: "todo",
-            source: "manual",
-            source_id: visit_id,
-            source_reference: `Visite client — ${visit.client_name}`,
-          })
-          .select("id")
-          .single();
-
-        if (stepTaskErr) {
-          console.error("[Visit Report] Step task insert failed:", stepTaskErr);
-          taskErrors.push(stepTaskErr.message);
-        } else if (stepTask) {
-          createdTasks.push(stepTask.id);
-        }
-      }
-    }
+    if (taskResult.skippedNoProject && process.env.NODE_ENV === "development") {
+      console.log("[Visit Report] No linked project — skipping task creation (prospect visit)");
     }
 
     return NextResponse.json({
       success: true,
       visit_id,
       report_status: "completed",
-      quote_task_id: quoteTaskId,
-      tasks_created: createdTasks.length + (quoteTaskId ? 1 : 0),
-      tasks_skipped_no_project: !visit.project_id,
-      task_errors: taskErrors.length > 0 ? taskErrors : undefined,
+      quote_task_id: taskResult.quoteTaskId,
+      tasks_created: taskResult.createdTaskIds.length + (taskResult.quoteTaskId ? 1 : 0),
+      tasks_skipped_no_project: taskResult.skippedNoProject,
+      task_errors: taskResult.errors.length > 0 ? taskResult.errors : undefined,
       suggest_create_project: visit.is_prospect && (report.closing_probability || 0) > 0.5 && !visit.project_id,
     });
   } catch (error: unknown) {
@@ -408,6 +404,10 @@ export async function POST(request: NextRequest) {
     // Never leave the visit stuck in "generating"
     if (failedVisitId) {
       await markReportFailed(createAdminClient(), failedVisitId);
+    }
+    // Refund a debit the user paid for a run that crashed.
+    if (refundCtx) {
+      await grantCredits(refundCtx.orgId, refundCtx.amount, "refund", `visit_report:${failedVisitId}`, refundCtx.userId);
     }
 
     return NextResponse.json(

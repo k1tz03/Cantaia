@@ -1,13 +1,17 @@
 /**
- * ConfidenceBadge — visual badge reflecting a 0..1 confidence score.
- * Thresholds: >=0.85 green, 0.70–0.85 orange, <0.70 red.
- * Used in Inspector, element lists, low-confidence gate stats.
+ * ConfidenceBadge — badge de confiance 0..1.
+ *
+ * Les bornes viennent de `CONFIDENCE_THRESHOLDS` (@cantaia/core), comme le
+ * canvas, l'adapter et le gate. Elles étaient auparavant recopiées ici
+ * (0.85 / 0.70) et là-bas (0.80 / 0.60) : un même élément à 0.75 s'affichait
+ * ambre dans la scène et rouge dans l'inspecteur.
  */
 
 "use client";
 
 import { useTranslations } from "next-intl";
 import { CheckCircle2, AlertTriangle, AlertOctagon } from "lucide-react";
+import { CONFIDENCE_THRESHOLDS } from "@cantaia/core/plans/scene/constants";
 
 interface ConfidenceBadgeProps {
   confidence: number; // 0..1
@@ -32,13 +36,13 @@ export function ConfidenceBadge({
   let Icon = CheckCircle2;
   let levelKey: "high" | "medium" | "low";
 
-  if (confidence >= 0.85) {
+  if (confidence >= CONFIDENCE_THRESHOLDS.high) {
     bgClass = "bg-[#22C55E]/10";
     textClass = "text-[#22C55E]";
     borderClass = "border-[#22C55E]/30";
     Icon = CheckCircle2;
     levelKey = "high";
-  } else if (confidence >= 0.7) {
+  } else if (confidence >= CONFIDENCE_THRESHOLDS.mid) {
     bgClass = "bg-[#F97316]/10";
     textClass = "text-[#F97316]";
     borderClass = "border-[#F97316]/30";

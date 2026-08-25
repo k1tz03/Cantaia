@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { classifyAIError } from "@cantaia/core/ai";
+import { classifyAIError, MODEL_FOR_TASK, parseAIJson } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { isTaskOverdue } from "@cantaia/core/projects/counters";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 import { insufficientCreditsResponse } from "@/lib/credits";
@@ -22,7 +23,7 @@ Severite:
 - "yellow": Attention requise, a surveiller (ex: prix eleve vs benchmark, delai serre, taux reponse <50%)
 - "green": Opportunite ou point positif (ex: prix competitif, marge de manoeuvre, alternatives moins cheres)
 
-Reponds UNIQUEMENT en JSON. Genere 3-8 alertes pertinentes.`;
+Reponds UNIQUEMENT avec le JSON, sans texte autour, au format {"alerts": [{"severity": "...", "category": "...", "title": "...", "description": "..."}]}. Genere 3-8 alertes pertinentes.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -133,12 +134,10 @@ export async function POST(request: NextRequest) {
 
     const taskStats = {
       total: tasks?.length || 0,
-      overdue: (tasks || []).filter(
-        (t: any) =>
-          t.due_date &&
-          new Date(t.due_date) < new Date() &&
-          !["done", "cancelled"].includes(t.status)
-      ).length,
+      // Shared definition (@cantaia/core/projects/counters): date-only, local,
+      // open tasks only. The previous inline predicate compared a DATE column
+      // to a full timestamp and flagged tasks due TODAY as already late.
+      overdue: (tasks || []).filter((t: any) => isTaskOverdue(t)).length,
       urgent: (tasks || []).filter((t: any) => t.priority === "urgent").length,
       in_progress: (tasks || []).filter(
         (t: any) => t.status === "in_progress"
@@ -218,7 +217,7 @@ export async function POST(request: NextRequest) {
     const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 55000 });
 
     const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: MODEL_FOR_TASK.alerts,
       max_tokens: 2048,
       system: [
         {
@@ -227,10 +226,7 @@ export async function POST(request: NextRequest) {
           cache_control: { type: "ephemeral" },
         },
       ],
-      messages: [
-        { role: "user", content: userMessage },
-        { role: "assistant", content: '{"alerts": [' },
-      ],
+      messages: [{ role: "user", content: userMessage }],
     });
 
     // Track usage
@@ -238,9 +234,10 @@ export async function POST(request: NextRequest) {
       supabase: admin,
       userId: user.id,
       organizationId: userProfile.organization_id,
-      actionType: "other" as any,
+      // Canonical key (was "other"). Matches CREDIT_COSTS.ai_alerts.
+      actionType: "ai_alerts" as any,
       apiProvider: "anthropic",
-      model: "claude-haiku-4-5-20251001",
+      model: MODEL_FOR_TASK.alerts,
       inputTokens: response.usage?.input_tokens || 0,
       outputTokens: response.usage?.output_tokens || 0,
       metadata: {
@@ -252,41 +249,18 @@ export async function POST(request: NextRequest) {
     // Parse response
     const rawText =
       response.content[0]?.type === "text" ? response.content[0].text : "";
-    const fullJson = '{"alerts": [' + rawText;
-
-    let alerts: any[];
-    try {
-      const parsed = JSON.parse(fullJson);
-      alerts = parsed.alerts || [];
-    } catch {
-      // Try to fix truncated JSON
-      try {
-        let fixed = fullJson;
-        // Remove trailing comma before closing
-        fixed = fixed.replace(/,\s*$/, "");
-        // Close open arrays/objects
-        if (!fixed.endsWith("]}")) {
-          if (fixed.endsWith("}")) {
-            fixed += "]}";
-          } else if (fixed.endsWith("]")) {
-            fixed += "}";
-          } else {
-            fixed += '"}]}';
-          }
-        }
-        const parsed = JSON.parse(fixed);
-        alerts = parsed.alerts || [];
-      } catch {
-        console.error(
-          "[generate-alerts] Failed to parse AI response:",
-          fullJson.substring(0, 500)
-        );
-        return NextResponse.json(
-          { error: "Failed to parse AI response" },
-          { status: 500 }
-        );
-      }
+    const parsed = parseAIJson<{ alerts?: any[] }>(rawText);
+    if (!parsed) {
+      console.error(
+        "[generate-alerts] Failed to parse AI response:",
+        rawText.substring(0, 500)
+      );
+      return NextResponse.json(
+        { error: "Failed to parse AI response" },
+        { status: 500 }
+      );
     }
+    const alerts: any[] = parsed.alerts || [];
 
     // Validate and normalize alerts
     const validSeverities = ["red", "yellow", "green"];

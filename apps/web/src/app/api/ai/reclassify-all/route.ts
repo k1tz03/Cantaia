@@ -6,6 +6,7 @@ import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { learnFromClassificationAction } from "@cantaia/core/emails";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const maxDuration = 300;
 
@@ -101,6 +102,14 @@ export async function POST() {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Bulk reclassification fans out to ~200 Claude calls at concurrency 5, yet
+  // costs 0 credits. Without a rate limit a user can hammer the button and burn
+  // hundreds of free Sonnet calls, bypassing the 6/h sync cap entirely.
+  const rl = await rateLimit(`reclassify:user:${user.id}`, { limit: 2, windowSec: 3600 });
+  if (!rl.allowed) {
+    return rateLimitResponse(rl) as unknown as NextResponse;
   }
 
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
@@ -334,6 +343,11 @@ export async function POST() {
         // Fire-and-forget: feed learning engine with reclassification result
         if (result.project_id && userOrg?.organization_id) {
           const learnAction = previousProjectId && previousProjectId !== result.project_id ? "correct" : "confirm";
+          // NB: do NOT pass emailId/userId here. That would write a row into
+          // email_classification_feedback, which is reserved for HUMAN
+          // corrections (it feeds the C2 benchmark and rule auto-promotion). A
+          // machine reclassification must only reinforce local rules, never
+          // masquerade as human feedback.
           learnFromClassificationAction({
             supabase: adminClient,
             organizationId: userOrg.organization_id,
@@ -342,8 +356,6 @@ export async function POST() {
             projectId: result.project_id,
             action: learnAction,
             previousProjectId: learnAction === "correct" ? previousProjectId : undefined,
-            emailId: email.id,
-            userId: user.id,
           }).catch(() => {});
         }
 
