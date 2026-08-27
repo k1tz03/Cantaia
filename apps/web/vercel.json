@@ -50,7 +50,7 @@
     },
     {
       "path": "/api/cron/renew-webhooks",
-      "schedule": "0 */12 * * *"
+      "schedule": "45 2 * * *"
     },
     {
       "path": "/api/cron/project-memory",
