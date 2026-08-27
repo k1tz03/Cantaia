@@ -252,10 +252,19 @@ export async function runAgentLoop(params: {
 
 // ── Tool Result Formatting ──────────────────────────────────
 
+/** Seuls types acceptés par l'API dans un bloc de contenu `image`. */
+const IMAGE_MEDIA_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+];
+
 /**
  * Format a tool result for the Messages API.
  * Handles images specially: if the result contains `image_base64` with a data URI,
  * it's sent as an image content block so Claude can "see" it via Vision.
+ * Les PDF partent en bloc `document` (cf. commentaire dans la fonction).
  */
 function formatToolResult(
   result: string | Record<string, unknown>
@@ -271,13 +280,41 @@ function formatToolResult(
       const [, mediaType, data] = match;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { image_base64, ...rest } = result;
-      return [
-        {
-          type: "image",
-          source: { type: "base64", media_type: mediaType, data },
-        },
-        { type: "text", text: JSON.stringify(rest) },
-      ];
+
+      // Le media_type extrait du data URI était injecté TEL QUEL dans un bloc
+      // `image`. Or `fetch_plan_image` renvoie `application/pdf` pour un plan
+      // PDF (le cas majoritaire) : l'API rejetait alors toute la requête en 400
+      // ("media_type: Input should be 'image/jpeg', 'image/png', 'image/gif'
+      // or 'image/webp'"), ce qui cassait l'estimation via agent.
+      // On reproduit ici le découpage déjà éprouvé côté pipeline direct
+      // (plans/estimation/ai-clients.ts) : `document` pour un PDF, `image`
+      // pour une image, et JAMAIS de bloc média pour un type inconnu.
+      if (IMAGE_MEDIA_TYPES.includes(mediaType)) {
+        return [
+          {
+            type: "image",
+            source: { type: "base64", media_type: mediaType, data },
+          },
+          { type: "text", text: JSON.stringify(rest) },
+        ];
+      }
+
+      if (mediaType === "application/pdf") {
+        return [
+          {
+            type: "document",
+            source: { type: "base64", media_type: "application/pdf", data },
+          },
+          { type: "text", text: JSON.stringify(rest) },
+        ];
+      }
+
+      // Type non supporté : on dégrade en texte plutôt que d'émettre un bloc
+      // média invalide qui ferait échouer l'appel entier.
+      return JSON.stringify({
+        ...rest,
+        media_error: `Type de fichier non supporté pour l'analyse visuelle : ${mediaType}`,
+      });
     }
   }
 
