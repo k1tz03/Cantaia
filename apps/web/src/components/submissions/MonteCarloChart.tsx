@@ -11,7 +11,11 @@ import {
   ReferenceLine,
 } from "recharts";
 import { RefreshCw, AlertTriangle, BarChart3 } from "lucide-react";
-import { runCorrelatedMonteCarlo } from "@cantaia/core/pricing";
+// Sous-chemin direct, PAS le barrel "@cantaia/core/pricing" : celui-ci
+// réexporte file-price-extractor/email-price-extractor qui tirent mailparser
+// (node:buffer, node:stream) — non bundlable dans un composant client.
+// monte-carlo.ts est du calcul pur, sans aucun import.
+import { runCorrelatedMonteCarlo } from "@cantaia/core/pricing/monte-carlo";
 
 // ── Types ──────────────────────────────────────────────────────
 
