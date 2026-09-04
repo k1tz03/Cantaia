@@ -1,0 +1,1217 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F0F11">
+<title>Cantaia Compagnon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --beton: #0F0F11;
+    --beton-2: #131316;
+    --coffrage: #18181B;
+    --coffrage-2: #1F1F24;
+    --bord: #2A2A31;
+    --bord-2: #3A3A43;
+    --chaux: #FAFAFA;
+    --gravier: #A1A1AA;
+    --gravier-2: #C9C9D1;
+    --orange: #F97316;
+    --orange-2: #EA580C;
+    --orange-soft: rgba(249, 115, 22, .14);
+    --vert: #10B981;
+    --vert-soft: rgba(16, 185, 129, .16);
+    --rouge: #EF4444;
+    --rouge-soft: rgba(239, 68, 68, .16);
+    --ambre: #F59E0B;
+    --ambre-soft: rgba(245, 158, 11, .16);
+    --bleu: #3B82F6;
+    --display: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+    --body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+    --r-sm: 10px;
+    --r-md: 16px;
+    --r-lg: 24px;
+    --pad: 20px;
+    --maxw: 640px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--beton);
+    color: var(--chaux);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, h4 { font-family: var(--display); margin: 0; text-wrap: balance; line-height: 1.12; letter-spacing: -0.01em; }
+  h1 { font-size: clamp(30px, 8vw, 46px); font-weight: 800; }
+  h2 { font-size: clamp(24px, 6vw, 32px); font-weight: 800; }
+  h3 { font-size: 19px; font-weight: 700; }
+  p { margin: 0; }
+  a { color: var(--orange); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad); }
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--orange); }
+  .muted { color: var(--gravier); }
+  .lede { font-size: 18px; color: var(--gravier-2); max-width: 34em; }
+  .stack { display: grid; gap: 14px; }
+  .mono { font-family: var(--mono); font-size: 12.5px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; border: 1px solid var(--bord-2); color: var(--gravier-2); background: var(--coffrage); }
+  .pill.ok { color: var(--vert); border-color: rgba(16,185,129,.4); background: var(--vert-soft); }
+  .pill.warn { color: var(--ambre); border-color: rgba(245,158,11,.4); background: var(--ambre-soft); }
+  .pill.hot { color: var(--rouge); border-color: rgba(239,68,68,.4); background: var(--rouge-soft); }
+  .pill.brand { color: var(--orange); border-color: rgba(249,115,22,.45); background: var(--orange-soft); }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 36px 0 24px; position: relative; overflow: hidden; }
+  .hero .wrap { display: grid; gap: 18px; }
+  .hero-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(250,250,250,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(250,250,250,.035) 1px, transparent 1px); background-size: 28px 28px; mask-image: radial-gradient(ellipse at 50% 30%, #000 20%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 20%, transparent 75%); }
+  .orb-stage { position: relative; display: grid; justify-items: center; margin: 6px 0 0; }
+  .orb-stage canvas { display: block; touch-action: manipulation; cursor: pointer; border-radius: 50%; -webkit-tap-highlight-color: transparent; }
+  .orb-bubble { position: relative; margin-top: -44px; transform: translateY(6px); width: min(100%, 360px); background: var(--coffrage); border: 1px solid var(--bord-2); border-radius: var(--r-md); padding: 12px 14px; font-size: 14.5px; line-height: 1.45; box-shadow: 0 16px 40px rgba(0,0,0,.45); opacity: 0; transition: opacity .35s ease, transform .35s cubic-bezier(.2,.9,.3,1.2); }
+  .orb-bubble::before { content: ""; position: absolute; left: 50%; top: -7px; width: 12px; height: 12px; background: var(--coffrage); border-left: 1px solid var(--bord-2); border-top: 1px solid var(--bord-2); transform: translateX(-50%) rotate(45deg); }
+  .orb-bubble.show { opacity: 1; transform: translateY(0); }
+  .orb-bubble .who { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--gravier); }
+  .orb-bubble .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--vert); box-shadow: 0 0 0 4px rgba(16,185,129,.18); }
+  .hint { font-size: 13px; color: var(--gravier); text-align: center; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; }
+  .toc a { text-decoration: none; font-size: 13px; font-weight: 600; color: var(--gravier-2); padding: 8px 12px; border: 1px solid var(--bord); border-radius: 999px; background: var(--beton-2); }
+  .toc a:active { border-color: var(--orange); color: var(--chaux); }
+
+  /* ---------- Sections ---------- */
+  section { padding: 40px 0; border-top: 1px solid var(--bord); }
+  section > .wrap { display: grid; gap: 18px; }
+  .section-head { display: grid; gap: 8px; }
+  .constat { display: grid; gap: 12px; }
+  .constat li { list-style: none; display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; padding: 14px 16px; background: var(--beton-2); border: 1px solid var(--bord); border-radius: var(--r-md); }
+  .constat ul { margin: 0; padding: 0; display: grid; gap: 10px; }
+  .constat .k { font-family: var(--mono); color: var(--orange); font-size: 13px; padding-top: 3px; }
+  .constat b { display: block; font-family: var(--display); font-weight: 700; margin-bottom: 2px; }
+  .constat span { color: var(--gravier-2); font-size: 15px; }
+
+  /* ---------- Concept blocks ---------- */
+  .concept { border-top: 1px solid var(--bord); }
+  .concept-head { display: grid; gap: 6px; }
+  .concept-head .tag { font-size: 15px; color: var(--gravier-2); }
+  .notes { display: grid; gap: 10px; margin: 0; }
+  .notes div { display: grid; gap: 3px; padding: 12px 14px; border-left: 2px solid var(--bord-2); background: var(--beton-2); border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+  .notes dt { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--gravier); }
+  .notes dd { margin: 0; font-size: 15px; color: var(--gravier-2); }
+  .notes div.risk { border-left-color: var(--rouge); }
+  .notes div.wow { border-left-color: var(--orange); }
+  .scorebar { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 13px; }
+  .scorebar .track { height: 6px; background: var(--coffrage-2); border-radius: 999px; overflow: hidden; }
+  .scorebar .fill { height: 100%; background: linear-gradient(90deg, var(--orange-2), var(--orange)); border-radius: 999px; width: 0; transition: width .8s ease; }
+  .scorebar .val { font-family: var(--mono); color: var(--gravier-2); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Demo frame ---------- */
+  .demo { position: relative; background: var(--beton-2); border: 1px solid var(--bord-2); border-radius: var(--r-lg); overflow: hidden; touch-action: pan-y; }
+  .demo-bar { position: relative; z-index: 3; background: var(--beton-2); display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--bord); font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--gravier); }
+  .demo-bar b { color: var(--gravier-2); font-weight: 500; }
+  .demo-body { padding: 16px; min-height: 300px; position: relative; }
+  .demo-reset { background: transparent; border: 1px solid var(--bord-2); color: var(--gravier-2); border-radius: 999px; padding: 4px 10px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+  .demo-reset:active { border-color: var(--orange); color: var(--chaux); }
+  @media (min-width: 720px) {
+    .demo { max-width: 420px; margin: 0 auto; width: 100%; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+  }
+
+  /* ---------- Chat demo ---------- */
+  .chat-stream { display: grid; gap: 10px; align-content: start; min-height: 240px; }
+  .bubble { max-width: 88%; padding: 11px 14px; border-radius: 18px; font-size: 14.5px; line-height: 1.45; animation: pop .35s cubic-bezier(.2,.9,.3,1.2) both; }
+  .bubble.ai { background: var(--coffrage); border: 1px solid var(--bord-2); border-bottom-left-radius: 6px; justify-self: start; }
+  .bubble.me { background: var(--orange); color: #1A0D04; border-bottom-right-radius: 6px; justify-self: end; font-weight: 500; }
+  .bubble.typing { display: flex; gap: 5px; padding: 12px 14px; }
+  .bubble.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--gravier); animation: blink 1s infinite; }
+  .bubble.typing i:nth-child(2) { animation-delay: .15s; } .bubble.typing i:nth-child(3) { animation-delay: .3s; }
+  .card { justify-self: start; width: 92%; background: var(--coffrage); border: 1px solid var(--bord-2); border-radius: var(--r-md); padding: 12px 14px; display: grid; gap: 8px; animation: pop .4s cubic-bezier(.2,.9,.3,1.2) both; }
+  .card .ttl { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-family: var(--display); font-weight: 700; font-size: 14.5px; }
+  .card .sub { font-size: 13.5px; color: var(--gravier-2); }
+  .card .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--bord-2); background: var(--coffrage-2); border-radius: 999px; padding: 8px 14px; font-size: 13.5px; font-weight: 600; min-height: 40px; transition: transform .12s ease, background .2s; }
+  .btn:active { transform: scale(.96); }
+  .btn.primary { background: var(--orange); border-color: var(--orange); color: #1A0D04; }
+  .btn.ok { background: var(--vert-soft); border-color: rgba(16,185,129,.45); color: var(--vert); }
+  .chat-chips { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; min-height: 52px; }
+  .chip { border: 1px solid rgba(249,115,22,.45); background: var(--orange-soft); color: var(--orange); border-radius: 999px; padding: 8px 14px; font-size: 13.5px; font-weight: 600; min-height: 40px; animation: pop .35s both; }
+  .chip:active { background: var(--orange); color: #1A0D04; }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+  /* ---------- Isometric 3D demo ---------- */
+  .iso-body { min-height: 360px; display: grid; grid-template-rows: 1fr auto; gap: 8px; padding: 12px 16px 14px; }
+  .iso-scene { perspective: 900px; height: 270px; display: grid; place-items: center; cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+  .iso-scene:active { cursor: grabbing; }
+  .iso-world { position: relative; width: 0; height: 0; transform-style: preserve-3d; transform: translateY(64px) rotateX(-22deg) rotateY(var(--ry, 35deg)); }
+  .box { position: absolute; left: calc(var(--w) / -2); top: calc(var(--h) / -1); width: var(--w); height: var(--h); transform-style: preserve-3d; transform: translateY(calc(var(--lvl, 0) * var(--h) * -1)) translateX(var(--ox, 0px)) translateZ(var(--oz, 0px)); }
+  .box .f { position: absolute; left: 0; top: 0; background: var(--c); border: 1px solid rgba(0,0,0,.35); backface-visibility: hidden; }
+  .box .front { width: var(--w); height: var(--h); transform: translateZ(calc(var(--d) / 2)); filter: brightness(.86); }
+  .box .back  { width: var(--w); height: var(--h); transform: rotateY(180deg) translateZ(calc(var(--d) / 2)); filter: brightness(.7); }
+  .box .right { width: var(--d); height: var(--h); left: calc(var(--w) / 2 - var(--d) / 2); transform: rotateY(90deg) translateZ(calc(var(--w) / 2)); filter: brightness(.66); }
+  .box .left  { width: var(--d); height: var(--h); left: calc(var(--w) / 2 - var(--d) / 2); transform: rotateY(-90deg) translateZ(calc(var(--w) / 2)); filter: brightness(.78); }
+  .box .top   { width: var(--w); height: var(--d); top: calc(var(--h) / 2 - var(--d) / 2); transform: rotateX(90deg) translateZ(calc(var(--h) / 2)); filter: brightness(1.05); }
+  .box .bottom{ width: var(--w); height: var(--d); top: calc(var(--h) / 2 - var(--d) / 2); transform: rotateX(-90deg) translateZ(calc(var(--h) / 2)); filter: brightness(.5); }
+  .floor { --w: 150px; --d: 110px; --h: 30px; cursor: pointer; }
+  .floor.done { --c: #3F3F47; }
+  .floor.wip { --c: var(--orange); }
+  .floor.plan { --c: transparent; }
+  .floor.plan .f { border: 1px dashed rgba(250,250,250,.35); background: rgba(250,250,250,.03); }
+  .floor.alert .f { animation: alertFace 1.4s ease-in-out infinite; }
+  .floor.selected .f { box-shadow: 0 0 0 2px var(--chaux) inset; }
+  @keyframes alertFace { 0%, 100% { background: var(--rouge); } 50% { background: #7F1D1D; } }
+  .ground { --w: 260px; --d: 220px; --h: 6px; --c: #1B1B20; }
+  .ground .f { border-color: rgba(250,250,250,.08); }
+  .ground .top { background-image: linear-gradient(rgba(250,250,250,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(250,250,250,.06) 1px, transparent 1px); background-size: 26px 26px; }
+  .mast { --w: 6px; --d: 6px; --h: 180px; --c: #FCD34D; --ox: -105px; --oz: 70px; }
+  .jib { --w: 150px; --d: 6px; --h: 6px; --c: #FCD34D; --ox: -105px; --oz: 70px; top: -180px; transform-origin: 75px 3px; animation: jibTurn 14s linear infinite; }
+  .jib .f, .mast .f { border-color: rgba(0,0,0,.25); }
+  .smoke { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: rgba(239,68,68,.55); left: -5px; top: -130px; transform: translateX(40px) translateZ(20px); animation: smoke 2.2s ease-out infinite; }
+  .smoke:nth-child(2) { animation-delay: .7s; } .smoke:nth-child(3) { animation-delay: 1.4s; }
+  @keyframes smoke { from { opacity: .8; transform: translateX(40px) translateZ(20px) translateY(0) scale(.6); } to { opacity: 0; transform: translateX(46px) translateZ(20px) translateY(-46px) scale(1.6); } }
+  @keyframes jibTurn { from { transform: translateY(0) translateX(var(--ox)) translateZ(var(--oz)) rotateY(0deg); } to { transform: translateY(0) translateX(var(--ox)) translateZ(var(--oz)) rotateY(360deg); } }
+  .iso-bubble { background: var(--coffrage); border: 1px solid var(--bord-2); border-radius: var(--r-md); padding: 11px 14px; font-size: 14px; line-height: 1.45; min-height: 64px; display: grid; gap: 4px; }
+  .iso-bubble b { font-family: var(--display); }
+  .iso-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: var(--gravier-2); }
+  .iso-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+  /* ---------- Organism demo ---------- */
+  .org-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 13px; color: var(--gravier-2); }
+  .org-grid { display: flex; flex-wrap: wrap-reverse; gap: 8px; align-content: flex-end; min-height: 300px; }
+  .tile { position: relative; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; padding: 12px; border-radius: var(--r-md); background: var(--coffrage); border: 1px solid var(--bord-2); flex: 1 1 calc(50% - 4px); min-height: 56px; cursor: pointer; user-select: none; -webkit-user-select: none; transition: opacity .5s ease, background .4s ease, border-color .4s ease; will-change: transform; }
+  .tile svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--gravier-2); }
+  .tile .lbl { font-family: var(--display); font-weight: 700; font-size: 14px; }
+  .tile .cnt { position: absolute; top: 8px; right: 10px; font-family: var(--mono); font-size: 11px; color: var(--gravier); }
+  .tile.lg { flex-basis: calc(50% - 4px); min-height: 84px; background: var(--coffrage-2); border-color: var(--bord-2); }
+  .tile.lg svg, .tile.xl svg { color: var(--orange); width: 26px; height: 26px; }
+  .tile.xl { flex-basis: 100%; min-height: 96px; background: linear-gradient(135deg, rgba(249,115,22,.16), var(--coffrage-2)); border-color: rgba(249,115,22,.5); }
+  .tile.xl .lbl { font-size: 17px; }
+  .tile.xl .hintline, .tile.lg .hintline { display: block; }
+  .tile .hintline { display: none; font-size: 12.5px; color: var(--gravier-2); margin-top: 2px; }
+  .tile.faded { opacity: .45; }
+  .tile:active { border-color: var(--orange); }
+  .org-state { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+
+  /* ---------- Field / voice demo ---------- */
+  .field { display: grid; gap: 14px; min-height: 340px; align-content: start; }
+  .field-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .sun-toggle { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--bord-2); background: var(--coffrage); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; min-height: 40px; }
+  .talk { display: grid; place-items: center; gap: 10px; }
+  .talk button { width: 132px; height: 132px; border-radius: 50%; border: 0; background: radial-gradient(circle at 35% 30%, #FDBA74, var(--orange) 55%, var(--orange-2)); color: #1A0D04; font-family: var(--display); font-weight: 800; font-size: 18px; box-shadow: 0 0 0 0 rgba(249,115,22,.35); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; transition: transform .15s ease; }
+  .talk button.live { transform: scale(1.06); animation: ring 1.2s ease-out infinite; }
+  @keyframes ring { from { box-shadow: 0 0 0 0 rgba(249,115,22,.45); } to { box-shadow: 0 0 0 26px rgba(249,115,22,0); } }
+  .wave { width: 100%; height: 56px; display: block; }
+  .transcript { min-height: 64px; padding: 12px 14px; border-radius: var(--r-md); background: var(--coffrage); border: 1px solid var(--bord-2); font-size: 15.5px; line-height: 1.5; }
+  .transcript .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--gravier); display: block; margin-bottom: 4px; }
+  .big-acts { display: grid; gap: 8px; }
+  .big-acts button { display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; gap: 10px; min-height: 64px; padding: 12px 16px; border-radius: var(--r-md); border: 1px solid var(--bord-2); background: var(--coffrage); font-size: 16px; font-weight: 600; animation: pop .35s both; }
+  .big-acts button small { display: block; font-weight: 400; color: var(--gravier-2); font-size: 13px; }
+  .big-acts button.done { border-color: rgba(16,185,129,.5); background: var(--vert-soft); }
+  .big-acts .mark { font-family: var(--mono); font-size: 12px; color: var(--vert); }
+  .demo.soleil { background: #FFFFFF; border-color: #000; color: #000; }
+  .demo.soleil .demo-bar { color: #000; border-color: #000; }
+  .demo.soleil .transcript, .demo.soleil .big-acts button, .demo.soleil .sun-toggle { background: #fff; border: 3px solid #000; color: #000; }
+  .demo.soleil .transcript .lbl, .demo.soleil .big-acts button small { color: #333; }
+  .demo.soleil .talk button { background: #000; color: #fff; box-shadow: none; }
+  .demo.soleil .big-acts button.done { background: #000; color: #fff; }
+  .demo.soleil .big-acts .mark { color: #fff; }
+
+  /* ---------- Flux demo ---------- */
+  .river { position: relative; display: grid; gap: 10px; min-height: 340px; padding-left: 54px; }
+  .river::before { content: ""; position: absolute; left: 22px; top: 0; bottom: 0; width: 2px; background: linear-gradient(180deg, var(--bord) 0%, var(--orange) 45%, var(--bord-2) 100%); }
+  .river .t { position: absolute; left: 0; width: 44px; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--gravier); transform: translateX(-22px); }
+  .river .t::after { content: ""; display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--bord-2); margin: 3px auto 0; }
+  .river .row { position: relative; }
+  .river .row.now .t { color: var(--orange); }
+  .river .row.now .t::after { background: var(--orange); box-shadow: 0 0 0 4px rgba(249,115,22,.2); }
+  .river .past { padding: 8px 12px; border-radius: var(--r-sm); background: transparent; border: 1px dashed var(--bord-2); color: var(--gravier); font-size: 13px; text-decoration: line-through; }
+  .fcard { position: relative; padding: 12px 14px; border-radius: var(--r-md); background: var(--coffrage); border: 1px solid var(--bord-2); display: grid; gap: 6px; touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform; cursor: grab; }
+  .fcard .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .fcard .ttl { font-family: var(--display); font-weight: 700; font-size: 14.5px; }
+  .fcard .sub { font-size: 13.5px; color: var(--gravier-2); }
+  .fcard .stamp { position: absolute; inset: 0; display: grid; place-items: center; border-radius: var(--r-md); font-family: var(--display); font-weight: 800; font-size: 20px; letter-spacing: .04em; opacity: 0; pointer-events: none; transition: opacity .15s; }
+  .fcard .stamp.yes { background: rgba(16,185,129,.25); color: var(--vert); }
+  .fcard .stamp.later { background: rgba(245,158,11,.22); color: var(--ambre); }
+  .fcard.enter { animation: rise .45s cubic-bezier(.2,.9,.3,1.1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+  .swipe-hint { display: flex; justify-content: space-between; font-size: 12px; color: var(--gravier); padding: 0 6px; }
+
+  /* ---------- Card stack demo ---------- */
+  .deck-body { min-height: 380px; display: grid; grid-template-rows: 1fr auto; gap: 12px; }
+  .deck { position: relative; height: 260px; display: grid; place-items: center; perspective: 800px; }
+  .dcard { position: absolute; width: 78%; max-width: 300px; height: 190px; border-radius: 18px; background: var(--coffrage); border: 1px solid var(--bord-2); padding: 14px 16px; display: grid; align-content: space-between; box-shadow: 0 14px 30px rgba(0,0,0,.4); transition: transform .5s cubic-bezier(.2,.8,.2,1), opacity .4s; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
+  .dcard .kind { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--orange); }
+  .dcard .ttl { font-family: var(--display); font-weight: 700; font-size: 16px; }
+  .dcard .sub { font-size: 13.5px; color: var(--gravier-2); }
+  .dcard.top { cursor: grab; }
+  .clusters { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; pointer-events: none; transition: opacity .5s; }
+  .clusters.on { opacity: 1; pointer-events: auto; }
+  .cluster { position: absolute; display: grid; place-items: center; gap: 2px; width: 104px; height: 104px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, rgba(249,115,22,.35), rgba(249,115,22,.06) 70%); border: 1px solid rgba(249,115,22,.4); font-family: var(--display); font-weight: 700; font-size: 13px; text-align: center; line-height: 1.2; cursor: pointer; animation: breathe 3.4s ease-in-out infinite; }
+  .cluster small { font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--gravier-2); }
+  .cluster.c2 { animation-delay: .8s; } .cluster.c3 { animation-delay: 1.6s; }
+  @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  .deck.out .dcard { transform: scale(.28) translate(-160%, -40%) !important; opacity: .55; pointer-events: none; }
+  .deck-controls { display: flex; gap: 8px; justify-content: center; }
+
+  /* ---------- Judges table ---------- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--bord); border-radius: var(--r-md); background: var(--beton-2); }
+  table { border-collapse: collapse; width: 100%; min-width: 540px; font-size: 13.5px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--bord); white-space: nowrap; }
+  th { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--gravier); font-weight: 500; }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--gravier-2); }
+  td.num.best { color: var(--orange); font-weight: 600; }
+  tr.winner td { background: rgba(249,115,22,.07); }
+  tr.winner td:first-child { color: var(--orange); font-weight: 600; }
+  .quote { border-left: 2px solid var(--orange); padding: 10px 14px; background: var(--beton-2); border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 15px; color: var(--gravier-2); }
+  .quote b { color: var(--chaux); font-family: var(--display); display: block; margin-bottom: 4px; font-size: 13.5px; }
+
+  /* ---------- Home prototype ---------- */
+  .home { min-height: 600px; padding: 0; display: grid; grid-template-rows: auto auto auto 1fr auto auto; }
+  .home-top { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; padding: 14px 16px 6px; }
+  .home-top canvas { display: block; }
+  .home-top .greet { font-family: var(--display); font-weight: 800; font-size: 19px; line-height: 1.15; }
+  .home-top .state { font-size: 13px; color: var(--gravier-2); margin-top: 2px; }
+  .ctx { display: flex; gap: 6px; padding: 8px 16px 4px; }
+  .ctx button { flex: 1; border: 1px solid var(--bord-2); background: var(--coffrage); border-radius: 999px; padding: 7px 8px; font-size: 12.5px; font-weight: 600; color: var(--gravier-2); min-height: 36px; }
+  .ctx button.on { background: var(--orange-soft); border-color: rgba(249,115,22,.5); color: var(--orange); }
+  .home-scroll { padding: 8px 16px 12px; display: grid; gap: 10px; align-content: start; }
+  .home-label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--gravier); display: flex; justify-content: space-between; }
+  .proj { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); background: var(--coffrage); border: 1px solid var(--bord-2); }
+  .proj .n { font-family: var(--display); font-weight: 700; font-size: 14px; }
+  .proj .s { font-size: 12.5px; color: var(--gravier-2); }
+  .proj .bar { height: 5px; border-radius: 999px; background: var(--coffrage-2); margin-top: 6px; overflow: hidden; }
+  .proj .bar i { display: block; height: 100%; width: 62%; background: var(--orange); border-radius: 999px; }
+  .mini-iso { perspective: 300px; width: 54px; height: 44px; display: grid; place-items: center; }
+  .mini-iso .iso-world { transform: rotateX(-22deg) rotateY(38deg); animation: miniTurn 16s linear infinite; }
+  .mini-iso .floor { --w: 30px; --d: 22px; --h: 8px; }
+  @keyframes miniTurn { from { transform: rotateX(-22deg) rotateY(0deg); } to { transform: rotateX(-22deg) rotateY(360deg); } }
+  .home-bubbles { display: grid; gap: 8px; }
+  .sugg { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .sugg::-webkit-scrollbar { display: none; }
+  .sugg .chip { white-space: nowrap; flex: 0 0 auto; }
+  .dock { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .dock button { display: grid; gap: 6px; justify-items: center; padding: 10px 6px; border-radius: var(--r-md); border: 1px solid var(--bord-2); background: var(--coffrage); font-size: 11.5px; font-weight: 600; color: var(--gravier-2); min-height: 66px; transition: transform .4s cubic-bezier(.2,.8,.2,1), opacity .4s; }
+  .dock button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .dock button.hot { color: var(--orange); border-color: rgba(249,115,22,.5); background: var(--orange-soft); }
+  .home-bar { display: grid; grid-template-columns: 52px 1fr 76px 1fr 52px; gap: 8px; align-items: end; padding: 6px 12px 8px; border-top: 1px solid var(--bord); background: #111113; position: relative; }
+  .home-bar button { height: 48px; border-radius: 14px; border: 1px solid var(--bord-2); background: var(--coffrage-2); display: grid; place-items: center; color: var(--gravier-2); }
+  .home-bar button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .home-bar .mic { width: 76px; height: 76px; border-radius: 50%; margin-top: -30px; background: radial-gradient(circle at 35% 30%, #FDBA74, var(--orange) 55%, var(--orange-2)); border: 4px solid #111113; color: #1A0D04; box-shadow: 0 8px 24px rgba(249,115,22,.35); display: grid; place-items: center; gap: 0; font-family: var(--mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+  .home-bar .mic svg { width: 26px; height: 26px; }
+  .home-bar .ask { height: 48px; border-radius: 14px; border: 1px solid var(--bord-2); background: var(--coffrage); display: flex; align-items: center; padding: 0 12px; color: var(--gravier); font-size: 13px; white-space: nowrap; overflow: hidden; }
+  .home-tabs { display: flex; justify-content: space-around; padding: 6px 12px 10px; background: #111113; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--gravier); }
+  .home-tabs span.on { color: var(--orange); }
+  .home-sit { display: flex; align-items: center; gap: 8px; padding: 0 16px; font-family: var(--mono); font-size: 11.5px; color: var(--gravier-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .state-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ambre); box-shadow: 0 0 0 4px rgba(245,158,11,.18); flex: 0 0 auto; transition: background .4s, box-shadow .4s, opacity .6s; }
+  .state-dot.ok { background: var(--vert); box-shadow: 0 0 0 4px rgba(16,185,129,.18); }
+  .state-dot.hot { background: var(--rouge); box-shadow: 0 0 0 4px rgba(239,68,68,.18); }
+  .state-dot.off { opacity: 0; }
+  .fcard { border-left: 4px solid var(--age, var(--bord-2)); }
+  .fcard .acts { display: flex; gap: 8px; margin-top: 4px; }
+  .fcard .acts .btn.primary { flex: 1; min-height: 48px; font-size: 14.5px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .fcard .acts .btn.primary small { font-family: var(--mono); font-weight: 500; font-size: 11px; opacity: .85; }
+  .galet { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 999px; background: var(--coffrage-2); border: 1px solid var(--bord-2); font-size: 13.5px; animation: pop .3s both; }
+  .galet .ring { width: 24px; height: 24px; border-radius: 50%; background: conic-gradient(var(--orange) calc(var(--p, 1) * 360deg), var(--bord-2) 0); position: relative; }
+  .galet .ring::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--coffrage-2); }
+  .galet button { border: 0; background: transparent; color: var(--orange); font-weight: 600; font-size: 13.5px; padding: 6px 4px; min-height: 36px; }
+  .sent { font-family: var(--mono); font-size: 11.5px; color: var(--vert); padding: 2px 4px; }
+  .tests { margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: t; }
+  .tests li { list-style: none; counter-increment: t; display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 10px 14px; border-left: 2px solid var(--vert); background: var(--beton-2); border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 14.5px; color: var(--gravier-2); }
+  .tests li::before { content: counter(t); font-family: var(--mono); color: var(--vert); font-size: 12px; padding-top: 2px; }
+  .tests li b { color: var(--chaux); }
+
+  /* ---------- Direction content ---------- */
+  .principles { margin: 0; padding: 0; display: grid; gap: 8px; }
+  .principles li { list-style: none; display: grid; grid-template-columns: 8px 1fr; gap: 12px; align-items: start; font-size: 15px; color: var(--gravier-2); }
+  .principles li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); margin-top: 8px; }
+  .principles b { color: var(--chaux); }
+  .vocab { display: grid; gap: 8px; }
+  .vocab div { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 14px; background: var(--beton-2); border: 1px solid var(--bord); border-radius: var(--r-sm); font-size: 14px; }
+  .vocab b { font-family: var(--display); }
+  .vocab .ms { font-family: var(--mono); font-size: 12px; color: var(--gravier); font-variant-numeric: tabular-nums; }
+  .vocab p { grid-column: 1 / -1; color: var(--gravier-2); font-size: 13.5px; }
+  .engine { display: grid; gap: 8px; }
+  .engine .step { display: grid; grid-template-columns: 74px 1fr; gap: 10px; padding: 12px 14px; background: var(--beton-2); border: 1px solid var(--bord); border-radius: var(--r-sm); font-size: 14px; }
+  .engine .step .k { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--orange); padding-top: 3px; }
+  .engine .step p { color: var(--gravier-2); }
+  .engine .step b { color: var(--chaux); display: block; margin-bottom: 2px; }
+  .map { display: grid; gap: 6px; }
+  .map div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 12px; background: var(--beton-2); border: 1px solid var(--bord); border-radius: var(--r-sm); font-size: 13.5px; }
+  .map .a { color: var(--gravier); }
+  .map .b { color: var(--gravier-2); }
+  .map .b b { color: var(--chaux); font-family: var(--display); font-weight: 700; }
+  .map .h { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--gravier); background: transparent; border: 0; padding-bottom: 0; }
+  .road { display: grid; gap: 10px; }
+  .road .ph { display: grid; grid-template-columns: 54px 1fr; gap: 12px; padding: 14px; background: var(--beton-2); border: 1px solid var(--bord); border-radius: var(--r-md); }
+  .road .wk { font-family: var(--mono); font-size: 12px; color: var(--orange); line-height: 1.3; }
+  .road .wk small { display: block; color: var(--gravier); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+  .road b { font-family: var(--display); display: block; margin-bottom: 4px; }
+  .road p { font-size: 14px; color: var(--gravier-2); }
+  .road .out { margin-top: 6px; font-size: 13px; color: var(--vert); }
+  .red { display: grid; gap: 8px; margin: 0; padding: 0; }
+  .red li { list-style: none; padding: 10px 14px; border-left: 2px solid var(--rouge); background: var(--beton-2); border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 14.5px; color: var(--gravier-2); }
+  .red li b { color: var(--chaux); }
+  .risks { display: grid; gap: 8px; }
+  .risks div { padding: 10px 14px; background: var(--beton-2); border: 1px solid var(--bord); border-radius: var(--r-sm); font-size: 14px; display: grid; gap: 4px; }
+  .risks b { font-family: var(--display); }
+  .risks .m { color: var(--gravier-2); }
+  .risks .m::before { content: "Parade · "; color: var(--vert); font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+
+  /* ---------- Ask ---------- */
+  .ask-box { display: grid; gap: 10px; }
+  .ask-box .q { padding: 14px 16px; border-radius: var(--r-md); background: var(--coffrage); border: 1px solid var(--bord-2); display: grid; gap: 8px; }
+  .ask-box .q b { font-family: var(--display); }
+  .ask-box .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ask-box .opts span { border: 1px solid var(--bord-2); border-radius: 999px; padding: 6px 12px; font-size: 13px; color: var(--gravier-2); }
+  .ask-box .opts span.rec { border-color: rgba(249,115,22,.5); color: var(--orange); background: var(--orange-soft); }
+  footer { padding: 28px 0 60px; border-top: 1px solid var(--bord); color: var(--gravier); font-size: 13px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-grid" aria-hidden="true"></div>
+  <div class="wrap">
+    <p class="eyebrow">Proposition de refonte · Cantaia · septembre 2026</p>
+    <h1>Cantaia ne doit plus ressembler à un logiciel.</h1>
+    <p class="lede">Un assistant chantier qui parle en premier, qui bouge quand ça compte, et qui prend la forme de ta façon de travailler. Six pistes, un verdict, une direction. Tout se teste au pouce.</p>
+    <div class="orb-stage">
+      <canvas id="orb" aria-label="Orbe de l'assistant, touche pour changer d'état" role="button" tabindex="0"></canvas>
+      <div class="orb-bubble show" id="orbBubble"><div class="who"><span class="dot" id="orbDot"></span><span id="orbState">attentif</span></div><span id="orbText">Bonjour Julien. 3 décisions t’attendent. La plus pressée : Implenia attend ta réponse sur l’étanchéité avant 17h.</span></div>
+    </div>
+    <p class="hint">Touche l’orbe : calme → attentif → alerte. C’est l’état du chantier, pas une décoration.</p>
+    <nav class="toc" aria-label="Sommaire">
+      <a href="#constat">Le constat</a>
+      <a href="#c-compagnon">6 concepts</a>
+      <a href="#verdict">Verdict</a>
+      <a href="#direction">Direction</a>
+      <a href="#route">Feuille de route</a>
+      <a href="#choix">Ton choix</a>
+    </nav>
+  </div>
+</header>
+
+<section id="constat">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Le constat</p>
+      <h2>Aujourd’hui, l’IA de Cantaia est enterrée dans des pages.</h2>
+      <p class="lede">Le produit fait déjà des choses qu’aucun concurrent ne fait. Mais l’interface les range dans une sidebar de 13 entrées et des tableaux. Le chef de projet ne le voit pas.</p>
+    </div>
+    <div class="constat">
+      <ul>
+        <li><span class="k">01</span><div><b>13 entrées de menu, 66 pages, 0 voix.</b><span>La navigation dit « logiciel de gestion ». Le briefing, les agents nocturnes, la commande IA du calendrier existent, mais chacun vit sur sa page. Personne ne les enchaîne.</span></div></li>
+        <li><span class="k">02</span><div><b>Des KPIs à la place d’une décision.</b><span>« 25 emails non traités » est un chiffre. « Implenia attend ta réponse avant 17h, voici le brouillon » est une décision. Le second gagne du temps, le premier en coûte.</span></div></li>
+        <li><span class="k">03</span><div><b>L’interface est identique le lundi matin et le vendredi sur chantier.</b><span>Un assistant se souvient de ce que tu fais. Il rapproche ce que tu utilises et efface ce que tu n’ouvres jamais. Aujourd’hui rien ne bouge, donc rien ne vit.</span></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONCEPT 1 : COMPAGNON ============ -->
+<section class="concept" id="c-compagnon">
+  <div class="wrap">
+    <div class="concept-head">
+      <p class="eyebrow">Angle · conversation</p>
+      <h2>JM, le Visa du matin</h2>
+      <p class="tag">Plus de dashboard. Sur tout chantier suisse, le directeur des travaux <em>vise</em> : il paraphe, valide, reporte. Ici JM tient le journal la nuit et, le matin, tu vises chaque décision d’un coup de pouce.</p>
+    </div>
+    <div class="demo" id="chatDemo">
+      <div class="demo-bar"><span>Accueil · <b>07:42</b></span><button class="demo-reset" data-reset="chat">Rejouer</button></div>
+      <div class="demo-body">
+        <div class="chat-stream" id="chatStream"></div>
+        <div class="chat-chips" id="chatChips"></div>
+      </div>
+    </div>
+    <dl class="notes">
+      <div><dt>Geste signature</dt><dd>Taper une suggestion. Chaque bulle est une action prête, pas une notification. Le module s’ouvre en carte dans le fil, jamais en page pleine.</dd></div>
+      <div><dt>Comment ça évolue</dt><dd>Les suggestions que tu ignores trois fois disparaissent. Celles que tu acceptes montent. Au mois 3, le Compagnon ouvre la journée avec tes deux réflexes, pas les siens.</dd></div>
+      <div class="wow"><dt>Le moment wow</dt><dd>Lundi 7h40, sur le parking : « Pendant le week-end j’ai reçu 31 mails, 4 demandent une décision, 2 brouillons sont prêts. On commence par Implenia ? »</dd></div>
+      <div class="risk"><dt>Risque</dt><dd>Un chatbot déguisé. Si le fil oblige à taper pour tout, on perd les gens qui veulent voir. Il faut des cartes riches et un accès direct aux données.</dd></div>
+    </dl>
+    <div class="scorebar" data-score="compagnon"><span class="mono muted">Panel</span><div class="track"><div class="fill"></div></div><span class="val">—</span></div>
+  </div>
+</section>
+
+<!-- ============ CONCEPT 2 : CHANTIER VIVANT 3D ============ -->
+<section class="concept" id="c-chantier">
+  <div class="wrap">
+    <div class="concept-head">
+      <p class="eyebrow">Angle · espace 3D</p>
+      <h2>La Maquette</h2>
+      <p class="tag">La maquette d’architecte de la baraque de chantier, mais vivante. Chaque projet est un bâtiment qui monte étage par étage au rythme des phases SIA réellement terminées, et qui fume là où ça coince. On tourne au doigt, on touche un étage pour en parler à JM.</p>
+    </div>
+    <div class="demo" id="isoDemo">
+      <div class="demo-bar"><span>Central Malley · <b>gros œuvre 62 %</b></span><span>glisse pour tourner</span></div>
+      <div class="iso-body">
+        <div class="iso-scene" id="isoScene">
+          <div class="iso-world" id="isoWorld">
+            <div class="box ground" style="--lvl:0"><i class="f top"></i></div>
+            <div class="box floor done" data-floor="0" data-name="Sous-sol · terrassement" data-info="Terminé le 12.06. Réception sans réserve." style="--lvl:0"><i class="f front"></i><i class="f back"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+            <div class="box floor done" data-floor="1" data-name="Rez · radier et voiles" data-info="Terminé. 1 réserve levée la semaine dernière." style="--lvl:1"><i class="f front"></i><i class="f back"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+            <div class="box floor wip alert" data-floor="2" data-name="Étage 2 · dalle" data-info="En cours. Livraison acier décalée de 8 jours par Steel SA. 2 mails fournisseur attendent ta réponse." style="--lvl:2"><i class="f front"></i><i class="f back"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+            <div class="box floor plan" data-floor="3" data-name="Étage 3 · planifié" data-info="Démarre le 21.09 selon le planning. Demande de prix maçonnerie envoyée à 3 fournisseurs, 1 offre reçue." style="--lvl:3"><i class="f front"></i><i class="f back"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+            <div class="box floor plan" data-floor="4" data-name="Toiture · planifiée" data-info="Étanchéité à attribuer. Le Compagnon suggère de lancer la demande de prix cette semaine." style="--lvl:4"><i class="f front"></i><i class="f back"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+            <div class="box mast"><i class="f front"></i><i class="f back"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+            <div class="box jib"><i class="f front"></i><i class="f back"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i><i class="f bottom"></i></div>
+            <span class="smoke"></span><span class="smoke"></span><span class="smoke"></span>
+          </div>
+        </div>
+        <div class="iso-bubble" id="isoBubble"><b>Étage 2 · dalle</b><span>En cours. Livraison acier décalée de 8 jours par Steel SA. 2 mails fournisseur attendent ta réponse.</span></div>
+        <div class="iso-legend"><span><i style="background:#3F3F47"></i>terminé</span><span><i style="background:var(--orange)"></i>en cours</span><span><i style="background:var(--rouge)"></i>alerte</span><span><i style="border:1px dashed var(--gravier)"></i>planifié</span></div>
+      </div>
+    </div>
+    <dl class="notes">
+      <div><dt>Geste signature</dt><dd>Tourner le bâtiment, toucher un étage. Zoomer sur la grue ouvre le planning, sur la baraque de chantier le mail du projet, sur la benne les fournisseurs.</dd></div>
+      <div><dt>Comment ça évolue</dt><dd>Le bâtiment pousse avec les rapports journaliers et les PV. Le lieu que tu visites le plus se rapproche de la caméra par défaut.</dd></div>
+      <div class="wow"><dt>Le moment wow</dt><dd>Lundi 7h02 : le troisième étage monte sous le crochet parce que le chef d’équipe a envoyé son rapport vendredi soir. Et le gyrophare s’éteint quand le dernier urgent est traité : l’arrêt du signal <em>est</em> la récompense.</dd></div>
+      <div class="risk"><dt>Risque</dt><dd>Joli mais lent à opérer. Pour traiter 25 mails, un bâtiment 3D est un détour. Fonctionne comme couche de contexte, pas comme navigation principale.</dd></div>
+    </dl>
+    <div class="scorebar" data-score="chantier3d"><span class="mono muted">Panel</span><div class="track"><div class="fill"></div></div><span class="val">—</span></div>
+  </div>
+</section>
+
+<!-- ============ CONCEPT 3 : ORGANISME ============ -->
+<section class="concept" id="c-organisme">
+  <div class="wrap">
+    <div class="concept-head">
+      <p class="eyebrow">Angle · apprentissage</p>
+      <h2>Le Chantier qui pousse</h2>
+      <p class="tag">L’interface est un chantier vu de dessus. Le premier jour, une dalle nue et trois blocs. Chaque capacité se coule en béton à sa première utilisation, et ce que tu utilises descend vers ton pouce. Touche les tuiles, regarde-les se réorganiser.</p>
+    </div>
+    <div class="demo" id="orgDemo">
+      <div class="demo-bar"><span>Capacités · <b id="orgWeek">semaine 1</b></span><button class="demo-reset" data-reset="org">Réinitialiser</button></div>
+      <div class="demo-body">
+        <div class="org-head"><span>Touche ce que tu utiliserais. L’organisme s’adapte.</span><button class="demo-reset" id="orgSim">Simuler 3 mois</button></div>
+        <div class="org-grid" id="orgGrid"></div>
+      </div>
+    </div>
+    <dl class="notes">
+      <div><dt>Geste signature</dt><dd>Aucun. C’est le point : l’utilisateur ne configure rien, l’interface se plie à lui. Un réglage « figer la disposition » rassure ceux qui n’aiment pas que ça bouge.</dd></div>
+      <div><dt>Comment ça évolue</dt><dd>Chaque ouverture de capacité pèse 1, pondéré par l’heure et le jour. Décroissance de 10 % par semaine. Une tuile ne change de taille qu’entre deux sessions, jamais sous le doigt.</dd></div>
+      <div class="wow"><dt>Le moment wow</dt><dd>Au mois 3, ouvrir l’app le vendredi à 16h32 : la grue a pivoté vers la poignée et le bouton dit « Dicter le PV de la séance de 14h », exactement là où le pouce tombe.</dd></div>
+      <div class="risk"><dt>Risque</dt><dd>Le vertige du « où est passé mon bouton ? ». Il faut une mémoire spatiale stable : les tuiles grossissent, elles ne se téléportent pas.</dd></div>
+    </dl>
+    <div class="scorebar" data-score="organisme"><span class="mono muted">Panel</span><div class="track"><div class="fill"></div></div><span class="val">—</span></div>
+  </div>
+</section>
+
+<!-- ============ CONCEPT 4 : TERRAIN ============ -->
+<section class="concept" id="c-terrain">
+  <div class="wrap">
+    <div class="concept-head">
+      <p class="eyebrow">Angle · terrain</p>
+      <h2>Le Poste, JM sur la radio de chantier</h2>
+      <p class="tag">Un talkie-walkie qui connaît tes chantiers. Le canal, c’est le projet. La batterie, ce sont les crédits. Les barres de réception, c’est ce que JM a appris de toi. Tu maintiens, tu parles, il répond « Reçu. » Gants, soleil, 4G compris.</p>
+    </div>
+    <div class="demo" id="fieldDemo">
+      <div class="demo-bar"><span>Sur chantier · <b>Central Malley</b></span><button class="sun-toggle" id="sunToggle" aria-pressed="false">Mode soleil</button></div>
+      <div class="demo-body field">
+        <div class="talk">
+          <button id="talkBtn" aria-label="Maintenir pour parler">Parle</button>
+          <canvas class="wave" id="wave" aria-hidden="true"></canvas>
+        </div>
+        <div class="transcript" id="transcript"><span class="lbl">Maintiens le bouton</span><span class="muted">« Réserve sur l’étanchéité du sous-sol, à revoir avec Implenia avant vendredi… »</span></div>
+        <div class="big-acts" id="bigActs"></div>
+      </div>
+    </div>
+    <dl class="notes">
+      <div><dt>Geste signature</dt><dd>Maintenir pour parler, relâcher pour voir les actions. Le Compagnon découpe la phrase en PV, tâche, mail, et demande confirmation d’un seul pouce.</dd></div>
+      <div><dt>Comment ça évolue</dt><dd>La détection de contexte (GPS du chantier, heure, calendrier) bascule seule en mode terrain. Après dix dictées, il connaît tes formulations et tes destinataires habituels.</dd></div>
+      <div class="wow"><dt>Le moment wow</dt><dd>Sortir du chantier, dicter 40 secondes dans la voiture, retrouver un PV SIA propre et trois tâches assignées en arrivant au bureau.</dd></div>
+      <div class="risk"><dt>Risque</dt><dd>La reconnaissance vocale en bruit de chantier et en suisse-allemand. Il faut toujours une confirmation visuelle avant d’envoyer quoi que ce soit.</dd></div>
+    </dl>
+    <div class="scorebar" data-score="terrain"><span class="mono muted">Panel</span><div class="track"><div class="fill"></div></div><span class="val">—</span></div>
+  </div>
+</section>
+
+<!-- ============ CONCEPT 5 : FLUX ============ -->
+<section class="concept" id="c-flux">
+  <div class="wrap">
+    <div class="concept-head">
+      <p class="eyebrow">Angle · temps</p>
+      <h2>Le Fil</h2>
+      <p class="tag">Le fil à plomb de la journée : une ligne verticale graduée en heures, où chaque décision arrive en bulle à son heure. Un pouce la fait tomber du bon côté. Quand tout est traité, le plomb est à l’aplomb.</p>
+    </div>
+    <div class="demo" id="fluxDemo">
+      <div class="demo-bar"><span>Jeudi 4 sept. · <b>maintenant 10:15</b></span><button class="demo-reset" data-reset="flux">Rejouer</button></div>
+      <div class="demo-body">
+        <div class="river" id="river"></div>
+        <div class="swipe-hint"><span>← reporter</span><span>décider →</span></div>
+      </div>
+    </div>
+    <dl class="notes">
+      <div><dt>Geste signature</dt><dd>Le swipe. Décider, reporter, déléguer sans ouvrir. La carte porte tout ce qu’il faut pour trancher : qui, quoi, pour quand, et ce que le Compagnon propose.</dd></div>
+      <div><dt>Comment ça évolue</dt><dd>Le courant apprend ton rythme : les décisions fournisseurs remontent le matin, les PV l’après-midi. Ce que tu reportes trois fois se transforme en suggestion de délégation.</dd></div>
+      <div class="wow"><dt>Le moment wow</dt><dd>Vider 12 décisions en 90 secondes dans le train, à un pouce, et voir le courant se calmer.</dd></div>
+      <div class="risk"><dt>Risque</dt><dd>Le flux cache la structure. Retrouver « la soumission du lot 224 » demande une recherche ou un retour aux référentiels.</dd></div>
+    </dl>
+    <div class="scorebar" data-score="flux"><span class="mono muted">Panel</span><div class="track"><div class="fill"></div></div><span class="val">—</span></div>
+  </div>
+</section>
+
+<!-- ============ CONCEPT 6 : ANTI-PAGE ============ -->
+<section class="concept" id="c-antipage">
+  <div class="wrap">
+    <div class="concept-head">
+      <p class="eyebrow">Angle · radical</p>
+      <h2>La Table</h2>
+      <p class="tag">La table de la baraque de chantier : plans déroulés, devis en tas, post-it. Une surface, pas un menu. Tout est carte, les cartes se rangent en piles, et JM range le reste pendant que tu travailles. On dézoome pour voir toute l’organisation respirer.</p>
+    </div>
+    <div class="demo" id="deckDemo">
+      <div class="demo-bar"><span>Pile · <b id="deckCount">5 cartes</b></span><button class="demo-reset" data-reset="deck">Rejouer</button></div>
+      <div class="demo-body deck-body">
+        <div class="deck" id="deck">
+          <div class="clusters" id="clusters">
+            <div class="cluster c1" style="left:8%;top:12%">Central Malley<small>14 cartes · 1 alerte</small></div>
+            <div class="cluster c2" style="right:6%;top:28%">Tour Horizon<small>9 cartes</small></div>
+            <div class="cluster c3" style="left:30%;bottom:6%">Organisation<small>3 cartes · direction</small></div>
+          </div>
+        </div>
+        <div class="deck-controls"><button class="btn" id="deckZoom">Dézoomer</button><button class="btn" id="deckThrow">Jeter la carte</button></div>
+      </div>
+    </div>
+    <dl class="notes">
+      <div><dt>Geste signature</dt><dd>Pincer pour dézoomer sur l’org, toucher un nuage pour plonger dans un chantier, jeter une carte pour la classer.</dd></div>
+      <div><dt>Comment ça évolue</dt><dd>Les nuages se forment selon tes regroupements réels, pas selon nos modules. Si tu traites toujours mail + soumission ensemble, ils fusionnent.</dd></div>
+      <div class="wow"><dt>Le moment wow</dt><dd>Dézoomer et voir ses trois chantiers comme trois nuages qui respirent, le plus agité en rouge.</dd></div>
+      <div class="risk"><dt>Risque</dt><dd>Le plus éloigné d’Outlook et d’Excel. Pour un chef de projet de 50 ans, la perte des repères peut coûter plus que la nouveauté n’apporte.</dd></div>
+    </dl>
+    <div class="scorebar" data-score="antipage"><span class="mono muted">Panel</span><div class="track"><div class="fill"></div></div><span class="val">—</span></div>
+  </div>
+</section>
+
+<!-- ============ VERDICT ============ -->
+<section id="verdict">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Le verdict du panel</p>
+      <h2>Trois juges, six concepts, aucune diplomatie.</h2>
+      <p class="lede">Un chef de projet de 48 ans allergique aux gadgets, un directeur de création, un lead frontend qui a livré de la 3D sur mobile. Chacun a noté six critères sur 10 : nouveauté, assistant vivant, pouce, compréhensible à 45 ans, faisable avec la stack, performance mobile. Le Poste gagne au cumul, mais deux juges sur trois font du Visa la colonne vertébrale et du Poste la greffe terrain.</p>
+    </div>
+    <div class="table-wrap" id="verdictTable"></div>
+    <div class="stack" id="verdictQuotes"></div>
+  </div>
+</section>
+
+<!-- ============ DIRECTION ============ -->
+<section id="direction">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">La direction recommandée</p>
+      <h2 id="dirTitle">JM, le Visa : le Compagnon en colonne vertébrale, le Poste pour le terrain, le Chantier qui pousse comme mémoire.</h2>
+      <p class="lede" id="dirPitch">Le Compagnon parle en premier et organise la journée. L’Organisme lui donne sa mémoire : ce que tu utilises se rapproche. Le Chantier vivant reste une couche de contexte qu’on ouvre quand on veut voir. Le Terrain et le Flux fournissent les gestes : maintenir pour parler, swiper pour décider.</p>
+    </div>
+    <div class="demo" id="homeDemo">
+      <div class="demo-bar"><span>Accueil Compagnon · <b>prototype</b></span><span id="homeClock">07:42</span></div>
+      <div class="home">
+        <div class="home-top">
+          <canvas id="orb2" width="64" height="64" aria-hidden="true"></canvas>
+          <div><div class="greet" id="homeGreet">Bonjour Julien.</div><div class="state" id="homeState">3 décisions, 2 brouillons prêts, 1 retard fournisseur.</div></div>
+        </div>
+        <div class="home-sit"><span class="state-dot" id="stateDot"></span><span id="homeSit">Mar. 4 sept · Central Malley · pluie 14h, 14° · Séance CVC 16:00 · 2 urgents</span></div>
+        <div class="ctx" id="ctx"><button class="on" data-ctx="matin">Matin</button><button data-ctx="chantier">Sur chantier</button><button data-ctx="soir">Soir</button><button data-ctx="calme">Rien à faire</button></div>
+        <div class="home-scroll">
+          <div class="proj" id="homeProj">
+            <div><div class="n">Central Malley</div><div class="s">Gros œuvre · étage 2 · livraison acier +8 j</div><div class="bar"><i></i></div></div>
+            <div class="mini-iso"><div class="iso-world">
+              <div class="box floor done" style="--lvl:0"><i class="f front"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+              <div class="box floor done" style="--lvl:1"><i class="f front"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+              <div class="box floor wip" style="--lvl:2"><i class="f front"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+              <div class="box floor plan" style="--lvl:3"><i class="f front"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i></div>
+            </div></div>
+          </div>
+          <div class="home-label"><span id="homeBubLabel">À décider</span><span>swipe →</span></div>
+          <div class="home-bubbles" id="homeBubbles"></div>
+          <div class="home-label"><span>Le Compagnon propose</span></div>
+          <div class="sugg" id="homeSugg"></div>
+          <div class="home-label"><span>Tes capacités</span><span id="dockNote">ordre appris</span></div>
+          <div class="dock" id="dock"></div>
+        </div>
+        <div class="home-bar">
+          <button aria-label="Photo"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3"/></svg></button>
+          <div class="ask">Dis-moi…</div>
+          <button class="mic" aria-label="Maintenir pour parler"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Parler</span></button>
+          <div class="ask">Écrire</div>
+          <button aria-label="Voir le chantier"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5"/></svg></button>
+        </div>
+        <div class="home-tabs"><span class="on">JM</span><span>Chantier</span><span>Bureau</span></div>
+      </div>
+    </div>
+    <p class="hint">Change le contexte en haut : le même accueil ne montre pas la même chose à 7h, sur chantier, ou le soir. Vise une carte avec le bouton ou d’un swipe : l’envoi attend 5 secondes, annulable.</p>
+
+    <h3>Sept principes non négociables</h3>
+    <ul class="principles" id="principles">
+      <li><span><b>L’assistant parle en premier.</b> Chaque session s’ouvre sur ce qu’il a fait et ce qu’il attend de toi. Jamais sur une grille de chiffres.</span></li>
+      <li><span><b>Une bulle est une action, pas une notification.</b> Elle porte le contexte, la proposition et les boutons pour trancher. Si elle ne peut pas être tranchée en un geste, ce n’est pas une bulle.</span></li>
+      <li><span><b>Le mouvement signale, il ne décore pas.</b> L’orbe change d’état, une bulle apparaît, un étage fume. Rien ne bouge sans raison. Le mode « mouvement réduit » est respecté.</span></li>
+      <li><span><b>Ça grossit, ça ne se téléporte pas.</b> L’interface apprend entre deux sessions. Une capacité change de taille, jamais de place pendant que tu la regardes.</span></li>
+      <li><span><b>Le pouce est roi.</b> Ce qui compte vit dans le tiers bas de l’écran. Les cibles font 48 px minimum, 64 px sur chantier.</span></li>
+      <li><span><b>Les pages existantes deviennent des cartes.</b> On ne réécrit pas 66 pages. On les appelle depuis le fil, en carte ou en plein écran, avec un retour toujours au même endroit.</span></li>
+      <li><span><b>La 3D est une couche, pas un couloir.</b> On l’ouvre pour comprendre ou pour montrer. On ne l’impose jamais pour naviguer.</span></li>
+    </ul>
+
+    <h3>Vocabulaire d’animation</h3>
+    <div class="vocab" id="vocab">
+      <div><b>Respiration de l’orbe</b><span class="ms">continu · 60 fps → 30 fps sur batterie</span><p>Amplitude et couleur suivent l’état du chantier : vert calme, orange attentif, rouge alerte. C’est le seul mouvement permanent de l’app.</p></div>
+      <div><b>Éclosion de bulle</b><span class="ms">350 ms</span><p>Une bulle naît de l’orbe et se pose. Elle n’arrive jamais du bord de l’écran : elle vient de l’assistant.</p></div>
+      <div><b>Tranche</b><span class="ms">220 ms</span><p>Le swipe de décision : la carte suit le doigt, se teinte vert ou ambre, part, et la suivante prend sa place. Retour haptique court.</p></div>
+      <div><b>Croissance</b><span class="ms">400 ms, entre sessions</span><p>Une capacité qui a gagné du poids grandit à l’ouverture suivante, avec une ligne « Je t’ai rapproché PV de chantier ». Annulable.</p></div>
+      <div><b>Dépli du chantier</b><span class="ms">500 ms</span><p>La vignette 3D du projet s’ouvre en plein écran depuis sa position. Fermer la replie au même endroit. Le bâtiment tourne lentement, s’arrête au toucher.</p></div>
+      <div><b>Pulsation d’alerte</b><span class="ms">1 400 ms, 3 cycles puis fixe</span><p>Un étage, une bulle ou l’orbe pulsent rouge trois fois puis restent rouges. Pas de clignotement infini.</p></div>
+    </div>
+
+    <h3>Le moteur d’évolution</h3>
+    <div class="engine" id="engine"></div>
+
+    <h3>Ce que deviennent les modules</h3>
+    <div class="map" id="moduleMap"></div>
+  </div>
+</section>
+
+<!-- ============ ROUTE ============ -->
+<section id="route">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Feuille de route</p>
+      <h2>Quatre phases, chacune visible par tes utilisateurs.</h2>
+      <p class="lede">Rien n’est réécrit. Le shell change d’abord, les pages restent derrière comme des cartes. La 3D arrive en dernier, quand le Compagnon a déjà prouvé qu’il fait gagner du temps.</p>
+    </div>
+    <div class="road" id="road"></div>
+    <h3>Ce que l’avocat du diable a retenu</h3>
+    <div class="risks" id="risks"></div>
+    <h3>Lignes rouges</h3>
+    <ul class="red" id="redlines"></ul>
+    <h3>Cinq tests de réalité avant d’investir</h3>
+    <ol class="tests" id="tests"></ol>
+    <h3>Plan technique</h3>
+    <div class="quote" id="techPlan"></div>
+  </div>
+</section>
+
+<!-- ============ CHOIX ============ -->
+<section id="choix">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Ton choix</p>
+      <h2>Trois questions avant que je dessine l’écran final.</h2>
+    </div>
+    <div class="ask-box">
+      <div class="q"><b>1 · La direction</b><span class="muted">« JM, le Visa » hybride est la recommandation du panel et la mienne. Tu peux aussi pousser un concept pur.</span><div class="opts"><span class="rec">JM, le Visa (hybride)</span><span>La Maquette pure</span><span>Le Poste pur</span><span>Le Fil pur</span></div></div>
+      <div class="q"><b>2 · La 3D</b><span class="muted">Le panel la relègue en phase 4, conditionnée aux mesures, jamais sur téléphone. Tu la voulais dès le départ : on tranche.</span><div class="opts"><span class="rec">Bâtiment SVG dès la phase 2, 3D en phase 4</span><span>3D desktop dès la phase 1</span><span>Pas de 3D</span></div></div>
+      <div class="q"><b>3 · Le périmètre de départ</b><span class="muted">Par quoi on commence, en gardant tout le reste intact derrière un flag ?</span><div class="opts"><span class="rec">P0 + P1 : fondations + pile à viser</span><span>Le Poste (dictée PV) d’abord</span><span>Le rail qui apprend d’abord</span></div></div>
+      <div class="q"><b>4 · Le premier test de réalité</b><span class="muted">Zéro ou presque zéro code, pour vérifier que le vocabulaire des cartes est juste avant d’animer quoi que ce soit.</span><div class="opts"><span class="rec">Pile de papier (1 semaine)</span><span>Wizard of Oz du visa (2 semaines)</span><span>Swipe en gants au soleil</span><span>Fil vide (SQL, 2 h)</span></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap">Prototypes en HTML/CSS/Canvas pour le pouce. Les animations respectent « réduire les animations » du téléphone. Le vrai produit utilise framer-motion et React Three Fiber, déjà installés dans Cantaia.</div></footer>
+
+<script>window.__PANEL__ = {"scores": {"terrain": {"nom": "Le Poste (radio)", "utilisateur": 49, "marque": 50, "tech": 46, "total": 145}, "compagnon": {"nom": "JM · Le Visa", "utilisateur": 45, "marque": 49, "tech": 47, "total": 141}, "organisme": {"nom": "Le Chantier qui pousse", "utilisateur": 42, "marque": 44, "tech": 44, "total": 130}, "chantier3d": {"nom": "La Maquette", "utilisateur": 38, "marque": 43, "tech": 39, "total": 120}, "flux": {"nom": "Le Fil", "utilisateur": 38, "marque": 40, "tech": 39, "total": 117}, "antipage": {"nom": "La Table", "utilisateur": 36, "marque": 37, "tech": 38, "total": 111}}, "quotes": [{"who": "Le chef de projet, 48 ans, 20 ans de chantier", "text": "Le seul concept qui parle ma langue : je VISE, comme je paraphe des bons depuis 25 ans. Une carte, un gros bouton orange, « Plus tard », JM me dit pourquoi en une ligne. Le Poste a le meilleur mobile des six : il faut lui voler tout son pupitre. La Maquette impressionne un investisseur et fait fuir mon collègue de 55 ans. Ce qui me ferait désinstaller : un mail parti sur un swipe accidentel sans annulation, un bouton qui change de place sans qu’on me le dise, un JM qui parle allemand approximatif."}, {"who": "Le directeur de création", "text": "Cinq des six concepts sont le même produit sous la peau : une pile de cartes, un JM à états, un pouls unique. Le choix se fait sur ce qu’on voit et ce qu’on retient. Seule La Maquette ne ressemble à rien d’existant et rend « vivant » littéral : l’étage qui monte parce que le chef d’équipe a envoyé son rapport, le gyrophare dont l’arrêt est la récompense. Mais son mobile est à l’envers : la pile de décisions doit prendre la zone du pouce et la maquette devenir la toile de fond. Le Visa est la meilleure colonne vertébrale et le plan B sans regret."}, {"who": "Le lead frontend", "text": "Le Visa est le seul qui change le conteneur sans réécrire les 66 pages : le layout actuel fait 42 lignes, c’est lui qu’on remplace, et la zone principale devient l’atelier. Vérifié dans le code : la page mail fait 3 647 lignes, aucun respect du mouvement réduit dans l’app, aucun service worker, aucune API vocale. Compter 13 à 14 semaines pour un senior seul, pas 8. La 3D : jamais sur téléphone, jamais en boucle, jamais avant la phase 4."}], "direction": {"titre": "JM, le Visa : le Compagnon en colonne vertébrale, le Poste pour le terrain, le Chantier qui pousse comme mémoire.", "pitch": "Cantaia n’est plus un logiciel qu’on ouvre : c’est JM, un chef de chantier qui t’attend le matin avec une pile de décisions à viser d’un pouce, même ganté, et qui parle bref. Les 66 pages ne sont pas réécrites : elles deviennent l’atelier qu’on déplie à côté du fil. L’interface évolue lentement et le dit : une capacité se coule en béton à sa première donnée, le rail se réordonne une fois par jour au matin, et le bâtiment de ton chantier gagne un étage quand une phase SIA est terminée."}, "engine": [{"k": "Signaux", "t": "Chaque visa est une donnée", "p": "Viser, plus tard, ignorer, ouvrir, corriger : chaque geste sur une carte est enregistré. S’y ajoutent les brouillons acceptés ou corrigés, les relances envoyées, l’usage réel de chaque capacité et le contexte : heure, jour, rôle, chantier actif, séance en cours. Ce sont des actions métier, pas de la télémétrie : elles ne dépendent pas du cookie de consentement."}, {"k": "Score", "t": "Demi-vie de 14 jours", "p": "Chaque capacité a un score : une ouverture pèse 1, une action métier 3, et tout perd la moitié de sa valeur en deux semaines. Un vendredi intense ne bascule pas le rail. Sans données, un profil par rôle prend le relais : jamais vide."}, {"k": "Rythme", "t": "Une fois par jour, un cran par semaine", "p": "Le rail se réordonne uniquement à la première ouverture après 5h, jamais pendant une session. Monter demande 120 % du seuil, descendre 80 %. Une montée est annoncée par JM avec « Remettre comme avant », une descente est silencieuse."}, {"k": "Coulage", "t": "Une capacité naît quand sa donnée existe", "p": "Tant qu’un module n’a jamais servi, il reste en échafaudage pointillé sous le pli. À la première donnée (premier plan déposé, première soumission), il se coule en béton et JM le dit. Il ne redevient jamais échafaudage."}, {"k": "Verbosité", "t": "JM parle moins quand tu lui fais confiance", "p": "Par type de carte : moins de 50 % de visas sans retouche, JM explique en trois lignes ; entre 50 et 85 %, une ligne ; au-delà, la carte est pliée et le bouton est gros. Si tu corriges 4 brouillons sur 5, le bouton devient « Ouvrir et corriger »."}, {"k": "Silence", "t": "Cinq ignorés, une question", "p": "Cinq « ignorer » de suite sur un type non urgent et JM demande « Je n’insiste plus ? ». Visé, le type passe en digest du lundi. Jamais pour l’urgent, jamais pour une carte à montant, jamais pour une échéance à moins de 3 jours."}, {"k": "Garde-fous", "t": "Rien ne disparaît sans le dire", "p": "Épinglage manuel définitif (appui long = crampon), onglet Bureau jamais réordonné, bouton « Remettre l’ordre par défaut », page « Ce que JM a appris de toi » avec Oublier par ligne. Apprentissage coupé les 4 premières semaines d’un nouveau compte."}], "modules": [{"module": "Mail", "avant": "3 paniers, panneau détail, 9 boutons ; 2 écrans par mail sur mobile", "apres": "chaque mail urgent, devis ou brouillon prêt devient une carte à viser avec une action recommandée. La liste reste dans l’atelier pour les jours à 40 mails."}, {"module": "Soumissions", "avant": "6 écrans de l’import à l’attribution, relance enfouie", "apres": "carte « 142 positions, 6 lots, 3 fournisseurs par lot, envoyer ? », compteur vivant « 4/6 offres, meilleure −8 % ». Comparaison et attribution inchangées, dans l’atelier."}, {"module": "Fournisseurs", "avant": "annuaire, alertes du dimanche en bannière", "apres": "cartes d’alerte Vu / Ignorer / Voir ; les infos passent en digest du lundi. « Appelle-moi Müller » à la voix."}, {"module": "Plans et 3D", "avant": "registre, viewer 3D desktop Pro+, rien sur mobile", "apres": "se coule au premier plan déposé. Carte-résultat « 210 m², confiance 82 % ». Le bâtiment fil de fer suit les phases. Viewer complet dans l’atelier desktop, poster sur mobile."}, {"module": "PV de chantier", "avant": "4 écrans et 10 à 15 clics avant le micro", "apres": "appui maintenu, dictée, projet et participants déduits du calendrier, récapitulatif chiffré avant génération. Les tâches extraites deviennent des cartes à leur date."}, {"module": "Visites", "avant": "parcours audio + photos dupliqué avec le PV", "apres": "même geste micro, mode Visite déduit de l’agenda, rapport en carte, conversion prospect proposée."}, {"module": "Planning", "avant": "Gantt complet, rien sur mobile", "apres": "cartes de retard « gros œuvre +4 j, je recale ? ». Les étages du bâtiment suivent le planning. Le Gantt vit dans l’atelier."}, {"module": "Rapports chantier", "avant": "tableaux et exports", "apres": "carte du vendredi « Semaine 36 : 184 h, 12 bons, +6 % » à partager ; questions à la voix."}, {"module": "Calendrier", "avant": "seul endroit où l’on parle à l’app", "apres": "sa barre IA devient la barre JM globale, son feed d’intelligence devient la source des cartes, météo réelle du chantier."}, {"module": "Agents et chat", "avant": "cloche « marquer lu », page chat en silo", "apres": "les agents sont les mains de JM : leurs sorties sont les cartes de nuit. Le chat devient le fil lui-même."}, {"module": "Dashboard et briefing", "avant": "10 blocs, 4 KPI, bandeau", "apres": "disparaissent comme atterrissage après la transition : la parole du matin, le point d’état, 3 chiffres vivants dans l’atelier vide."}, {"module": "Tâches", "avant": "création à 10 champs", "apres": "une phrase au micro ou au clavier ; cartes de retard « reporter / déléguer à Sophie / fait »."}], "road": [{"phase": "P0", "semaines": 2, "titre": "Fondations, zéro pixel nouveau", "contenu": "Mouvement réduit respecté partout, un seul pouls serveur au lieu de 4 boucles, suppression des particules et des fontes inutiles, nouvelles tables de profil et d’événements, chaînes du shell en FR/DE/EN. Tout derrière un flag, l’app actuelle en repli.", "livrable": "L’app actuelle, plus fluide et plus légère en 4G, avec des chiffres de référence mesurés sur un Android de chantier."}, {"phase": "P1", "semaines": 3, "titre": "Le wow : la pile à viser", "contenu": "Cartes à 0 crédit depuis les sources qui tournent vraiment (mails urgents, brouillons, relances, tâches, agenda). Viser, plus tard, annulation 5 s. JM en SVG avec anneau de crédits. Barre mobile avec micro 88 px. Vue additionnelle « Fil » avec bouton « vue classique ». Puis test sur 5 chefs de projet et un Android de chantier.", "livrable": "Sur le parking à 8h : JM écrit la phrase du matin, 4 cartes naissent depuis lui, on vise un devis d’un pouce, le point rouge s’éteint."}, {"phase": "P2", "semaines": 3, "titre": "Le shell : rail, fil, atelier, dictée", "contenu": "Rail de capacités 64 px avec échafaudage et coulage, fil desktop, pages existantes dans l’atelier, dictée PV/visite déduite du calendrier, mode Soleil, file hors-ligne, switcher de projet mobile.", "livrable": "Desktop : une carte ouvre la page de soumission dans l’atelier. 16h32 au parking : 90 s de dictée, PV prêt 2 min plus tard avec ses tâches posées à leurs dates."}, {"phase": "P3", "semaines": 3, "titre": "L’évolution", "contenu": "Profil d’usage à demi-vie, réordonnancement du matin, verbosité apprise, silence appris, délégation Pro+, page « Ce que JM a appris de toi ». Retrait progressif de la sidebar après 4 semaines de mesures.", "livrable": "Mois 3 : le rail dans ton ordre, 6 cartes pliées, alertes info le lundi seulement, « 6 réponses envoyées cette nuit, 0 correction depuis 3 semaines »."}, {"phase": "P4", "semaines": 3, "titre": "Le chantier qui pousse (si les mesures sont bonnes)", "contenu": "Bâtiment isométrique SVG dont les étages montent par phase SIA, variante 3D sur desktop puissant uniquement, temps réel Supabase à la place du pouls.", "livrable": "Lundi 7h02 : le 3e étage monte parce que le chef d’équipe a envoyé son rapport vendredi soir."}], "risks": [{"risque": "Un mail part sur un swipe accidentel (gants, pouce, scroll pris pour un swipe). Un seul envoi raté vers un maître d’ouvrage suffit pour couper l’app.", "mitigation": "le bouton reste la voie principale, le swipe est un accélérateur désactivable ; annulation 5 s avant tout envoi ; jamais d’envoi sur simple tap."}, {"risque": "Le fil est vide sur Starter : pas d’agents nocturnes, pas de temps réel, migrations non appliquées en prod. JM annonce zéro carte, pire que le dashboard.", "mitigation": "ne montrer un type de carte que si sa source tourne réellement ; cartes gratuites (mails, tâches, agenda) d’abord ; vérifier les migrations en prod avant tout pixel."}, {"risque": "L’interface qui bouge est vécue comme un bug par un public qui a mis 3 mois à mémoriser où est « Rapports ».", "mitigation": "un cran par semaine, le matin seulement, annoncé, réversible ; apprentissage coupé les 4 premières semaines."}, {"risque": "JM parle un allemand approximatif : un chef de chantier « 30 ans de métier » qui fait des fautes est ridicule en Suisse alémanique.", "mitigation": "voix écrite en DE par un natif avant le FR ; relecture par 2 chefs de projet alémaniques ; lancement DE gelé sans parité."}, {"risque": "Batterie et Android moyen : respiration, anneaux, flou, un chunk 3D qui passe le tiering. Le fondateur teste sur MacBook et ne le verra jamais.", "mitigation": "budget mesuré en CI, 0 boucle au repos, WebGL interdit sur mobile, test hebdomadaire sur un Samsung A et un vieux PC Windows."}, {"risque": "La 3D devient le centre de gravité du projet parce que c’est ce que le fondateur veut voir, alors que la majorité des orgs n’ont aucun planning : immeuble en pointillé pendant des mois.", "mitigation": "reléguée en phase 4, conditionnée aux mesures, jamais comme navigation, bâtiment SVG d’abord."}, {"risque": "Le refactor casse des flux audités : la page mail fait 3 647 lignes, extraire des cartes touche l’anti-IDOR et les gardes de crédits.", "mitigation": "ne jamais toucher aux routes API ; les cartes viennent des DTO serveur, pas du JSX des pages ; un dispatcher vers les routes existantes."}, {"risque": "Plein soleil illisible : dark forcé, arêtes orange, texte gris sur noir.", "mitigation": "mode Soleil nommé, d’un geste, proposé l’après-midi ; toute couleur nouvelle en variable CSS."}], "redlines": ["Jamais d’envoi réel (mail, relance, attribution) sur un swipe ou un tap sans fenêtre d’annulation de 5 s avant l’appel réseau.", "Jamais de suppression de la vue classique avant 4 semaines de mesures. Jamais de disparition d’un tableau-instrument : comparaison d’offres, Gantt, liste mail.", "Jamais un élément déplacé, plié ou disparu sans que JM l’annonce et sans « Remettre comme avant » à un tap.", "Jamais de WebGL sur téléphone ou tablette, jamais d’animation infinie au repos. Le mouvement réduit est livré avant le premier pixel animé.", "Jamais de lancement dans une langue où la voix de JM n’a pas été relue par un natif.", "Jamais une carte dont la source ne tourne pas réellement en prod : pas de « cette nuit j’ai… » vide.", "Jamais de crédit consommé avant le geste explicite. Le coût est écrit sur le bouton.", "Jamais la pile de décisions hors de la zone du pouce, ni de cible sous 48 px. Le décor ne prend jamais la zone du pouce sur téléphone."], "tests": [{"t": "Pile de papier, 1 semaine, 0 code.", "p": "Imprimer 7 cartes réelles d’un utilisateur volontaire au format téléphone et les lui présenter le matin sur le parking : il tamponne visé, plus tard ou non au feutre, en disant ce qu’il comprend. 5 chefs de projet dont 2 alémaniques. Critère : 6 cartes sur 7 comprises en moins de 10 s sans explication."}, {"t": "Swipe en gants au soleil, 1 jour de dev, 3 jours de terrain.", "p": "Une page HTML avec 5 fausses cartes, mode sombre et mode Soleil, sur un Samsung A et un iPhone SE, gants de chantier, à midi, en marchant. Critère : moins de 2 % de faux envois sur 50 gestes de scroll ; si 3 testeurs sur 5 préfèrent le Soleil, il devient obligatoire."}, {"t": "Fil vide, 2 heures de SQL.", "p": "Sur la prod, compter pour chaque org active combien de cartes réelles le fil aurait produites chaque matin des 30 derniers jours avec les seules sources qui tournent. Critère : 80 % des orgs Starter ont au moins 3 cartes par jour ouvré, sinon brancher les événements in-app avant tout shell."}, {"t": "JM parle allemand, 2 jours.", "p": "30 phrases de JM écrites en DE par un natif du métier, lues à 3 chefs de projet alémaniques : « ce type a-t-il 30 ans de chantier ? ». En parallèle, mesurer la latence réelle d’une dictée de 60 s en 4G sur 10 essais. Critères : ton crédible 3 sur 3, latence P90 sous 8 s."}, {"t": "Wizard of Oz du visa, 2 semaines, sans code produit.", "p": "Chaque matin, envoyer à 5 utilisateurs réels 5 cartes rédigées à la main depuis leurs vraies données, réponse par OK / plus tard / non, exécution à la main. Critères : 60 % de réponses matinales sur 10 jours, 3 utilisateurs sur 5 prêts à payer 149 CHF par mois. Si ce test échoue, aucune animation ne rattrapera le concept ; s’il réussit, la 3D n’y est pour rien."}], "tech": "Rien de nouveau dans la stack : framer-motion passe en chargement paresseux avec configuration de mouvement réduit, three et React Three Fiber restent confinés à un chunk chargé uniquement sur desktop puissant en phase 4. Le layout de l’app fait 42 lignes : c’est lui qu’on remplace par rail + fil + atelier, la zone principale actuelle devenant l’atelier, sans routes parallèles. Six routes API nouvelles (pouls, cartes, acte, commande, profil, usage) qui délèguent aux routes existantes avec auth, contrôle d’organisation et rate limit. Environ 250 clés i18n en FR, DE et EN. Cibles mesurées : démarrage sous 2,5 s sur Android milieu de gamme en 4G, zéro boucle au repos, swipe sous 200 ms."};</script>
+<script>
+(function () {
+  'use strict';
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  function whenVisible(el, onEnter, onLeave) {
+    if (!('IntersectionObserver' in window)) { onEnter(); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) onEnter(); else if (onLeave) onLeave(); });
+    }, { threshold: 0.2 });
+    io.observe(el);
+  }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function el(tag, cls, html) { var n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
+  function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 12); } catch (e) {} }
+
+  var ICONS = {
+    mail: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+    pv: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+    sub: '<svg viewBox="0 0 24 24"><path d="M6 3h9l5 5v13H6z"/><path d="M14 3v6h6M9 13h7M9 17h7"/></svg>',
+    plans: '<svg viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
+    planning: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 13h5M7 17h9"/></svg>',
+    supp: '<svg viewBox="0 0 24 24"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
+    cal: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    visit: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3"/></svg>',
+    tasks: '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>',
+    site: '<svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5"/></svg>'
+  };
+
+  /* ================= ORB ================= */
+  function makeOrb(canvas, opts) {
+    var ctx = canvas.getContext('2d');
+    var states = {
+      calme:    { color: [16, 185, 129], speed: 0.6, amp: 0.05 },
+      attentif: { color: [249, 115, 22], speed: 1.1, amp: 0.09 },
+      alerte:   { color: [239, 68, 68],  speed: 2.0, amp: 0.15 }
+    };
+    var state = opts.state || 'attentif';
+    var cur = states[state].color.slice();
+    var t = 0, size = 0, raf = null, running = false;
+    function resize() {
+      var r = canvas.parentElement.getBoundingClientRect();
+      size = opts.size || Math.min(r.width, 250);
+      canvas.width = size * DPR; canvas.height = size * DPR;
+      canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+    function draw() {
+      var s = states[state];
+      for (var k = 0; k < 3; k++) cur[k] = lerp(cur[k], s.color[k], 0.06);
+      var col = Math.round(cur[0]) + ',' + Math.round(cur[1]) + ',' + Math.round(cur[2]);
+      ctx.clearRect(0, 0, size, size);
+      var cx = size / 2, cy = size / 2, R = size * 0.29;
+      var g = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R * 1.7);
+      g.addColorStop(0, 'rgba(' + col + ',0.32)'); g.addColorStop(1, 'rgba(' + col + ',0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      var N = 96;
+      for (var i = 0; i <= N; i++) {
+        var a = i / N * Math.PI * 2;
+        var w = Math.sin(a * 3 + t * 1.3) + 0.6 * Math.sin(a * 5 - t * 0.9) + 0.4 * Math.sin(a * 2 + t * 2.1);
+        var r = R * (1 + s.amp * w / 2);
+        var x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      }
+      ctx.closePath();
+      var g2 = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.35, R * 0.05, cx, cy, R * 1.15);
+      g2.addColorStop(0, 'rgba(255,255,255,0.55)'); g2.addColorStop(0.18, 'rgba(' + col + ',1)'); g2.addColorStop(0.75, 'rgba(' + col + ',0.85)'); g2.addColorStop(1, 'rgba(' + col + ',0.35)');
+      ctx.fillStyle = g2; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, R * 0.16, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.fill();
+    }
+    function loop() { t += 0.016 * states[state].speed; draw(); raf = requestAnimationFrame(loop); }
+    function start() { if (running || REDUCED) return; running = true; loop(); }
+    function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = null; }
+    resize(); draw();
+    window.addEventListener('resize', function () { resize(); draw(); });
+    whenVisible(canvas, start, stop);
+    return { setState: function (s) { state = s; if (REDUCED) draw(); }, get: function () { return state; } };
+  }
+
+  var orbEl = document.getElementById('orb');
+  var orb = makeOrb(orbEl, { state: 'attentif' });
+  var ORB_TEXT = {
+    calme: 'Tout est calme sur tes 2 chantiers. Je surveille les mails et je te réveille si Steel SA répond.',
+    attentif: 'Bonjour Julien. 3 décisions t’attendent. La plus pressée : Implenia attend ta réponse sur l’étanchéité avant 17h.',
+    alerte: 'Rupture sur Central Malley : l’acier de la dalle est décalé de 8 jours. Je te propose de prévenir le client et de décaler le coffrage.'
+  };
+  var ORB_DOT = { calme: 'var(--vert)', attentif: 'var(--orange)', alerte: 'var(--rouge)' };
+  var ORDER = ['calme', 'attentif', 'alerte'];
+  function cycleOrb() {
+    var next = ORDER[(ORDER.indexOf(orb.get()) + 1) % 3];
+    orb.setState(next); haptic(10);
+    var b = document.getElementById('orbBubble');
+    b.classList.remove('show');
+    setTimeout(function () {
+      document.getElementById('orbText').textContent = ORB_TEXT[next];
+      document.getElementById('orbState').textContent = next;
+      var d = document.getElementById('orbDot'); d.style.background = ORB_DOT[next]; d.style.boxShadow = '0 0 0 4px ' + ({ calme: 'rgba(16,185,129,.18)', attentif: 'rgba(249,115,22,.18)', alerte: 'rgba(239,68,68,.18)' })[next];
+      b.classList.add('show');
+    }, 180);
+  }
+  orbEl.addEventListener('click', cycleOrb);
+  orbEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleOrb(); } });
+
+  /* ================= CHAT ================= */
+  var chatStream = document.getElementById('chatStream');
+  var chatChips = document.getElementById('chatChips');
+  var chatTimers = [];
+  function chatClear() { chatTimers.forEach(clearTimeout); chatTimers = []; chatStream.innerHTML = ''; chatChips.innerHTML = ''; }
+  function later(fn, ms) { chatTimers.push(setTimeout(fn, REDUCED ? 0 : ms)); }
+  function typing() { var t = el('div', 'bubble ai typing', '<i></i><i></i><i></i>'); chatStream.appendChild(t); return t; }
+  function aiSay(text, delay, cb) {
+    later(function () {
+      var t = typing();
+      later(function () { t.remove(); chatStream.appendChild(el('div', 'bubble ai', text)); if (cb) cb(); }, 650);
+    }, delay);
+  }
+  function meSay(text) { chatStream.appendChild(el('div', 'bubble me', text)); }
+  function aiCard(html, delay) { later(function () { chatStream.appendChild(el('div', 'card', html)); }, delay); }
+  function chips(list) {
+    later(function () {
+      chatChips.innerHTML = '';
+      list.forEach(function (c) {
+        var b = el('button', 'chip', c.label);
+        b.addEventListener('click', function () { chatChips.innerHTML = ''; meSay(c.label); haptic(8); c.go(); });
+        chatChips.appendChild(b);
+      });
+    }, 0);
+  }
+  function chatPlay() {
+    chatClear();
+    chatStream.appendChild(el('div', 'bubble ai', 'Bonjour Julien. Pendant la nuit j’ai lu 25 mails. 3 demandent une décision, 2 brouillons sont prêts.'));
+    aiSay('Le plus pressé : Implenia attend ta réponse sur la réserve d’étanchéité du sous-sol avant 17h. J’ai préparé la réponse.', 900, function () {
+      aiCard('<div class="ttl"><span>Brouillon prêt</span><span class="pill warn">17:00</span></div><div class="sub">À Implenia · « Réserve levée sous condition d’un essai d’étanchéité contradictoire lundi 8h. »</div><div class="acts"><button class="btn primary" data-send>Envoyer</button><button class="btn">Modifier</button></div>', 500);
+      chips([
+        { label: 'Envoyer le brouillon', go: function () { sendDraft(); } },
+        { label: 'Voir les 3 urgents', go: function () { aiSay('Les voilà, du plus au moins pressé. Un swipe suffit.', 300, function () { aiCard('<div class="ttl"><span>Steel SA · livraison acier</span><span class="pill hot">+8 j</span></div><div class="sub">Propose de décaler le coffrage au 15.09 et de prévenir le client.</div><div class="acts"><button class="btn primary">Accepter</button><button class="btn">Plus tard</button></div>', 200); aiCard('<div class="ttl"><span>Bureau Meier · plans étage 3</span><span class="pill warn">demain</span></div><div class="sub">Version B reçue. 2 différences détectées avec la version A.</div><div class="acts"><button class="btn primary">Voir les différences</button></div>', 700); chips([{ label: 'Envoyer le brouillon Implenia', go: sendDraft }, { label: 'Plus tard', go: laterAll }]); }); } },
+        { label: 'Plus tard', go: laterAll }
+      ]);
+    });
+    function sendDraft() { aiSay('Envoyé à Implenia à ' + new Date().getHours() + 'h' + String(new Date().getMinutes()).padStart(2, '0') + '. Je te préviens dès qu’ils répondent. Il reste 2 décisions, dont Steel SA.', 400, function () { chips([{ label: 'Traiter Steel SA', go: function () { aiSay('Je décale le coffrage au 15.09 dans le planning et je préviens Horizon Immobilier ? Le brouillon est prêt.', 300, function () { chips([{ label: 'Oui, envoie', go: function () { aiSay('C’est fait. Planning mis à jour, client prévenu. Tu es à jour sur Central Malley.', 300); } }]); }); } }, { label: 'Ça suffit pour ce matin', go: function () { aiSay('Je garde Steel SA au chaud pour 14h, quand tu es au bureau. Bonne route.', 300); } }]); }); }
+    function laterAll() { aiSay('D’accord. Je te reposerai la question à 13h30, avant ta séance de chantier. Rien d’autre n’est urgent.', 400); }
+  }
+  chatPlay();
+  document.querySelector('[data-reset="chat"]').addEventListener('click', chatPlay);
+  chatStream.addEventListener('click', function (e) { var b = e.target.closest('[data-send]'); if (b) { b.textContent = 'Envoyé'; b.className = 'btn ok'; b.disabled = true; } });
+
+  /* ================= ISO 3D ================= */
+  (function () {
+    var scene = document.getElementById('isoScene'), world = document.getElementById('isoWorld'), bubble = document.getElementById('isoBubble');
+    var ry = 35, vel = 0, dragging = false, lastX = 0, moved = 0, raf = null, idle = 0, running = false;
+    function apply() { world.style.setProperty('--ry', ry + 'deg'); }
+    function loop() {
+      if (!dragging) { if (Math.abs(vel) > 0.02) { ry += vel; vel *= 0.92; } else if (idle > 90) { ry += 0.12; } idle++; apply(); }
+      raf = requestAnimationFrame(loop);
+    }
+    function start() { if (running) return; running = true; if (!REDUCED) loop(); }
+    function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = null; }
+    scene.addEventListener('pointerdown', function (e) { dragging = true; lastX = e.clientX; moved = 0; vel = 0; idle = 0; scene.setPointerCapture(e.pointerId); });
+    scene.addEventListener('pointermove', function (e) { if (!dragging) return; var dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx); ry += dx * 0.6; vel = dx * 0.6; apply(); });
+    function up(e) { if (!dragging) return; dragging = false; idle = 0; if (moved < 6) { var f = e.target.closest('.floor'); if (f) select(f); } }
+    scene.addEventListener('pointerup', up); scene.addEventListener('pointercancel', up);
+    function select(f) {
+      haptic(10);
+      world.querySelectorAll('.floor').forEach(function (x) { x.classList.remove('selected'); });
+      f.classList.add('selected');
+      bubble.innerHTML = '<b>' + f.dataset.name + '</b><span>' + f.dataset.info + '</span>';
+      bubble.style.animation = 'none'; void bubble.offsetWidth; bubble.style.animation = 'pop .35s cubic-bezier(.2,.9,.3,1.2) both';
+    }
+    world.querySelector('.floor.alert').classList.add('selected');
+    apply();
+    whenVisible(scene, start, stop);
+  })();
+
+  /* ================= ORGANISM ================= */
+  (function () {
+    var grid = document.getElementById('orgGrid'), week = document.getElementById('orgWeek');
+    var TILES = [
+      { id: 'mail', label: 'Mail', hint: '3 décisions en attente', icon: 'mail' },
+      { id: 'pv', label: 'PV de chantier', hint: 'Dicter en sortant du chantier', icon: 'pv' },
+      { id: 'sub', label: 'Soumissions', hint: '1 offre reçue sur 3', icon: 'sub' },
+      { id: 'plans', label: 'Plans', hint: 'Version B étage 3', icon: 'plans' },
+      { id: 'planning', label: 'Planning', hint: 'Coffrage décalé au 15.09', icon: 'planning' },
+      { id: 'supp', label: 'Fournisseurs', hint: 'Steel SA en retard', icon: 'supp' },
+      { id: 'cal', label: 'Agenda', hint: 'Séance chantier 13:30', icon: 'cal' },
+      { id: 'visit', label: 'Visites', hint: 'Prospect Riviera vendredi', icon: 'visit' }
+    ];
+    var weights = {}, taps = 0;
+    function reset() { TILES.forEach(function (t) { weights[t.id] = 1; }); taps = 0; week.textContent = 'semaine 1'; render(false); }
+    function cls(w) { return w >= 5 ? 'tile xl' : w >= 3 ? 'tile lg' : 'tile'; }
+    function render(animate) {
+      var before = {};
+      if (animate) grid.querySelectorAll('.tile').forEach(function (n) { before[n.dataset.id] = n.getBoundingClientRect(); });
+      var sorted = TILES.slice().sort(function (a, b) { return weights[b.id] - weights[a.id]; });
+      grid.innerHTML = '';
+      sorted.forEach(function (t, i) {
+        var n = el('div', cls(weights[t.id]));
+        n.dataset.id = t.id; n.setAttribute('role', 'button'); n.tabIndex = 0;
+        n.innerHTML = ICONS[t.icon] + '<div><div class="lbl">' + t.label + '</div><div class="hintline">' + t.hint + '</div></div><span class="cnt">' + (weights[t.id] > 1 ? '×' + (weights[t.id] - 1) : '') + '</span>';
+        n.style.order = i;
+        if (taps >= 5 && weights[t.id] === 1) n.classList.add('faded');
+        n.addEventListener('click', function () { tap(t.id); });
+        n.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(t.id); } });
+        grid.appendChild(n);
+      });
+      if (animate && !REDUCED) {
+        grid.querySelectorAll('.tile').forEach(function (n) {
+          var b = before[n.dataset.id]; if (!b) return;
+          var a = n.getBoundingClientRect();
+          var dx = b.left - a.left, dy = b.top - a.top, sx = b.width / a.width, sy = b.height / a.height;
+          if (!dx && !dy && sx === 1 && sy === 1) return;
+          n.style.transformOrigin = 'top left';
+          n.style.transition = 'none';
+          n.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
+          void n.offsetWidth;
+          n.style.transition = 'transform .45s cubic-bezier(.2,.8,.2,1), opacity .5s ease';
+          n.style.transform = '';
+        });
+      }
+    }
+    function tap(id) { weights[id] += 1; taps += 1; haptic(8); week.textContent = taps < 4 ? 'semaine 1' : taps < 9 ? 'semaine 3' : taps < 15 ? 'mois 2' : 'mois 3'; render(true); }
+    document.getElementById('orgSim').addEventListener('click', function () {
+      var profile = { pv: 6, mail: 5, planning: 3, supp: 3, sub: 2, plans: 1, cal: 1, visit: 1 };
+      Object.keys(profile).forEach(function (k) { weights[k] = profile[k]; }); taps = 16; week.textContent = 'mois 3 · vendredi 16h'; render(true);
+    });
+    document.querySelector('[data-reset="org"]').addEventListener('click', reset);
+    reset();
+  })();
+
+  /* ================= FIELD / VOICE ================= */
+  (function () {
+    var btn = document.getElementById('talkBtn'), wave = document.getElementById('wave'), tr = document.getElementById('transcript'), acts = document.getElementById('bigActs'), demo = document.getElementById('fieldDemo');
+    var wctx = wave.getContext('2d'), live = false, raf = null, t = 0, typeTimer = null;
+    function resize() { var r = wave.getBoundingClientRect(); wave.width = r.width * DPR; wave.height = 56 * DPR; wctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
+    function drawWave(amp) {
+      var w = wave.getBoundingClientRect().width, h = 56; wctx.clearRect(0, 0, w, h);
+      var sun = demo.classList.contains('soleil');
+      wctx.strokeStyle = sun ? '#000' : '#F97316'; wctx.lineWidth = 2.5; wctx.lineCap = 'round';
+      var bars = Math.floor(w / 7);
+      for (var i = 0; i < bars; i++) {
+        var x = i * 7 + 3; var a = amp * (0.3 + 0.7 * Math.abs(Math.sin(i * 0.55 + t * 0.9) * Math.sin(i * 0.13 + t * 2.3)));
+        wctx.beginPath(); wctx.moveTo(x, h / 2 - a); wctx.lineTo(x, h / 2 + a); wctx.stroke();
+      }
+    }
+    function loop() { t += 0.12; drawWave(live ? 22 : 2); raf = requestAnimationFrame(loop); }
+    resize(); drawWave(2); window.addEventListener('resize', function () { resize(); drawWave(2); });
+    var TEXT = 'Réserve sur l’étanchéité du sous-sol, à revoir avec Implenia avant vendredi. Photo jointe. Prévenir Marco pour le pompage demain matin.';
+    function startTalk(e) { e.preventDefault(); if (live) return; live = true; btn.classList.add('live'); haptic(15); acts.innerHTML = ''; tr.innerHTML = '<span class="lbl">J’écoute…</span><span class="muted">Parle normalement, je découpe après.</span>'; if (!REDUCED && !raf) loop(); }
+    function stopTalk() { if (!live) return; live = false; btn.classList.remove('live'); haptic(10); if (raf) { cancelAnimationFrame(raf); raf = null; } drawWave(2); typeOut(); }
+    function typeOut() {
+      clearTimeout(typeTimer); tr.innerHTML = '<span class="lbl">Compris</span><span id="typed"></span>';
+      var span = document.getElementById('typed'), i = 0;
+      function step() { i += REDUCED ? TEXT.length : 2; span.textContent = TEXT.slice(0, i); if (i < TEXT.length) typeTimer = setTimeout(step, 22); else showActs(); }
+      step();
+    }
+    function showActs() {
+      var list = [
+        ['Créer le PV · Central Malley', 'Réserve étanchéité sous-sol, photo jointe, SIA 118'],
+        ['Tâche → Implenia, vendredi', 'Revoir la réserve d’étanchéité avant le 05.09'],
+        ['Prévenir Marco · pompage demain', 'Message au chef d’équipe via le portail']
+      ];
+      acts.innerHTML = '';
+      list.forEach(function (a, i) {
+        var b = el('button', '', '<span>' + a[0] + '<small>' + a[1] + '</small></span><span class="mark">Confirmer</span>');
+        b.style.animationDelay = (i * 120) + 'ms';
+        b.addEventListener('click', function () { b.classList.add('done'); b.querySelector('.mark').textContent = 'Fait'; haptic(8); });
+        acts.appendChild(b);
+      });
+    }
+    btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    btn.addEventListener('pointerdown', startTalk);
+    btn.addEventListener('pointerup', stopTalk); btn.addEventListener('pointercancel', stopTalk); btn.addEventListener('pointerleave', stopTalk);
+    btn.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (live) stopTalk(); else startTalk(e); } });
+    document.getElementById('sunToggle').addEventListener('click', function () { var on = demo.classList.toggle('soleil'); this.setAttribute('aria-pressed', String(on)); this.textContent = on ? 'Mode nuit' : 'Mode soleil'; drawWave(2); });
+  })();
+
+  /* ================= SWIPE helper ================= */
+  function makeSwipeable(card, onDone) {
+    var sx = 0, dx = 0, active = false, yes = card.querySelector('.stamp.yes'), later = card.querySelector('.stamp.later');
+    card.addEventListener('pointerdown', function (e) { if (e.target.closest('button')) return; active = true; sx = e.clientX; dx = 0; card.style.transition = 'none'; card.setPointerCapture(e.pointerId); });
+    card.addEventListener('pointermove', function (e) {
+      if (!active) return; dx = e.clientX - sx;
+      card.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx / 22) + 'deg)';
+      if (yes) yes.style.opacity = Math.min(1, Math.max(0, dx / 90));
+      if (later) later.style.opacity = Math.min(1, Math.max(0, -dx / 90));
+    });
+    function end() {
+      if (!active) return; active = false;
+      card.style.transition = 'transform .25s ease, opacity .25s ease';
+      if (Math.abs(dx) > 80) {
+        var dir = dx > 0 ? 1 : -1; haptic(12);
+        card.style.transform = 'translateX(' + (dir * 520) + 'px) rotate(' + (dir * 18) + 'deg)'; card.style.opacity = '0';
+        setTimeout(function () { onDone(dir > 0 ? 'yes' : 'later', card); }, 240);
+      } else { card.style.transform = ''; if (yes) yes.style.opacity = 0; if (later) later.style.opacity = 0; }
+    }
+    card.addEventListener('pointerup', end); card.addEventListener('pointercancel', end);
+  }
+
+  /* ================= FLUX ================= */
+  (function () {
+    var river = document.getElementById('river');
+    var QUEUE = [
+      { t: '10:15', ttl: 'Steel SA · acier dalle +8 j', sub: 'Le Compagnon propose : décaler le coffrage au 15.09, prévenir Horizon Immobilier.', pill: 'hot', ptxt: 'urgent' },
+      { t: '11:00', ttl: 'Implenia · réserve étanchéité', sub: 'Brouillon prêt : essai contradictoire lundi 8h.', pill: 'warn', ptxt: '17:00' },
+      { t: '13:30', ttl: 'Séance de chantier · Central Malley', sub: 'Ordre du jour généré depuis 4 mails et le dernier PV.', pill: 'brand', ptxt: 'préparé' },
+      { t: '15:00', ttl: 'Offre maçonnerie · Baumann AG', sub: '1 offre sur 3 reçue. Attendre les 2 autres ou relancer ?', pill: 'warn', ptxt: 'lot 224' },
+      { t: '16:30', ttl: 'Rapport journalier · Marco', sub: '8 h, 3 bons de livraison. À valider.', pill: 'ok', ptxt: 'à valider' },
+      { t: 'dem.', ttl: 'Visite prospect · Riviera', sub: 'Dossier préparé : 3 références similaires.', pill: 'brand', ptxt: '09:00' }
+    ];
+    var idx = 0;
+    function row(item, cls) {
+      var r = el('div', 'row' + (cls ? ' ' + cls : ''));
+      r.innerHTML = '<span class="t">' + item.t + '</span>';
+      var c = el('div', 'fcard enter', '<div class="top"><span class="ttl">' + item.ttl + '</span><span class="pill ' + item.pill + '">' + item.ptxt + '</span></div><div class="sub">' + item.sub + '</div><div class="stamp yes">DÉCIDÉ</div><div class="stamp later">REPORTÉ</div>');
+      r.appendChild(c);
+      makeSwipeable(c, function (kind) {
+        r.style.transition = 'opacity .2s, max-height .3s'; r.style.opacity = '0'; r.style.maxHeight = '0';
+        setTimeout(function () { r.remove(); push(); }, 260);
+        if (kind === 'later') { var it = Object.assign({}, item); it.t = 'dem.'; it.pill = 'warn'; it.ptxt = 'reporté'; QUEUE.push(it); }
+      });
+      return r;
+    }
+    function push() { if (idx >= QUEUE.length) { if (!river.querySelector('.fcard')) river.appendChild(el('div', 'row', '<span class="t">—</span><div class="fcard"><div class="ttl">Le courant est calme.</div><div class="sub">Rien à décider avant demain 9h. Je te laisse tranquille.</div></div>')); return; } river.appendChild(row(QUEUE[idx++], idx === 1 ? 'now' : '')); }
+    function reset() {
+      river.innerHTML = ''; idx = 0; QUEUE.length = 6;
+      river.appendChild(el('div', 'row', '<span class="t">08:00</span><div class="past">Brouillon Bureau Meier envoyé</div>'));
+      river.appendChild(el('div', 'row', '<span class="t">09:20</span><div class="past">PV n°12 validé et diffusé</div>'));
+      push(); push(); push();
+    }
+    document.querySelector('[data-reset="flux"]').addEventListener('click', reset);
+    reset();
+  })();
+
+  /* ================= DECK ================= */
+  (function () {
+    var deck = document.getElementById('deck'), clusters = document.getElementById('clusters'), count = document.getElementById('deckCount');
+    var CARDS = [
+      ['Mail', 'Steel SA · livraison acier', 'Décalage de 8 jours. Réponse proposée.'],
+      ['Soumission', 'Lot 224 · maçonnerie', '1 offre reçue sur 3 · 184 000 CHF'],
+      ['Plan', 'Étage 3 · version B', '2 différences avec la version A'],
+      ['Tâche', 'Essai étanchéité lundi 8h', 'Implenia · sous-sol'],
+      ['PV', 'Séance n°12', 'Validé, diffusé à 6 personnes']
+    ];
+    var cards = [];
+    function layout() { cards.forEach(function (c, i) { var n = cards.length - 1 - i; c.style.transform = 'translateY(' + (n * -10) + 'px) scale(' + (1 - n * 0.05) + ') rotate(' + ((i % 2 ? 1 : -1) * n * 2.2) + 'deg)'; c.style.zIndex = 10 + i; c.classList.toggle('top', i === cards.length - 1); }); count.textContent = cards.length + (cards.length > 1 ? ' cartes' : ' carte'); }
+    function throwTop(dir) { var c = cards.pop(); if (!c) return; haptic(10); c.style.transform = 'translateX(' + (dir * 480) + 'px) rotate(' + (dir * 25) + 'deg)'; c.style.opacity = '0'; setTimeout(function () { c.remove(); }, 450); layout(); }
+    function build() {
+      deck.querySelectorAll('.dcard').forEach(function (n) { n.remove(); }); cards = [];
+      CARDS.forEach(function (d) { var c = el('div', 'dcard', '<span class="kind">' + d[0] + '</span><div><div class="ttl">' + d[1] + '</div><div class="sub">' + d[2] + '</div></div>'); deck.appendChild(c); cards.push(c); });
+      layout();
+    }
+    var sx = 0, dx = 0, drag = null;
+    deck.addEventListener('pointerdown', function (e) { var c = e.target.closest('.dcard.top'); if (!c || deck.classList.contains('out')) return; drag = c; sx = e.clientX; dx = 0; c.style.transition = 'none'; deck.setPointerCapture(e.pointerId); });
+    deck.addEventListener('pointermove', function (e) { if (!drag) return; dx = e.clientX - sx; drag.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx / 14) + 'deg)'; });
+    function endDrag() { if (!drag) return; var c = drag; drag = null; c.style.transition = ''; if (Math.abs(dx) > 90) throwTop(dx > 0 ? 1 : -1); else layout(); }
+    deck.addEventListener('pointerup', endDrag); deck.addEventListener('pointercancel', endDrag);
+    document.getElementById('deckThrow').addEventListener('click', function () { throwTop(1); });
+    var zoomBtn = document.getElementById('deckZoom');
+    zoomBtn.addEventListener('click', function () { var out = deck.classList.toggle('out'); clusters.classList.toggle('on', out); zoomBtn.textContent = out ? 'Revenir' : 'Dézoomer'; haptic(8); });
+    clusters.addEventListener('click', function (e) { if (e.target.closest('.cluster')) { deck.classList.remove('out'); clusters.classList.remove('on'); zoomBtn.textContent = 'Dézoomer'; } });
+    document.querySelector('[data-reset="deck"]').addEventListener('click', function () { deck.classList.remove('out'); clusters.classList.remove('on'); zoomBtn.textContent = 'Dézoomer'; build(); });
+    build();
+  })();
+
+  /* ================= HOME PROTOTYPE ================= */
+  (function () {
+    var orb2 = makeOrb(document.getElementById('orb2'), { state: 'attentif', size: 64 });
+    var CTX = {
+      matin: { clock: '07:42', greet: 'Bonjour Julien.', state: 'Cette nuit j’ai préparé 2 réponses et repéré 1 retard. 3 à viser, 5 minutes.', orb: 'attentif', label: 'À viser', dot: 'hot',
+        sit: 'Mar. 4 sept · Central Malley · pluie 14h, 14° · Séance CVC 16:00 · 2 urgents',
+        bubbles: [
+          { ttl: 'Implenia · réserve étanchéité', sub: 'Brouillon prêt : essai contradictoire lundi 8h. Je dirais oui.', pill: 'warn', ptxt: '17:00', act: 'Viser · Envoyer', cost: '2 crédits', age: 'var(--ambre)', irreversible: true, who: 'Implenia' },
+          { ttl: 'Steel SA · acier dalle +8 j', sub: 'Je décale le coffrage au 15.09 et je préviens Horizon Immobilier.', pill: 'hot', ptxt: 'urgent', act: 'Viser · Décaler et prévenir', cost: '2 crédits', age: 'var(--rouge)', irreversible: true, who: 'Horizon Immobilier' },
+          { ttl: 'Bureau Meier · plans étage 3', sub: 'Version B reçue, 2 différences avec la A.', pill: 'brand', ptxt: 'demain', act: 'Voir les différences', age: 'var(--orange)' }
+        ],
+        sugg: ['Commencer', 'Seulement les urgentes', 'Dicter le PV'],
+        dock: ['mail', 'planning', 'sub', 'supp'] },
+      chantier: { clock: '13:35', greet: 'Tu es à Central Malley.', state: 'Séance en cours. Marco est sur place. Rien d’urgent.', orb: 'calme', label: 'Sur place', dot: 'ok',
+        sit: '13:35 · Central Malley · séance 13:30 en cours · 0 urgent · mode Soleil proposé',
+        bubbles: [
+          { ttl: 'Dicter le PV de la séance', sub: 'Maintiens le micro. Je découpe en réserves et tâches, tu confirmes après.', pill: 'brand', ptxt: 'micro', act: 'Maintenir pour parler', age: 'var(--orange)' },
+          { ttl: 'Photo → réserve', sub: 'Prends la photo, je la range dans le PV et j’avertis le fournisseur.', pill: 'ok', ptxt: 'photo', act: 'Prendre la photo', age: 'var(--vert)' }
+        ],
+        sugg: ['Où en est la livraison Steel SA ?', 'Montrer le bâtiment au client', 'Valider le rapport de Marco'],
+        dock: ['pv', 'visit', 'site', 'plans'] },
+      soir: { clock: '18:10', greet: 'Journée bouclée.', state: '11 visés, 2 PV diffusés. Demain : visite Riviera à 9h.', orb: 'calme', label: 'Pour demain', dot: 'ok',
+        sit: '18:10 · demain : visite Riviera 09:00, trajet 35 min · 0 urgent',
+        bubbles: [
+          { ttl: 'Visite prospect Riviera · 09:00', sub: 'Dossier prêt : 3 références similaires, fiche prospect.', pill: 'brand', ptxt: 'préparé', act: 'Voir le dossier', age: 'var(--orange)' },
+          { ttl: 'Rapport journalier · Marco', sub: '8 h, 3 bons de livraison, +6 % vs planning.', pill: 'ok', ptxt: 'à valider', act: 'Valider', age: 'var(--vert)' }
+        ],
+        sugg: ['Résumé de la journée', 'Reste 2 non urgents, à demain 7h15 ?', 'Ne plus me déranger'],
+        dock: ['cal', 'visit', 'site', 'mail'] },
+      calme: { clock: '10:05', greet: 'À l’aplomb.', state: 'Rien avant la séance CVC de 16h. J’ai préparé l’ordre du jour.', orb: 'calme', label: 'Rien à viser', dot: 'off',
+        sit: '10:05 · Central Malley · éclaircies · Séance CVC 16:00 · 0 urgent',
+        bubbles: [
+          { ttl: 'Pendant que c’est calme', sub: 'La demande de prix toiture pourrait partir aujourd’hui. Je la prépare, tu vises après.', pill: 'ok', ptxt: '0 crédit', act: 'Préparer', age: 'var(--vert)' }
+        ],
+        sugg: ['Voir le bâtiment', 'Planning de la semaine', 'Comparer les offres du lot 224'],
+        dock: ['sub', 'planning', 'supp', 'plans'] }
+    };
+    var LABELS = { mail: 'Mail', pv: 'PV', sub: 'Soumissions', plans: 'Plans', planning: 'Planning', supp: 'Fournisseurs', cal: 'Agenda', visit: 'Visites', site: 'Rapports', tasks: 'Tâches' };
+    var bubbles = document.getElementById('homeBubbles'), sugg = document.getElementById('homeSugg'), dock = document.getElementById('dock');
+    function collapse(c, cb) { c.style.maxHeight = c.offsetHeight + 'px'; c.style.transition = 'max-height .25s, margin .25s, padding .25s, opacity .2s'; c.style.overflow = 'hidden'; requestAnimationFrame(function () { c.style.maxHeight = '0'; c.style.padding = '0 14px'; c.style.opacity = '0'; }); setTimeout(function () { c.remove(); if (cb) cb(); }, 280); }
+    function checkEmpty() {
+      if (bubbles.querySelector('.fcard, .galet')) return;
+      var dot = document.getElementById('stateDot'); dot.className = 'state-dot ok'; setTimeout(function () { dot.classList.add('off'); }, 900);
+      document.getElementById('homeBubLabel').textContent = 'Rien à viser';
+      bubbles.appendChild(el('div', 'fcard enter', '<div class="ttl">À l’aplomb.</div><div class="sub">Rien avant la séance CVC de 16h. J’ai préparé l’ordre du jour.</div>'));
+    }
+    function galet(b, restoreAt) {
+      var g = el('div', 'galet', '<span class="ring"></span><span>Envoi à ' + b.who + ' dans <b class="n">5</b> s</span><button>Annuler</button>');
+      var left = 5, tick = setInterval(function () { left -= 0.1; g.style.setProperty('--p', Math.max(0, left / 5)); g.querySelector('.n').textContent = Math.ceil(left); if (left <= 0) { clearInterval(tick); g.replaceWith(el('div', 'sent', 'Envoyé à ' + b.who + ' · ' + document.getElementById('homeClock').textContent + ' · −2 crédits')); setTimeout(function () { var s = bubbles.querySelector('.sent'); if (s) s.remove(); checkEmpty(); }, 1600); } }, 100);
+      g.querySelector('button').addEventListener('click', function () { clearInterval(tick); var back = bubble(b); g.replaceWith(back); haptic(8); });
+      return g;
+    }
+    function bubble(b) {
+      var c = el('div', 'fcard enter', '<div class="top"><span class="ttl">' + b.ttl + '</span><span class="pill ' + b.pill + '">' + b.ptxt + '</span></div><div class="sub">' + b.sub + '</div><div class="acts"><button class="btn primary">' + b.act + (b.cost ? '<small>' + b.cost + '</small>' : '') + '</button><button class="btn later">Plus tard</button></div><div class="stamp yes">VISÉ</div><div class="stamp later">PLUS TARD</div>');
+      if (b.age) c.style.setProperty('--age', b.age);
+      function done(kind) {
+        if (kind === 'yes' && b.irreversible) { c.replaceWith(galet(b)); return; }
+        collapse(c, checkEmpty);
+      }
+      makeSwipeable(c, done);
+      c.querySelector('.btn.primary').addEventListener('click', function (e) { e.stopPropagation(); haptic(12); var st = c.querySelector('.stamp.yes'); st.style.opacity = 1; c.style.transition = 'transform .22s ease, opacity .22s ease'; c.style.transform = 'translateX(120%) rotate(6deg)'; c.style.opacity = '0'; setTimeout(function () { done('yes'); }, 220); });
+      c.querySelector('.btn.later').addEventListener('click', function (e) { e.stopPropagation(); haptic(8); var st = c.querySelector('.stamp.later'); st.style.opacity = 1; c.style.transition = 'transform .22s ease, opacity .22s ease'; c.style.transform = 'translateY(40px)'; c.style.opacity = '0'; setTimeout(function () { done('later'); }, 220); });
+      return c;
+    }
+    function renderDock(ids) {
+      var before = {};
+      dock.querySelectorAll('button').forEach(function (b) { before[b.dataset.id] = b.getBoundingClientRect(); });
+      dock.innerHTML = '';
+      ids.forEach(function (id, i) { var b = el('button', i === 0 ? 'hot' : '', ICONS[id] + '<span>' + LABELS[id] + '</span>'); b.dataset.id = id; dock.appendChild(b); });
+      if (REDUCED) return;
+      dock.querySelectorAll('button').forEach(function (b) { var p = before[b.dataset.id]; if (!p) { b.style.animation = 'pop .4s both'; return; } var a = b.getBoundingClientRect(); var dx = p.left - a.left; if (!dx) return; b.style.transition = 'none'; b.style.transform = 'translateX(' + dx + 'px)'; void b.offsetWidth; b.style.transition = 'transform .45s cubic-bezier(.2,.8,.2,1)'; b.style.transform = ''; });
+    }
+    function setCtx(key) {
+      var c = CTX[key];
+      document.getElementById('homeClock').textContent = c.clock;
+      document.getElementById('homeGreet').textContent = c.greet;
+      document.getElementById('homeState').textContent = c.state;
+      document.getElementById('homeBubLabel').textContent = c.label;
+      document.getElementById('homeSit').textContent = c.sit;
+      document.getElementById('stateDot').className = 'state-dot ' + c.dot;
+      orb2.setState(c.orb);
+      bubbles.innerHTML = ''; c.bubbles.forEach(function (b, i) { var n = bubble(b); n.style.animationDelay = (i * 90) + 'ms'; bubbles.appendChild(n); });
+      sugg.innerHTML = ''; c.sugg.forEach(function (s, i) { var b = el('button', 'chip', s); b.style.animationDelay = (i * 70) + 'ms'; b.addEventListener('click', function () { b.textContent = 'Fait'; b.style.background = 'var(--vert-soft)'; b.style.borderColor = 'rgba(16,185,129,.45)'; b.style.color = 'var(--vert)'; haptic(8); }); sugg.appendChild(b); });
+      renderDock(c.dock);
+      document.querySelectorAll('#ctx button').forEach(function (b) { b.classList.toggle('on', b.dataset.ctx === key); });
+      document.getElementById('dockNote').textContent = key === 'chantier' ? 'détecté : sur site' : key === 'soir' ? 'appris : soir' : key === 'calme' ? 'suggéré' : 'ordre appris';
+    }
+    document.getElementById('ctx').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { haptic(6); setCtx(b.dataset.ctx); } });
+    setCtx('matin');
+  })();
+
+  /* ================= PANEL DATA (filled from the design panel) ================= */
+  var PANEL = window.__PANEL__ || null;
+  function renderPanel(P) {
+    if (!P) return;
+    var max = 180;
+    document.querySelectorAll('.scorebar[data-score]').forEach(function (sb) {
+      var s = P.scores[sb.dataset.score]; if (!s) return;
+      sb.querySelector('.val').textContent = s.total + ' / ' + max;
+      whenVisible(sb, function () { sb.querySelector('.fill').style.width = Math.round(s.total / max * 100) + '%'; });
+    });
+    var rows = Object.keys(P.scores).map(function (k) { return Object.assign({ key: k }, P.scores[k]); }).sort(function (a, b) { return b.total - a.total; });
+    var h = '<table><thead><tr><th>Concept</th><th style="text-align:right">Terrain</th><th style="text-align:right">Marque</th><th style="text-align:right">Tech</th><th style="text-align:right">Total / 180</th></tr></thead><tbody>';
+    rows.forEach(function (r, i) {
+      var best = Math.max(r.utilisateur, r.marque, r.tech);
+      h += '<tr' + (i === 0 ? ' class="winner"' : '') + '><td>' + r.nom + '</td><td class="num' + (r.utilisateur === best ? ' best' : '') + '">' + r.utilisateur + '</td><td class="num' + (r.marque === best ? ' best' : '') + '">' + r.marque + '</td><td class="num' + (r.tech === best ? ' best' : '') + '">' + r.tech + '</td><td class="num">' + r.total + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    document.getElementById('verdictTable').innerHTML = h;
+    var q = document.getElementById('verdictQuotes'); q.innerHTML = '';
+    P.quotes.forEach(function (x) { q.appendChild(el('div', 'quote', '<b>' + x.who + '</b>' + x.text)); });
+    if (P.direction) { document.getElementById('dirTitle').textContent = P.direction.titre; document.getElementById('dirPitch').textContent = P.direction.pitch; }
+    var eng = document.getElementById('engine'); eng.innerHTML = '';
+    P.engine.forEach(function (s) { eng.appendChild(el('div', 'step', '<span class="k">' + s.k + '</span><div><b>' + s.t + '</b><p>' + s.p + '</p></div>')); });
+    var mm = document.getElementById('moduleMap'); mm.innerHTML = '<div class="h"><span>Aujourd’hui</span><span>Demain</span></div>';
+    P.modules.forEach(function (m) { mm.appendChild(el('div', '', '<span class="a">' + m.avant + '</span><span class="b"><b>' + m.module + '</b> · ' + m.apres + '</span>')); });
+    var rd = document.getElementById('road'); rd.innerHTML = '';
+    P.road.forEach(function (r) { rd.appendChild(el('div', 'ph', '<span class="wk"><small>Phase</small>' + r.phase + '<small>' + r.semaines + ' sem.</small></span><div><b>' + r.titre + '</b><p>' + r.contenu + '</p><p class="out">' + r.livrable + '</p></div>')); });
+    var rk = document.getElementById('risks'); rk.innerHTML = '';
+    P.risks.forEach(function (r) { rk.appendChild(el('div', '', '<b>' + r.risque + '</b><span class="m">' + r.mitigation + '</span>')); });
+    var rl = document.getElementById('redlines'); rl.innerHTML = '';
+    P.redlines.forEach(function (r) { rl.appendChild(el('li', '', r)); });
+    var ts = document.getElementById('tests'); ts.innerHTML = '';
+    P.tests.forEach(function (t) { ts.appendChild(el('li', '', '<span><b>' + t.t + '</b> ' + t.p + '</span>')); });
+    document.getElementById('techPlan').innerHTML = '<b>Avec la stack existante</b>' + P.tech;
+  }
+  renderPanel(PANEL);
+})();
+</script>
+
+</body>
+</html>
